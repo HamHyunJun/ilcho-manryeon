@@ -52,6 +52,7 @@ const TESTS := [
 	&"_test_save_export_import",
 	&"_test_settings_and_sound",
 	&"_test_tutorial_steps",
+	&"_test_design_visuals",
 ]
 
 var _failed := 0
@@ -1319,6 +1320,62 @@ func _test_tutorial_steps() -> void:
 	var ui = main.get_node("GameUi")
 	_check(ui.tutorial != null and ui.tutorial.visible, "새 게임 첫 화면에 튜토리얼이 뜸")
 	_check(ui.panels.has("settings"), "설정 화면 등록 (화면 위 설정 버튼)")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_design_visuals() -> void:
+	print("[디자인 반영: 스프라이트, 쓰러짐 연출, 앱바, 육성 화면]")
+	# 무공 계열마다 복장·무기가 다른 2등신 스프라이트
+	var sw := ChibiArt.hero("sword")
+	var fi := ChibiArt.hero("fist")
+	_check(sw["weapon_kind"] == "sword" and fi["weapon_kind"] == "fist" and sw["body"] != fi["body"], "무공 계열별 복장과 무기")
+	var mon := ChibiArt.monster("bandit")
+	_check(mon.has("ko") and mon.has("weapon"), "몬스터 스프라이트에 기절(X눈) 그림과 무기")
+	# 쓰러짐 연출 8프레임
+	var DeathScript = load("res://scripts/battle/MonsterDeath.gd")
+	var d = DeathScript.new()
+	root.add_child(d)
+	d.setup({"art": mon, "scale": ChibiArt.ART_SCALE, "position": Vector2(400, 1020)})
+	var frames := {}
+	for i in 80:
+		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			break
+		frames[d.frame()] = true
+		d.advance(1.0 / 60.0)
+	_check(frames.size() == 8, "쓰러짐 연출이 8프레임을 모두 거침")
+	_check(d.is_done(), "연출이 끝나면 스스로 사라짐")
+	# 전투에서 처치하면 쓰러짐 연출이 뜨고, 판정용 몬스터 노드는 바로 빠짐
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var m: Node2D = battle.spawn_monster("test_bandit")
+	m.take_damage(99999)
+	_check(not battle.monsters.has(m) and battle._death_layer.get_child_count() == 1, "처치 시 쓰러짐 연출 생성")
+	# 주력 무공을 바꾸면 복장이 바뀜
+	arts.unlock("arhat_fist")
+	arts.equip_main("arhat_fist")
+	_check(battle.player.style == "fist", "주력 무공이 나한권이면 주황 승복·주먹")
+	battle.free()
+	# 하단 앱바: 메인 버튼은 열린 화면을 닫고, 육성 화면은 탭을 가진다
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	_check(main.has_node("BattleBackground"), "전투 배경이 붙음")
+	ui._on_menu_pressed("growth")
+	var grow = ui.panels["growth"]
+	_check(grow is GrowScreen and grow.visible and ui._app_bar.active == "growth", "앱바 육성 → 육성 화면, 육성 활성")
+	grow._set_tab("arts")
+	_check(grow._arts_panel.visible and grow._arts_panel.root.get_child_count() > 0, "무공 탭에 무공 장착·수련 화면")
+	grow._set_tab("equip")
+	var it: Dictionary = gs.equipment.generate("weapon", "rare", 1.0, RandomNumberGenerator.new())
+	gs.equipment.add_item(it)
+	grow._open_detail(int(it["uid"]))
+	_check(grow._detail.visible, "보유 장비를 누르면 상세 창")
+	ui._on_menu_pressed("main")
+	_check(not grow.visible and ui._app_bar.active == "main", "메인(태극) 버튼은 화면을 닫고 전투로")
 	main.free()
 	gs.reset_to_new_game()
 	_finish()

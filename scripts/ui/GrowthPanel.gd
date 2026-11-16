@@ -50,8 +50,11 @@ func _rebuild() -> void:
 	root.add_child(HSeparator.new())
 	var codex := button("무공 도감 보기", 20)
 	codex.pressed.connect(func():
+		# 육성 화면 탭 안에 들어가 있으므로 open_menu가 있는 조상(GameUi)을 찾는다
 		var ui = get_parent()
-		if ui and ui.has_method("open_menu"):
+		while ui != null and not ui.has_method("open_menu"):
+			ui = ui.get_parent()
+		if ui:
 			ui.open_menu("codex"))
 	root.add_child(codex)
 	if OS.is_debug_build():
