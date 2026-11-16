@@ -38,12 +38,12 @@ static func hero(category: String) -> Dictionary:
 	return _cache[key]
 
 
-## 몬스터 스프라이트. kind: bandit/masked/chief
+## 몬스터 스프라이트. kind: bandit/masked/chief (+ MonsterArt.SPECS의 추가 몬스터)
 ## 반환: {body, flash, ko, weapon, size, hand, weapon_pivot}
 static func monster(kind: String) -> Dictionary:
 	var key := "mon_" + kind
 	if not _cache.has(key):
-		_cache[key] = _build_monster(kind)
+		_cache[key] = MonsterArt.build(kind) if MonsterArt.has_kind(kind) else _build_monster(kind)
 	return _cache[key]
 
 

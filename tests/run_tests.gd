@@ -18,6 +18,8 @@ const TESTS := [
 	&"_test_stage_data_detects_errors",
 	&"_test_stage_manager",
 	&"_test_stage_loop",
+	&"_test_twenty_stages_and_monsters",
+	&"_test_ranged_monster",
 	&"_test_new_game_martial_arts",
 	&"_test_original_scenario_switch_restore",
 	&"_test_mastery_and_unlock",
@@ -263,7 +265,7 @@ func _test_stage_data() -> void:
 	_check(all_50, "모든 스테이지 보스 등장 조건 50마리")
 	_check(scaling_up, "스테이지가 오를수록 배율 증가")
 	var boss: Dictionary = _reg().get_monster(stages[0]["boss"])
-	_check(boss.get("type") == "boss" and boss.get("patterns", []).size() == 2, "보스 패턴 2개(임시)")
+	_check(boss.get("type") == "boss" and boss.get("patterns", []).size() == 2, "스테이지 1 보스 패턴 2개")
 	_finish()
 
 
@@ -329,6 +331,137 @@ func _test_stage_loop() -> void:
 	_check(stage.stage_no == 2, "보스 처치 후 스테이지 2로 자동 진행 (%.0f초)" % t)
 	_check(stage.kill_count == 0 and stage.remaining_to_boss() == 50, "새 스테이지에서 처치 진행도 초기화")
 	_check(battle.player.hp == battle.player.max_hp, "새 스테이지 시작 시 체력 회복 (가안)")
+	battle.free()
+	_finish()
+
+
+## 20스테이지: 구역별 몬스터 구성, 보스 배치, 난이도 상승 (O-10 가안)
+func _test_twenty_stages_and_monsters() -> void:
+	print("[20스테이지와 스테이지별 몬스터]")
+	var reg := _reg()
+	var stages: Array = reg.get_region("cheongpung_mountain").get("stages", [])
+	_check(stages.size() == 20, "청풍산 스테이지 20개 (%d)" % stages.size())
+	# 구역마다 등장하는 일반 몬스터 구성이 다르다
+	var area_sets := {}
+	var areas_ok := true
+	for s in stages:
+		var area: String = s.get("area", "")
+		if area == "":
+			areas_ok = false
+		var ids: Array = []
+		for e in s["spawn_pool"]:
+			ids.append(e["monster"])
+		ids.sort()
+		if not area_sets.has(area):
+			area_sets[area] = {}
+		area_sets[area][",".join(ids)] = true
+	_check(areas_ok and area_sets.size() == 4, "5스테이지씩 구역 4개 (%s)" % ", ".join(area_sets.keys()))
+	# 이웃한 스테이지끼리 생성 구성(비율 포함)이 모두 다르다
+	var pools_differ := true
+	for i in range(1, stages.size()):
+		if JSON.stringify(stages[i]["spawn_pool"]) == JSON.stringify(stages[i - 1]["spawn_pool"]):
+			pools_differ = false
+	_check(pools_differ, "스테이지마다 몬스터 구성(종류/비율)이 다름")
+	var first_ids := {}
+	for e in stages[0]["spawn_pool"]:
+		first_ids[e["monster"]] = true
+	var last_new := true
+	for e in stages[19]["spawn_pool"]:
+		if first_ids.has(e["monster"]):
+			last_new = false
+	_check(last_new, "스테이지 20에는 스테이지 1의 몬스터가 나오지 않음")
+	# 보스: 2스테이지마다 바뀌고, 5·10·15·20은 구역 대장
+	var boss_ids := {}
+	for s in stages:
+		boss_ids[s["boss"]] = true
+	_check(boss_ids.size() == 12, "보스 12종 (%d)" % boss_ids.size())
+	var chapter_ok := true
+	for no in [10, 15, 20]:
+		var b: Dictionary = reg.get_monster(stages[no - 1]["boss"])
+		if b.get("patterns", []).size() != 3:
+			chapter_ok = false
+	_check(chapter_ok, "10·15·20스테이지 구역 대장 보스는 패턴 3개")
+	_check(stages[4]["boss"] == "test_boss", "5스테이지 보스는 산채 두목")
+	# 난이도: 배율, 일반 몬스터 평균 체력, 보스 체력, 보상이 스테이지마다 오른다
+	var prev_hp := 0.0
+	var prev_boss := 0.0
+	var prev_reward := 0.0
+	var hp_up := true
+	var boss_up := true
+	var reward_up := true
+	var ratio_ok := true
+	for s in stages:
+		var sc := float(s["scaling"])
+		var total := 0.0
+		var hp := 0.0
+		var reward := 0.0
+		for e in s["spawn_pool"]:
+			var m: Dictionary = reg.get_monster(e["monster"])
+			total += float(e["weight"])
+			hp += float(m["max_hp"]) * float(e["weight"])
+			reward += float(m["rewards"]["silver"]) * float(e["weight"])
+		hp = hp / total * sc
+		reward = reward / total * sc
+		var boss_hp := float(reg.get_monster(s["boss"])["max_hp"]) * sc
+		if hp <= prev_hp:
+			hp_up = false
+		if boss_hp <= prev_boss:
+			boss_up = false
+		if reward <= prev_reward:
+			reward_up = false
+		if boss_hp / hp < 15.0 or boss_hp / hp > 50.0:
+			ratio_ok = false
+		prev_hp = hp
+		prev_boss = boss_hp
+		prev_reward = reward
+	_check(hp_up, "일반 몬스터 평균 체력이 스테이지마다 오름 (20스테이지 %.0f)" % prev_hp)
+	_check(boss_up, "보스 체력이 스테이지마다 오름 (20스테이지 %.0f)" % prev_boss)
+	_check(reward_up, "일반 몬스터 평균 은냥 보상이 스테이지마다 오름")
+	_check(ratio_ok, "보스 체력은 같은 스테이지 일반 몬스터 평균의 15~50배")
+	# 모든 몬스터 그림이 만들어진다
+	var art_ok := true
+	for id in reg.monsters:
+		var m: Dictionary = reg.monsters[id]
+		var art := ChibiArt.monster(String(m.get("sprite", "bandit")))
+		if not (art.get("body") is Texture2D) or not (art.get("weapon") is Texture2D):
+			art_ok = false
+	_check(art_ok, "모든 몬스터의 2등신 스프라이트 생성 (%d종)" % reg.monsters.size())
+	# 스테이지 관리자와 실제 생성
+	var sm := StageManager.new(reg.get_region("cheongpung_mountain"), 12)
+	_check(sm.area_name() == "철문관", "스테이지 12 구역 이름: 철문관")
+	var battle := _make_battle()
+	battle.stage.start(17)
+	var spawned := {}
+	for i in 40:
+		spawned[battle._pick_spawn_id()] = true
+	var allowed := {}
+	for e in battle.stage.current()["spawn_pool"]:
+		allowed[e["monster"]] = true
+	var only_pool := true
+	for id in spawned:
+		if not allowed.has(id):
+			only_pool = false
+	_check(only_pool and spawned.size() >= 2, "스테이지 17에서는 그 스테이지 몬스터만 생성 (%s)" % ", ".join(spawned.keys()))
+	battle.free()
+	_finish()
+
+
+## 원거리형(삿갓 궁수)은 멀리서 멈춰 공격한다
+func _test_ranged_monster() -> void:
+	print("[원거리형 몬스터]")
+	var battle := _make_battle()
+	for m in battle.monsters:
+		m.queue_free()
+	battle.monsters.clear()
+	var archer: Node2D = battle.spawn_monster("archer")
+	var hp0: int = battle.player.hp
+	var t := 0.0
+	while t < 12.0 and battle.player.hp == hp0:
+		archer.tick(0.05, battle.player, 100.0)
+		t += 0.05
+	var gap := TargetSelector.edge_gap(battle.player.position.x, battle.player.half_width(), archer.position.x, archer.half_width())
+	_check(archer.is_ranged() and battle.player.hp < hp0, "삿갓 궁수가 공격함 (%.1f초)" % t)
+	_check(gap > 100.0 and gap <= float(archer.attack_range) + 1.0, "근접형보다 멀리서 멈춤 (거리 %.0f)" % gap)
 	battle.free()
 	_finish()
 

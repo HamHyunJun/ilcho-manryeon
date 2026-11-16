@@ -1,9 +1,9 @@
 {
-  "_comment": "M1/M2 전투 검증용 임시 몬스터와 임시 보스. 이름과 수치는 테스트용 자리 값이며, 청풍산 몬스터/보스 구성은 미확정(O-10)이다.",
+  "_comment": "청풍산 20스테이지 몬스터와 보스. 일반 7종, 보스 12종(스테이지 1~2, 3~4, 5 ... 처럼 구간마다 다름). 수치는 모두 가안이며 스테이지 배율(data/stages)을 곱해 쓴다. 기존 ID(test_*)는 던전·저장 호환을 위해 그대로 둔다. 청풍산 몬스터/보스 구성은 O-10 가안.",
   "monsters": [
     {
       "id": "test_bandit",
-      "name": "산적 (임시)",
+      "name": "산적",
       "type": "melee",
       "max_hp": 60,
       "atk": 6,
@@ -24,7 +24,7 @@
     },
     {
       "id": "test_brute",
-      "name": "거한 (임시)",
+      "name": "거한",
       "type": "melee",
       "max_hp": 140,
       "atk": 10,
@@ -41,12 +41,12 @@
         "exp": 12,
         "silver": 7
       },
-      "sprite": "masked",
+      "sprite": "brute",
       "sprite_scale": 1.15
     },
     {
       "id": "test_boss",
-      "name": "산채 두목 (임시)",
+      "name": "산채 두목",
       "type": "boss",
       "max_hp": 1800,
       "atk": 7,
@@ -85,7 +85,604 @@
         "silver": 60
       },
       "sprite": "chief"
+    },
+    {
+      "id": "assassin",
+      "name": "흑의 자객",
+      "type": "melee",
+      "max_hp": 85,
+      "atk": 9,
+      "def": 5,
+      "move_speed": 150,
+      "attack_range": 45,
+      "attack_interval": 1.4,
+      "color": "#3a3748",
+      "size": [
+        44,
+        60
+      ],
+      "rewards": {
+        "exp": 9,
+        "silver": 6
+      },
+      "sprite": "masked"
+    },
+    {
+      "id": "archer",
+      "name": "삿갓 궁수",
+      "type": "ranged",
+      "max_hp": 70,
+      "atk": 11,
+      "def": 3,
+      "move_speed": 70,
+      "attack_range": 150,
+      "attack_interval": 2.6,
+      "color": "#5d7a5a",
+      "size": [
+        44,
+        60
+      ],
+      "rewards": {
+        "exp": 9,
+        "silver": 6
+      },
+      "sprite": "archer"
+    },
+    {
+      "id": "gate_guard",
+      "name": "철갑 수문위사",
+      "type": "melee",
+      "max_hp": 150,
+      "atk": 9,
+      "def": 35,
+      "move_speed": 40,
+      "attack_range": 60,
+      "attack_interval": 3.0,
+      "color": "#4a5a7a",
+      "size": [
+        56,
+        72
+      ],
+      "rewards": {
+        "exp": 15,
+        "silver": 9
+      },
+      "sprite": "guard",
+      "sprite_scale": 1.1
+    },
+    {
+      "id": "blood_soldier",
+      "name": "흑혈대 졸개",
+      "type": "melee",
+      "max_hp": 110,
+      "atk": 12,
+      "def": 12,
+      "move_speed": 85,
+      "attack_range": 50,
+      "attack_interval": 1.8,
+      "color": "#2e2a33",
+      "size": [
+        44,
+        60
+      ],
+      "rewards": {
+        "exp": 11,
+        "silver": 7
+      },
+      "sprite": "blood_soldier"
+    },
+    {
+      "id": "blood_elite",
+      "name": "흑혈대 정예",
+      "type": "melee",
+      "max_hp": 240,
+      "atk": 16,
+      "def": 25,
+      "move_speed": 65,
+      "attack_range": 60,
+      "attack_interval": 2.2,
+      "color": "#5a1a22",
+      "size": [
+        60,
+        76
+      ],
+      "rewards": {
+        "exp": 24,
+        "silver": 14
+      },
+      "sprite": "elite",
+      "sprite_scale": 1.15
+    },
+    {
+      "id": "vice_bandit",
+      "name": "산적 부두목",
+      "type": "boss",
+      "max_hp": 1500,
+      "atk": 7,
+      "def": 10,
+      "move_speed": 45,
+      "attack_range": 70,
+      "attack_interval": 2.5,
+      "color": "#6f7a3a",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 80,
+        "silver": 50
+      },
+      "sprite": "brute",
+      "sprite_scale": 1.35,
+      "patterns": [
+        {
+          "id": "club_smash",
+          "name": "몽둥이 내려찍기",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.0,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "wild_swing",
+          "name": "마구 휘두르기",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.5,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ]
+    },
+    {
+      "id": "bandit_captain",
+      "name": "산채 칼잡이 대장",
+      "type": "boss",
+      "max_hp": 1700,
+      "atk": 8,
+      "def": 12,
+      "move_speed": 50,
+      "attack_range": 70,
+      "attack_interval": 2.4,
+      "color": "#9a6a3e",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 90,
+        "silver": 55
+      },
+      "sprite": "bandit",
+      "sprite_scale": 1.4,
+      "patterns": [
+        {
+          "id": "broad_cleave",
+          "name": "큰칼 베기",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.1,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "rush_slash",
+          "name": "돌진 베기",
+          "area": "line",
+          "telegraph_sec": 1.4,
+          "power_coef": 1.5,
+          "cooldown": 11.0,
+          "first_delay": 8.0
+        }
+      ]
+    },
+    {
+      "id": "assassin_leader",
+      "name": "흑의 자객 조장",
+      "type": "boss",
+      "max_hp": 1900,
+      "atk": 10,
+      "def": 8,
+      "move_speed": 140,
+      "attack_range": 50,
+      "attack_interval": 1.8,
+      "color": "#3a3748",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 110,
+        "silver": 65
+      },
+      "sprite": "masked",
+      "sprite_scale": 1.4,
+      "patterns": [
+        {
+          "id": "shadow_stab",
+          "name": "그림자 찌르기",
+          "area": "target",
+          "telegraph_sec": 0.8,
+          "power_coef": 2.2,
+          "cooldown": 7.0,
+          "first_delay": 3.5
+        },
+        {
+          "id": "dagger_rain",
+          "name": "비도 난사",
+          "area": "line",
+          "telegraph_sec": 1.3,
+          "power_coef": 1.5,
+          "cooldown": 11.0,
+          "first_delay": 8.0
+        }
+      ]
+    },
+    {
+      "id": "archer_captain",
+      "name": "삿갓 궁대장",
+      "type": "boss",
+      "max_hp": 1800,
+      "atk": 12,
+      "def": 6,
+      "move_speed": 60,
+      "attack_range": 160,
+      "attack_interval": 2.6,
+      "color": "#5d7a5a",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 120,
+        "silver": 70
+      },
+      "sprite": "archer",
+      "sprite_scale": 1.4,
+      "patterns": [
+        {
+          "id": "aimed_shot",
+          "name": "조준 사격",
+          "area": "target",
+          "telegraph_sec": 1.2,
+          "power_coef": 2.4,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "arrow_rain",
+          "name": "화살비",
+          "area": "line",
+          "telegraph_sec": 1.6,
+          "power_coef": 1.6,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ],
+      "ranged": true
+    },
+    {
+      "id": "shadow_lord",
+      "name": "무영객",
+      "type": "boss",
+      "max_hp": 2600,
+      "atk": 12,
+      "def": 12,
+      "move_speed": 120,
+      "attack_range": 55,
+      "attack_interval": 2.0,
+      "color": "#3b2c5c",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 160,
+        "silver": 100
+      },
+      "sprite": "shadow_lord",
+      "sprite_scale": 1.5,
+      "patterns": [
+        {
+          "id": "shadowless_strike",
+          "name": "무영살",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.5,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "shadow_clones",
+          "name": "그림자 분신",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.6,
+          "cooldown": 12.0,
+          "first_delay": 8.0
+        },
+        {
+          "id": "hidden_needles",
+          "name": "암기 비",
+          "area": "line",
+          "telegraph_sec": 1.2,
+          "power_coef": 1.2,
+          "cooldown": 15.0,
+          "first_delay": 13.0
+        }
+      ]
+    },
+    {
+      "id": "guard_captain",
+      "name": "수문위사 조장",
+      "type": "boss",
+      "max_hp": 3200,
+      "atk": 11,
+      "def": 40,
+      "move_speed": 40,
+      "attack_range": 75,
+      "attack_interval": 3.0,
+      "color": "#4a5a7a",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 170,
+        "silver": 105
+      },
+      "sprite": "guard",
+      "sprite_scale": 1.4,
+      "patterns": [
+        {
+          "id": "spear_thrust",
+          "name": "창 찌르기",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.0,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "shield_charge",
+          "name": "방패 돌진",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.5,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ]
+    },
+    {
+      "id": "blood_scout",
+      "name": "흑혈대 척후장",
+      "type": "boss",
+      "max_hp": 3000,
+      "atk": 14,
+      "def": 20,
+      "move_speed": 80,
+      "attack_range": 60,
+      "attack_interval": 2.0,
+      "color": "#2e2a33",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 180,
+        "silver": 110
+      },
+      "sprite": "blood_soldier",
+      "sprite_scale": 1.4,
+      "patterns": [
+        {
+          "id": "blood_cut",
+          "name": "혈도 베기",
+          "area": "target",
+          "telegraph_sec": 0.9,
+          "power_coef": 2.2,
+          "cooldown": 7.5,
+          "first_delay": 4.0
+        },
+        {
+          "id": "chain_slash",
+          "name": "연환 베기",
+          "area": "line",
+          "telegraph_sec": 1.4,
+          "power_coef": 1.6,
+          "cooldown": 11.0,
+          "first_delay": 8.0
+        }
+      ]
+    },
+    {
+      "id": "iron_general",
+      "name": "철벽 관주",
+      "type": "boss",
+      "max_hp": 4200,
+      "atk": 14,
+      "def": 45,
+      "move_speed": 40,
+      "attack_range": 80,
+      "attack_interval": 2.8,
+      "color": "#2f4a8a",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 240,
+        "silver": 150
+      },
+      "sprite": "iron_general",
+      "sprite_scale": 1.5,
+      "patterns": [
+        {
+          "id": "iron_spear_flash",
+          "name": "철창 일섬",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.4,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "sweeping_army",
+          "name": "횡소천군",
+          "area": "line",
+          "telegraph_sec": 1.6,
+          "power_coef": 1.8,
+          "cooldown": 13.0,
+          "first_delay": 9.0
+        },
+        {
+          "id": "iron_stomp",
+          "name": "철벽 진각",
+          "area": "line",
+          "telegraph_sec": 1.2,
+          "power_coef": 1.4,
+          "cooldown": 16.0,
+          "first_delay": 14.0
+        }
+      ]
+    },
+    {
+      "id": "blood_vice",
+      "name": "흑혈대 부대주",
+      "type": "boss",
+      "max_hp": 4500,
+      "atk": 17,
+      "def": 28,
+      "move_speed": 60,
+      "attack_range": 70,
+      "attack_interval": 2.2,
+      "color": "#5a1a22",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 260,
+        "silver": 160
+      },
+      "sprite": "elite",
+      "sprite_scale": 1.45,
+      "patterns": [
+        {
+          "id": "crimson_cleave",
+          "name": "혈참",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.3,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "blood_wave",
+          "name": "혈파",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.7,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ]
+    },
+    {
+      "id": "blood_guard_captain",
+      "name": "흑혈대 혈위대장",
+      "type": "boss",
+      "max_hp": 4800,
+      "atk": 18,
+      "def": 32,
+      "move_speed": 45,
+      "attack_range": 80,
+      "attack_interval": 2.6,
+      "color": "#6a1a22",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 280,
+        "silver": 170
+      },
+      "sprite": "blood_guard",
+      "sprite_scale": 1.45,
+      "patterns": [
+        {
+          "id": "blood_spear",
+          "name": "혈창 관통",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.3,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "red_phalanx",
+          "name": "혈위진 돌격",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.7,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ]
+    },
+    {
+      "id": "blood_lord",
+      "name": "흑혈대주 혈마도",
+      "type": "boss",
+      "max_hp": 6500,
+      "atk": 20,
+      "def": 35,
+      "move_speed": 50,
+      "attack_range": 80,
+      "attack_interval": 2.4,
+      "color": "#3a1016",
+      "size": [
+        96,
+        124
+      ],
+      "rewards": {
+        "exp": 400,
+        "silver": 250
+      },
+      "sprite": "blood_lord",
+      "sprite_scale": 1.6,
+      "patterns": [
+        {
+          "id": "blood_demon_slash",
+          "name": "혈마참",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.6,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "blood_wolf_wave",
+          "name": "혈랑파",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.9,
+          "cooldown": 12.0,
+          "first_delay": 8.0
+        },
+        {
+          "id": "sea_of_blood",
+          "name": "혈해",
+          "area": "line",
+          "telegraph_sec": 1.8,
+          "power_coef": 1.5,
+          "cooldown": 18.0,
+          "first_delay": 15.0
+        }
+      ]
     }
   ],
-  "_sprite_comment": "sprite: 2등신 픽셀 스프라이트 종류 (bandit 산적, masked 복면 자객, chief 산채 두목). sprite_scale: 그림 배율(보스 기본 1.5)."
+  "_sprite_comment": "sprite: 2등신 픽셀 스프라이트 종류. ChibiArt: bandit 산적, masked 복면 자객, chief 산채 두목. MonsterArt: brute 거한, archer 삿갓 궁수, guard 철갑 수문위사, blood_soldier 흑혈대 졸개, elite 흑혈대 정예, blood_guard 혈위대장, shadow_lord 무영객, iron_general 철벽 관주, blood_lord 혈마도. sprite_scale: 그림 배율(보스 기본 1.5). type ranged는 근접형과 같은 동작에 사거리만 길다(가안)."
 }

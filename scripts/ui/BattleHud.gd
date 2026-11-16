@@ -78,12 +78,16 @@ func _bar(r: Rect2, ratio: float, col: Color, label: String) -> void:
 func _draw_stage_block() -> void:
 	var stage: StageManager = battle.stage
 	var dg = battle.dungeon
-	var title := "%s · 스테이지 %d" % [stage.region_name(), stage.stage_no]
+	# 구역 이름이 있으면 지역 이름 대신 구역 이름을 보여 준다 (예: 철문관 · 스테이지 12)
+	var place := stage.area_name() if stage.area_name() != "" else stage.region_name()
+	var title := "%s · 스테이지 %d" % [place, stage.stage_no]
 	if dg != null:
 		title = dg.data.get("name", "던전")
 	var left := 236.0
 	var width := 240.0
-	UiIcons.text(self, Vector2(left - 20, CENTER_Y - 18), title, 26, Color(1, 0.98, 0.92), HORIZONTAL_ALIGNMENT_CENTER, width + 40)
+	# 구역 이름이 붙어 제목이 길어지면 글자를 조금 줄인다
+	var title_size := 26 if title.length() <= 10 else 21
+	UiIcons.text(self, Vector2(left - 20, CENTER_Y - 18), title, title_size, Color(1, 0.98, 0.92), HORIZONTAL_ALIGNMENT_CENTER, width + 40)
 	var bar := Rect2(left, CENTER_Y - 6, width, 12)
 	draw_rect(bar.grow(2), Color(0.03, 0.03, 0.07, 0.9))
 	draw_rect(bar, Color(0.16, 0.16, 0.24))
@@ -112,7 +116,9 @@ func _draw_stage_block() -> void:
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), col)
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, 3)), Color(1, 1, 1, 0.3))
 	UiIcons.boss_face(self, Vector2(left + width + 20, CENTER_Y), 34)
-	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, 19, Color("#f2c75c"), HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
+	# 보스 이름이 길면(예: 흑혈대주 혈마도) 체력 숫자가 잘리지 않게 글자를 줄인다
+	var cap_size := 19 if caption.length() <= 24 else 16
+	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, cap_size, Color("#f2c75c"), HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
 
 
 ## 상단 바 아래 한 줄: 전투력(왼쪽), 은냥(오른쪽)
