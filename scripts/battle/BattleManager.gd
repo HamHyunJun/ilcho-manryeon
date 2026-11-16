@@ -34,6 +34,8 @@ var techniques_cast := 0
 ## 화면 가운데 안내 문구와 남은 표시 시간
 var banner_text := ""
 var banner_left := 0.0
+## 마지막으로 얻은 장비 (테스트, 표시용)
+var last_drop: Dictionary = {}
 
 var _spawn_cd := 0.0
 var _recover_cd := 0.0
@@ -48,6 +50,8 @@ var _hud: Node2D
 var effects: EffectDirector
 ## 캐릭터 레벨/경지 (M7). GameState를 쓰지 않는 전투(테스트)는 따로 만든다
 var growth: CharacterGrowth
+## 장비와 재화 (M8). GameState를 쓰지 않는 전투(테스트)는 따로 만든다
+var equipment: EquipmentManager
 
 
 func _ready() -> void:
@@ -81,6 +85,13 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		growth = CharacterGrowth.new(CharacterGrowth.new_state(), DataRegistry.balance.get("growth", {}))
 	growth.leveled_up.connect(_on_leveled_up)
 	growth.realm_promoted.connect(_on_realm_promoted)
+	if equipment != null and equipment.equipment_changed.is_connected(_refresh_stats):
+		equipment.equipment_changed.disconnect(_refresh_stats)
+	if _persist:
+		equipment = get_node("/root/GameState").equipment
+	else:
+		equipment = EquipmentManager.new(EquipmentManager.new_state(), EquipmentManager.new_currencies(), DataRegistry.equipment)
+	equipment.equipment_changed.connect(_refresh_stats)
 	if arts != null and arts.equipment_changed.is_connected(_refresh_stats):
 		arts.equipment_changed.disconnect(_refresh_stats)
 	arts = martial_arts
@@ -94,6 +105,7 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		add_child(player)
 		player.knocked_out.connect(_on_player_knocked_out)
 	player.setup(_effective_stats())
+	_apply_equipment_effects()
 	player.position = Vector2(config["layout"]["player_x"], config["layout"]["ground_y"])
 
 	if _effects_layer == null:
@@ -149,7 +161,17 @@ func _effective_stats() -> Dictionary:
 		list.append(arts.sub_passives())
 	if growth != null:
 		list.append(growth.stat_bonuses())
+	if equipment != null:
+		list.append(equipment.stat_bonuses())
 	return PlayerStats.apply(config["player_base"], PlayerStats.merge(list))
+
+
+## 장비 특수 효과(보스 피해, 피해 감소)를 캐릭터에 넣는다
+func _apply_equipment_effects() -> void:
+	if equipment == null or player == null:
+		return
+	player.boss_damage = equipment.effect_total("boss_damage")
+	player.damage_reduction = equipment.effect_total("damage_reduction")
 
 
 ## 전투력 (HUD 표시, 가안 가중합)
@@ -183,6 +205,7 @@ func _check_promotion() -> void:
 ## 장착이 바뀌면 능력치를 다시 계산한다 (체력 비율 유지)
 func _refresh_stats() -> void:
 	player.apply_stats(_effective_stats())
+	_apply_equipment_effects()
 	if techniques:
 		techniques.reset_chain()
 
@@ -268,7 +291,7 @@ func _try_cast_technique() -> void:
 	for t in targets:
 		positions.append(t.position)
 	effects.play_technique(category, stage_before, player.position + Vector2(player.half_width(), 0), positions, tech)
-	var hits: Array = player.cast_technique(tech, targets, rng, _defense_constant, color)
+	var hits: Array = player.cast_technique(tech, targets, rng, _defense_constant, color, equipment.technique_bonus(tid, art_id, category))
 	techniques.on_cast(tech)
 	techniques_cast += 1
 	var multiplier := float(DataRegistry.balance.get("training", {}).get("base_multiplier", 1.0))
@@ -362,6 +385,15 @@ func _on_monster_died(m: Node) -> void:
 	if bool(DataRegistry.balance.get("growth", {}).get("exp_stage_scaling", true)):
 		exp_gain *= stage.scaling()
 	growth.add_exp(int(round(exp_gain)))
+	# 은냥, 강화석, 장비 드롭 (M8, 수치 가안)
+	equipment.add_currency("silver", int(round(float(rewards.get("silver", 0)) * stage.scaling())))
+	var drop: Dictionary = equipment.roll_drop(m.is_boss(), stage.scaling(), rng)
+	if not drop["item"].is_empty():
+		last_drop = drop["item"]
+		if not drop["added"]:
+			_set_banner("보관함이 가득 차 장비를 버렸습니다", 1.5)
+		elif equipment.grade_index(drop["item"]["grade"]) >= 2:
+			_set_banner("%s 획득!" % equipment.item_name(drop["item"]), 1.5)
 	if has_node("/root/EventBus"):
 		get_node("/root/EventBus").monster_killed.emit(m.data.get("id", ""), m.data.get("rewards", {}))
 	if m == boss:

@@ -7,6 +7,8 @@ extends Control
 const BAR_Y := 1188.0
 
 var arts: MartialArtManager
+## 장비 관리자 (M8). 없으면 GameState의 것을 쓴다
+var equipment: EquipmentManager
 
 var _target_label: Label
 var _target_bar: ProgressBar
@@ -108,6 +110,10 @@ func _on_chain_toggled(on: bool) -> void:
 
 func _build_panels() -> void:
 	_add_panel("growth", GrowthPanel.new(arts))
+	var gs = get_node_or_null("/root/GameState")
+	var eq: EquipmentManager = equipment if equipment != null else (gs.equipment if gs else null)
+	if eq != null:
+		_add_panel("equipment", EquipmentPanel.new(eq))
 
 
 ## 메뉴 화면을 등록한다. 이후 단계(장비, 던전)에서도 같은 방식으로 붙인다.

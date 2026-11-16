@@ -23,6 +23,9 @@ func _draw() -> void:
 	# 1줄: 지역명 · 스테이지
 	draw_string(font, Vector2(LEFT, TOP), "%s · 스테이지 %d" % [stage.region_name(), stage.stage_no],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.95, 0.9, 0.75))
+	if battle.equipment != null:
+		draw_string(font, Vector2(LEFT, TOP), "은냥 %s" % MenuPanel.fmt(battle.equipment.silver()),
+			HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 22, Color(0.95, 0.85, 0.5))
 
 	# 2줄: 처치 진행도 또는 보스 체력
 	var bar := Rect2(Vector2(LEFT, TOP + 44), Vector2(WIDTH, 16))

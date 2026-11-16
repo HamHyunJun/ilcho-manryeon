@@ -38,6 +38,10 @@ const TESTS := [
 	&"_test_growth_level_and_exp",
 	&"_test_growth_realm_promotion",
 	&"_test_growth_in_battle_and_save",
+	&"_test_equipment_generate_and_equip",
+	&"_test_equipment_enhance",
+	&"_test_equipment_synergy",
+	&"_test_equipment_in_battle_and_save",
 ]
 
 var _failed := 0
@@ -837,6 +841,156 @@ func _test_growth_in_battle_and_save() -> void:
 	old.erase("character")
 	gs.apply_loaded(old)
 	_check(gs.growth.level() == 1, "예전 저장(캐릭터 항목 없음)도 기본값으로 불러옴")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _new_equipment() -> EquipmentManager:
+	return EquipmentManager.new(EquipmentManager.new_state(), EquipmentManager.new_currencies(), _reg().equipment)
+
+
+func _test_equipment_generate_and_equip() -> void:
+	print("[M8 장비 생성, 드롭, 장착]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	_check(eq.slot_ids().size() == 5 and eq.cfg["grades"].size() == 6, "5부위, 6등급 데이터")
+	var common := eq.generate("weapon", "common", 1.0, rng)
+	var mythic := eq.generate("weapon", "mythic", 1.0, rng)
+	_check(float(mythic["base"]["atk"]) > float(common["base"]["atk"]) * 3.5, "등급이 높을수록 기본 능력치 배율이 큼 (신화 x4.0)")
+	_check(common["options"].size() == 0 and mythic["options"].size() == 4, "추가 옵션 수: 일반 0, 신화 3 + 고정 시너지 1")
+	var fixed := false
+	for o in mythic["options"]:
+		if o.get("fixed", false) and eq.option_data(o["id"]).get("synergy", false):
+			fixed = true
+	_check(fixed, "신화는 무공 시너지 옵션 1개 고정")
+	var far := eq.generate("weapon", "common", 2.0, rng)
+	_check(is_equal_approx(float(far["base"]["atk"]), float(common["base"]["atk"]) * 2.0), "스테이지 배율이 기본 능력치에 곱해짐")
+	var acc := eq.generate("accessory", "common", 2.0, rng)
+	_check(is_equal_approx(float(acc["base"]["crit_rate"]), 0.02), "치명타 확률은 스테이지 배율을 받지 않음")
+	var counts := {}
+	for i in 5000:
+		var g := eq.roll_grade(rng)
+		counts[g] = int(counts.get(g, 0)) + 1
+	_check(int(counts.get("common", 0)) > int(counts.get("rare", 0)) and int(counts.get("rare", 0)) > int(counts.get("legendary", 0)), "드롭 등급 가중치 (일반 > 희귀 > 전설)")
+	var boss_drop := eq.roll_drop(true, 1.0, rng)
+	_check(not boss_drop["item"].is_empty() and boss_drop["added"] and eq.stone() == 3, "보스는 장비 1개와 강화석 3개 확정 (가안)")
+	eq.add_item(common)
+	_check(eq.equip(int(common["uid"])) and eq.equipped_uid("weapon") == int(common["uid"]), "장착")
+	_check(not eq.discard(int(common["uid"])), "장착 중인 장비는 버릴 수 없음")
+	eq.add_item(far)
+	eq.equip(int(far["uid"]))
+	_check(eq.equipped_uid("weapon") == int(far["uid"]), "같은 부위에 장착하면 교체")
+	_check(is_equal_approx(float(eq.stat_bonuses()["atk"]["flat"]), float(far["base"]["atk"])), "장착 장비 기본 능력치가 보너스로 들어감")
+	eq.unequip("weapon")
+	_check(eq.equipped_item("weapon").is_empty() and eq.discard(int(common["uid"])), "해제 후 버리기")
+	eq.state["inventory"].clear()
+	for i in eq.capacity():
+		eq.add_item(eq.generate("shoes", "common", 1.0, rng))
+	_check(not eq.add_item(eq.generate("shoes", "common", 1.0, rng)) and eq.items().size() == eq.capacity(), "보관함이 가득 차면 더 넣지 않음 (가안 %d칸)" % eq.capacity())
+	_finish()
+
+
+func _test_equipment_enhance() -> void:
+	print("[M8 강화]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	var it := eq.generate("armor", "rare", 1.0, rng)
+	eq.add_item(it)
+	var uid := int(it["uid"])
+	_check(eq.enhance(uid) == EquipmentManager.EnhanceResult.NOT_ENOUGH and int(it["enh"]) == 0, "재화가 없으면 강화 불가")
+	eq.add_currency("stone", 1000)
+	eq.add_currency("silver", 1000000)
+	var c0 := eq.enhance_cost(it)
+	var def0 := float(eq.item_base_stats(it)["def"])
+	_check(eq.enhance(uid) == EquipmentManager.EnhanceResult.OK and int(it["enh"]) == 1, "강화석과 은냥으로 강화 (가안: 항상 성공)")
+	_check(eq.stone() == 1000 - int(c0["stone"]) and eq.silver() == 1000000 - int(c0["silver"]), "강화 비용 차감")
+	_check(is_equal_approx(float(eq.item_base_stats(it)["def"]), def0 * 1.05), "강화 1단계당 기본 능력치 +5%")
+	_check(int(eq.enhance_cost(it)["silver"]) > int(c0["silver"]), "강화 단계가 오를수록 비용 증가")
+	for i in 30:
+		eq.enhance(uid)
+	_check(int(it["enh"]) == eq.max_enhance() and eq.enhance(uid) == EquipmentManager.EnhanceResult.MAX_LEVEL, "최대 강화 단계에서 멈춤 (가안 +%d)" % eq.max_enhance())
+	_check(eq.item_name(it).ends_with("+%d" % eq.max_enhance()), "이름에 강화 단계 표시")
+	_finish()
+
+
+func _test_equipment_synergy() -> void:
+	print("[M8 무공 시너지 옵션]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	var it := eq.generate("weapon", "common", 1.0, rng)
+	it["options"] = [{"id": "plum_damage", "value": 0.2}, {"id": "sword_damage", "value": 0.1}, {"id": "plum_t1_damage", "value": 0.3}, {"id": "boss_damage", "value": 0.1}, {"id": "crit_rate", "value": 0.02}]
+	eq.add_item(it)
+	eq.equip(int(it["uid"]))
+	_check(is_equal_approx(eq.technique_bonus("plum_blossom_sword.t1", "plum_blossom_sword", "sword"), 0.6), "매화검법 1초식: 무공 + 계열 + 초식 시너지 합산")
+	_check(is_equal_approx(eq.technique_bonus("plum_blossom_sword.t2", "plum_blossom_sword", "sword"), 0.3), "매화검법 2초식: 초식 전용 옵션은 빠짐")
+	_check(is_equal_approx(eq.technique_bonus("arhat_fist.t1", "arhat_fist", "fist"), 0.0), "매화검법 시너지는 나한권 초식에 적용되지 않음")
+	_check(is_equal_approx(eq.effect_total("boss_damage"), 0.1), "보스 피해 옵션")
+	_check(is_equal_approx(float(eq.stat_bonuses()["crit_rate"]["flat"]), 0.02), "능력치 옵션은 능력치 보너스로")
+	_check(eq.option_text({"id": "plum_damage", "value": 0.2}).contains("20.0%"), "옵션 설명 문구")
+	# 실제 피해 비교
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	battle.equipment.add_item(it.duplicate(true))
+	var dummy = battle.spawn_monster("test_brute")
+	dummy.position.x = battle.player.position.x + 60
+	var tech: Dictionary = _reg().get_technique("plum_blossom_sword.t1")
+	var rng2 := RandomNumberGenerator.new()
+	battle.player.crit_rate = 0.0
+	var plain: int = battle.player.cast_technique(tech, [dummy], rng2, 100.0, Color.WHITE, 0.0)[0]["damage"]
+	var boosted: int = battle.player.cast_technique(tech, [dummy], rng2, 100.0, Color.WHITE, 0.6)[0]["damage"]
+	_check(boosted > plain, "시너지 보너스가 초식 피해를 올림 (%d → %d)" % [plain, boosted])
+	battle.player.damage_reduction = 0.5
+	var hp0: int = battle.player.hp
+	var taken: int = battle.player.take_damage(100)
+	_check(taken == 50 and battle.player.hp == hp0 - 50, "피해 감소 옵션이 받는 피해를 줄임")
+	battle.free()
+	_finish()
+
+
+func _test_equipment_in_battle_and_save() -> void:
+	print("[M8 전투 드롭, 장착 반영, 저장]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var eq: EquipmentManager = battle.equipment
+	var t := 0.0
+	while t < 900.0 and eq.items().is_empty():
+		battle.tick(0.05)
+		t += 0.05
+	_check(eq.silver() > 0, "몬스터 처치로 은냥 획득")
+	_check(not eq.items().is_empty(), "스테이지 진행 중 장비 드롭")
+	var atk0: float = battle.player.atk
+	var cp0: int = battle.combat_power()
+	var w := eq.generate("weapon", "legendary", 1.0, battle.rng)
+	eq.add_item(w)
+	eq.equip(int(w["uid"]))
+	_check(battle.player.atk > atk0 and battle.combat_power() > cp0, "장착하면 캐릭터 공격력과 전투력이 바로 오름")
+	battle.free()
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = arts
+	ui.equipment = eq
+	root.add_child(ui)
+	ui.open_menu("equipment")
+	_check(ui.panels.has("equipment") and ui.panels["equipment"].visible, "앱바 장비 메뉴가 장비 화면을 엶")
+	ui.free()
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var it: Dictionary = gs.equipment.generate("helmet", "epic", 1.5, RandomNumberGenerator.new())
+	gs.equipment.add_item(it)
+	gs.equipment.equip(int(it["uid"]))
+	gs.equipment.add_currency("silver", 1234)
+	gs.equipment.add_currency("stone", 7)
+	var sm = _make_save_manager("user://test_m8_save")
+	sm.save_game()
+	gs.reset_to_new_game()
+	gs.apply_loaded(sm.load_game()["data"])
+	var back: Dictionary = gs.equipment.equipped_item("helmet")
+	_check(not back.is_empty() and back["grade"] == "epic" and back["options"].size() == it["options"].size(), "장착 장비와 옵션이 저장/불러오기로 유지")
+	_check(gs.equipment.silver() == 1234 and gs.equipment.stone() == 7, "은냥과 강화석 유지")
+	var nx: Dictionary = gs.equipment.generate("shoes", "common", 1.0, RandomNumberGenerator.new())
+	_check(int(nx["uid"]) > int(it["uid"]), "불러온 뒤에도 장비 고유 번호가 겹치지 않음")
 	sm.delete_all()
 	sm.free()
 	gs.reset_to_new_game()

@@ -4,6 +4,7 @@ extends Node
 ## M3: 무공 장착/수련 기록(martial_arts)과 무공 관리자(arts).
 ## M4: 스테이지 진행(stage) 보관, 불러온 데이터 적용, 중요 이벤트 때 저장 요청.
 ## M7: 캐릭터 레벨/경지(character)와 성장 관리자(growth).
+## M8: 장비(equipment)와 재화(currencies), 장비 관리자(equipment).
 
 ## 저장 스키마 버전. 구조가 바뀔 때마다 올리고 SaveManager.migrations에 변환을 추가한다.
 const SAVE_VERSION := 1
@@ -14,6 +15,8 @@ var data: Dictionary = {}
 var arts: MartialArtManager
 ## 캐릭터 레벨/경지 관리자 (M7). data["character"]를 직접 다룬다.
 var growth: CharacterGrowth
+## 장비와 재화 관리자 (M8). data["equipment"], data["currencies"]를 직접 다룬다.
+var equipment: EquipmentManager
 
 
 func _ready() -> void:
@@ -32,9 +35,12 @@ func reset_to_new_game() -> void:
 		"martial_arts": MartialArtManager.new_state(start_art),
 		"stage": new_stage_state(),
 		"character": CharacterGrowth.new_state(),
+		"equipment": EquipmentManager.new_state(),
+		"currencies": EquipmentManager.new_currencies(),
 	}
 	_bind_arts()
 	_bind_growth()
+	_bind_equipment()
 	arts.unlock(start_art)
 	arts.refresh_training_target()
 
@@ -54,11 +60,16 @@ func apply_loaded(loaded: Dictionary) -> void:
 		data["stage"] = new_stage_state()
 	if not (data.get("character") is Dictionary):
 		data["character"] = CharacterGrowth.new_state()
+	if not (data.get("equipment") is Dictionary):
+		data["equipment"] = EquipmentManager.new_state()
+	if not (data.get("currencies") is Dictionary):
+		data["currencies"] = EquipmentManager.new_currencies()
 	# 저장 메타 정보는 상태에 남기지 않는다 (저장할 때 다시 쓴다)
 	for key in ["save_seq", "saved_at_unix", "saved_at_monotonic_ms", "boot_session_id"]:
 		data.erase(key)
 	_bind_arts()
 	_bind_growth()
+	_bind_equipment()
 	if arts.main_art() != "" and not arts.is_unlocked(arts.main_art()):
 		arts.unlock(arts.main_art())
 	arts.refresh_training_target()
@@ -83,6 +94,13 @@ func _bind_growth() -> void:
 	growth = CharacterGrowth.new(data["character"], get_node("/root/DataRegistry").balance.get("growth", {}))
 	# 경지 승급은 중요 이벤트로 바로 저장한다
 	growth.realm_promoted.connect(func(_t): _request_save())
+
+
+func _bind_equipment() -> void:
+	equipment = EquipmentManager.new(data["equipment"], data["currencies"], get_node("/root/DataRegistry").equipment)
+	# 장착 변경과 강화는 중요 이벤트로 저장한다
+	equipment.equipment_changed.connect(_request_save)
+	equipment.inventory_changed.connect(_request_save)
 
 
 func _request_save() -> void:

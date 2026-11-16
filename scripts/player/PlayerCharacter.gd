@@ -20,6 +20,9 @@ var max_mp: float = 100.0
 var mp: float = 100.0
 var mp_regen: float = 5.0
 var body_size := Vector2(48, 80)
+## 장비 특수 효과 (M8): 보스 피해 증가, 받는 피해 감소 (비율)
+var boss_damage: float = 0.0
+var damage_reduction: float = 0.0
 
 var _attack_cd := 0.0
 var _swing := 0.0
@@ -87,7 +90,8 @@ func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_con
 	_attack_cd = attack_interval
 	_swing = 0.15
 	var crit := DamageCalculator.roll_crit(rng, crit_rate)
-	var dmg := DamageCalculator.compute(atk, attack_coef, target.def, defense_constant, crit, crit_mult)
+	var bonus := boss_damage if target.is_boss() else 0.0
+	var dmg := DamageCalculator.compute(atk, attack_coef, target.def, defense_constant, crit, crit_mult, bonus)
 	target.take_damage(dmg)
 	return {"target": target, "damage": dmg, "crit": crit}
 
@@ -107,29 +111,34 @@ func technique_targets(tech: Dictionary, monsters: Array, range_px: float) -> Ar
 
 ## 초식을 발동한다. 내공을 쓰고 대상들에게 피해를 준다.
 ## 반환값: [{target, damage, crit}, ...]
-func cast_technique(tech: Dictionary, targets: Array, rng: RandomNumberGenerator, defense_constant: float, color: Color) -> Array:
+## tech_bonus: 장비 시너지 등 초식 피해 증가 합계 (M8)
+func cast_technique(tech: Dictionary, targets: Array, rng: RandomNumberGenerator, defense_constant: float, color: Color, tech_bonus: float = 0.0) -> Array:
 	mp = maxf(0.0, mp - float(tech.get("mp_cost", 0)))
 	_tech_flash = 0.3
 	_tech_color = color
 	var hits: Array = []
 	for t in targets:
 		var crit := DamageCalculator.roll_crit(rng, crit_rate)
-		var dmg := DamageCalculator.compute(atk, float(tech.get("power_coef", 1.0)), t.def, defense_constant, crit, crit_mult)
+		var bonus := tech_bonus + (boss_damage if t.is_boss() else 0.0)
+		var dmg := DamageCalculator.compute(atk, float(tech.get("power_coef", 1.0)), t.def, defense_constant, crit, crit_mult, bonus)
 		t.take_damage(dmg)
 		hits.append({"target": t, "damage": dmg, "crit": crit})
 	queue_redraw()
 	return hits
 
 
-func take_damage(amount: int) -> void:
+## 피해를 받는다. 장비 피해 감소를 적용하고 실제로 받은 피해를 돌려준다 (최소 1)
+func take_damage(amount: int) -> int:
 	if _down:
-		return
+		return 0
+	amount = maxi(1, roundi(amount * (1.0 - clampf(damage_reduction, 0.0, 0.9))))
 	hp = maxi(0, hp - amount)
 	_hit_flash = 0.12
 	queue_redraw()
 	if hp == 0:
 		_down = true
 		knocked_out.emit()
+	return amount
 
 
 ## 체력과 내공을 모두 회복한다 (새 스테이지 시작, 쓰러짐 임시 처리 O-06)

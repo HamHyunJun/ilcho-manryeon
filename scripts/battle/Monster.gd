@@ -96,8 +96,7 @@ func tick(delta: float, player, defense_constant: float) -> int:
 			_attack_cd -= delta
 			if _attack_cd <= 0.0:
 				_attack_cd = attack_interval
-				dealt = DamageCalculator.compute(atk, 1.0, player.def, defense_constant)
-				player.take_damage(dealt)
+				dealt = player.take_damage(DamageCalculator.compute(atk, 1.0, player.def, defense_constant))
 	queue_redraw()
 	return dealt
 
@@ -109,8 +108,7 @@ func _tick_patterns(delta: float, player, defense_constant: float) -> int:
 		if telegraph_left > 0.0:
 			return 0
 		var coef := float(telegraph_pattern.get("power_coef", 1.0))
-		var dmg := DamageCalculator.compute(atk, coef, player.def, defense_constant)
-		player.take_damage(dmg)
+		var dmg: int = player.take_damage(DamageCalculator.compute(atk, coef, player.def, defense_constant))
 		_pattern_cd[telegraph_pattern["id"]] = float(telegraph_pattern.get("cooldown", 8.0))
 		telegraph_pattern = {}
 		patterns_used += 1
