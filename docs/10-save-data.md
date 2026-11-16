@@ -83,11 +83,6 @@
       "main": "plum_blossom_sword",
       "sub": ["arhat_fist", null]
     },
-    "manual_slots": {
-      "ultimate": "plum_blossom_sword.t4",
-      "defense": "arhat_fist.t1",
-      "free": "plum_blossom_sword.t2"
-    },
     "auto_technique_enabled": true,
     "chain_mode": false,
     "training_target": "plum_blossom_sword.t4",
@@ -184,10 +179,9 @@
 | `count` | 정수 수련 횟수 |
 | `fraction` | 수련 배율(가속 효과 등)이 소수일 때 생기는 누적값. 1.0 이상이 되면 `count`로 넘긴다 |
 | `martial_arts.equipped.sub` | 보조 무공. 패시브만 제공하며, 보조로 장착해도 그 무공의 `progress`는 바뀌지 않는다 |
-| `chain_mode` | 연속초식 모드 켜짐 여부 (토글 방식 가안 기준, O-45) |
-| `training_target` | 단일 수련 모드에서 반복할 초식 ID. 지정 방식은 미확정(O-43), 가안은 가장 앞의 미대성 초식 자동 지정 |
+| `chain_mode` | 연속초식 토글 켜짐 여부. 오프라인 계산에는 쓰지 않는다(항상 단일 수련 기준) |
+| `training_target` | 수련 중인 초식 ID. 아직 대성하지 못한 가장 앞 초식으로 자동 지정되며, 진행도에서 다시 계산할 수 있는 캐시 값이다 |
 | `mastered` | 대성 여부. `count`가 대성 목표(기본 10,000)에 도달하면 true |
-| `manual_slots` | 수동 버튼 3개에 넣은 초식 ID |
 | `saved_at_monotonic_ms`, `boot_session_id` | 오프라인 보상 시계 조작 완화용 |
 | `pity_counter` / `pity_counters` | 천장 계산용 누적값 (수치는 미정) |
 

@@ -75,7 +75,7 @@ ilcho-manryeon/
 │   │   ├── BattleManager.gd
 │   │   ├── CombatController.gd
 │   │   ├── AutoAttackController.gd
-│   │   ├── ManualSkillController.gd
+│   │   ├── TechniqueModeController.gd # 단일 수련 / 연속초식 전환
 │   │   ├── TargetSelector.gd
 │   │   ├── DamageCalculator.gd
 │   │   └── BattleRewardManager.gd
@@ -135,7 +135,7 @@ ilcho-manryeon/
 ## 3. 핵심 흐름: 초식 발동 → 수련 반영 [가안]
 
 ```
-AutoAttackController / ManualSkillController
+AutoAttackController + TechniqueModeController
    └ 초식 발동 요청 (단일 수련: 수련 중인 초식 / 연속초식: 1초식부터 해금 초식 순서)
 SkillManager
    └ 재사용 대기, 내공 확인 → 실패 시 종료 (수련 없음)
@@ -174,7 +174,6 @@ EffectDirector
       "order": 1,
       "mastery_target": 10000,
       "trainable": true,
-      "slot_type": "normal",
       "power_coef": 1.2,
       "range": 0.25,
       "max_targets": 1,
