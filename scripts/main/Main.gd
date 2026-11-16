@@ -1,6 +1,6 @@
 extends Control
 ## 진입 화면.
-## M1: 전투 화면(Battle)을 띄우고, 아래쪽에 불러온 데이터 요약을 작게 표시한다(개발 확인용).
+## M1~M2: 전투 화면(Battle, 스테이지 루프 포함)을 띄우고, 아래쪽에 불러온 데이터 요약을 작게 표시한다(개발 확인용).
 ## 화면 전환과 하단 메뉴는 이후 단계에서 추가한다.
 
 @onready var _info: Label = $Margin/VBox/Info
@@ -25,8 +25,9 @@ func build_info_text() -> String:
 	ids.sort()
 	for id in ids:
 		names.append(DataRegistry.martial_arts[id]["name"])
-	return "[개발 확인] 무공 %d종(%s) · 몬스터 %d종 · 화면 %d×%d" % [
+	return "[개발 확인] 무공 %d종(%s) · 몬스터 %d종 · 지역 %d곳 · 화면 %d×%d" % [
 		DataRegistry.martial_arts.size(), ", ".join(names),
 		DataRegistry.monsters.size(),
+		DataRegistry.regions.size(),
 		get_viewport_rect().size.x, get_viewport_rect().size.y,
 	]

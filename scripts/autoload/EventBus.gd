@@ -23,3 +23,12 @@ signal technique_mastered(technique_id: String)
 
 ## 저장이 끝났을 때 (M4에서 사용)
 signal game_saved()
+
+## 스테이지가 시작됨 (다음 스테이지로 넘어갔을 때)
+signal stage_started(region_id: String, stage_no: int)
+
+## 보스가 등장함
+signal boss_appeared(region_id: String, stage_no: int)
+
+## 보스를 처치해 스테이지를 돌파함
+signal stage_cleared(region_id: String, stage_no: int)

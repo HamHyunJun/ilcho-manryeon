@@ -1,33 +1,86 @@
 {
-  "_comment": "M1 전투 검증용 임시 몬스터. 이름과 수치는 테스트용 자리 값이며, 청풍산 몬스터 구성은 미확정(O-10)이다.",
+  "_comment": "M1/M2 전투 검증용 임시 몬스터와 임시 보스. 이름과 수치는 테스트용 자리 값이며, 청풍산 몬스터/보스 구성은 미확정(O-10)이다.",
   "monsters": [
     {
       "id": "test_bandit",
       "name": "산적 (임시)",
       "type": "melee",
       "max_hp": 60,
-      "atk": 12,
+      "atk": 6,
       "def": 5,
       "move_speed": 80,
       "attack_range": 50,
-      "attack_interval": 1.5,
+      "attack_interval": 2.0,
       "color": "#c0504d",
-      "size": [44, 60],
-      "rewards": { "exp": 5, "silver": 3 }
+      "size": [
+        44,
+        60
+      ],
+      "rewards": {
+        "exp": 5,
+        "silver": 3
+      }
     },
     {
       "id": "test_brute",
       "name": "거한 (임시)",
       "type": "melee",
       "max_hp": 140,
-      "atk": 20,
+      "atk": 10,
       "def": 15,
       "move_speed": 50,
       "attack_range": 55,
-      "attack_interval": 2.0,
+      "attack_interval": 2.5,
       "color": "#8064a2",
-      "size": [60, 76],
-      "rewards": { "exp": 12, "silver": 7 }
+      "size": [
+        60,
+        76
+      ],
+      "rewards": {
+        "exp": 12,
+        "silver": 7
+      }
+    },
+    {
+      "id": "test_boss",
+      "name": "산채 두목 (임시)",
+      "type": "boss",
+      "max_hp": 1800,
+      "atk": 7,
+      "def": 15,
+      "move_speed": 40,
+      "attack_range": 70,
+      "attack_interval": 2.5,
+      "color": "#b8860b",
+      "size": [
+        96,
+        124
+      ],
+      "_patterns_comment": "보스 패턴 2개(임시). telegraph_sec 동안 예고 연출 후 반드시 맞는다. 상태이상은 미확정(O-08)이라 넣지 않았다.",
+      "patterns": [
+        {
+          "id": "heavy_strike",
+          "name": "내려찍기",
+          "area": "target",
+          "telegraph_sec": 1.0,
+          "power_coef": 2.0,
+          "cooldown": 8.0,
+          "first_delay": 4.0
+        },
+        {
+          "id": "shockwave",
+          "name": "지면 충격파",
+          "area": "line",
+          "telegraph_sec": 1.5,
+          "power_coef": 1.5,
+          "cooldown": 12.0,
+          "first_delay": 9.0
+        }
+      ],
+      "rewards": {
+        "exp": 100,
+        "silver": 60
+      }
     }
   ]
 }
