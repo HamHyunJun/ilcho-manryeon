@@ -14,6 +14,10 @@ const TESTS := [
 	&"_test_target_selector",
 	&"_test_battle_simulation",
 	&"_test_battle_knockout",
+	&"_test_stage_data",
+	&"_test_stage_data_detects_errors",
+	&"_test_stage_manager",
+	&"_test_stage_loop",
 ]
 
 var _failed := 0
@@ -38,6 +42,11 @@ func _process(_delta: float) -> bool:
 	print("테스트 결과: 통과 %d, 실패 %d" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 	return false
+
+
+## 오토로드 DataRegistry (스크립트 모드에서는 전역 이름으로 컴파일할 수 없어 노드로 찾는다)
+func _reg() -> Node:
+	return root.get_node("DataRegistry")
 
 
 func _finish() -> void:
@@ -78,6 +87,7 @@ func _test_data_registry_loads_mvp_data() -> void:
 	_check(techs.size() > 0 and int(techs[0]["order"]) == 1, "초식이 해금 순서로 정렬됨")
 	_check(reg.get_technique("plum_blossom_sword.t1").get("mastery_target") == 10000, "초식 대성 목표 10,000")
 	_check(reg.balance.has("training"), "수련 공통 수치 로드")
+	_check(reg.balance.has("combat"), "전투 공통 수치 로드")
 	reg.free()
 	_finish()
 
@@ -172,9 +182,10 @@ func _test_battle_simulation() -> void:
 
 
 func _test_battle_knockout() -> void:
-	print("[쓰러짐 임시 처리]")
+	print("[쓰러짐 임시 처리: 스테이지 재시작]")
 	var battle := _make_battle()
 	var player = battle.player
+	battle.stage.kill_count = 20
 	player.take_damage(player.max_hp)
 	_check(player.is_down(), "체력 0이면 쓰러짐")
 	var delay := float(battle.config["knockout"]["recover_delay"])
@@ -183,5 +194,92 @@ func _test_battle_knockout() -> void:
 	battle.tick(delay)
 	_check(not player.is_down() and player.hp == player.max_hp, "대기 후 체력 전부 회복")
 	_check(battle.alive_count() == 0, "회복 시 몬스터 정리")
+	_check(battle.stage.stage_no == 1 and battle.stage.kill_count == 0, "현재 스테이지를 처음부터 다시 시작")
+	battle.free()
+	_finish()
+
+
+func _test_stage_data() -> void:
+	print("[스테이지 데이터]")
+	var region: Dictionary = _reg().get_region("cheongpung_mountain")
+	_check(region.get("name") == "청풍산", "청풍산 지역 로드")
+	var stages: Array = region.get("stages", [])
+	_check(stages.size() > 0 and int(stages[0]["stage_no"]) == 1, "스테이지가 번호순으로 정렬됨")
+	var all_50 := true
+	var scaling_up := true
+	for i in stages.size():
+		if int(stages[i]["kills_to_boss"]) != 50:
+			all_50 = false
+		if i > 0 and float(stages[i]["scaling"]) <= float(stages[i - 1]["scaling"]):
+			scaling_up = false
+	_check(all_50, "모든 스테이지 보스 등장 조건 50마리")
+	_check(scaling_up, "스테이지가 오를수록 배율 증가")
+	var boss: Dictionary = _reg().get_monster(stages[0]["boss"])
+	_check(boss.get("type") == "boss" and boss.get("patterns", []).size() == 2, "보스 패턴 2개(임시)")
+	_finish()
+
+
+func _test_stage_data_detects_errors() -> void:
+	print("[스테이지 데이터 검증]")
+	var base := "user://test_stage_data"
+	DirAccess.make_dir_recursive_absolute(base.path_join("stages"))
+	var f := FileAccess.open(base.path_join("stages/bad_region.json"), FileAccess.WRITE)
+	f.store_string('{"region_id": "bad", "name": "잘못된 지역", "stages": [{"stage_no": 1, "kills_to_boss": 50, "spawn_pool": [{"monster": "no_such_monster", "weight": 1}], "scaling": 1.0, "boss": "no_such_boss"}]}')
+	f.close()
+	var reg = load("res://scripts/autoload/DataRegistry.gd").new()
+	var errors: int = reg.load_all(base)
+	_check(errors == 2, "없는 몬스터와 보스 참조 감지 (%d건)" % errors)
+	_check(not reg.regions.has("bad"), "잘못된 지역은 등록하지 않음")
+	reg.free()
+	DirAccess.remove_absolute(base.path_join("stages/bad_region.json"))
+	_finish()
+
+
+func _test_stage_manager() -> void:
+	print("[스테이지 진행 상태]")
+	var region: Dictionary = _reg().get_region("cheongpung_mountain")
+	var sm := StageManager.new(region, 1)
+	_check(sm.stage_no == 1 and sm.remaining_to_boss() == 50, "스테이지 1, 보스까지 50마리")
+	_check(sm.needs_more_normals(49) and not sm.needs_more_normals(50), "남은 수만큼만 일반 몬스터 생성")
+	var appeared := false
+	for i in 50:
+		appeared = sm.record_normal_kill()
+	_check(appeared and sm.phase == StageManager.Phase.BOSS_INTRO, "50마리 처치 시 보스 등장 단계")
+	_check(not sm.record_normal_kill() and sm.kill_count == 50, "보스 단계에서는 처치 수가 늘지 않음")
+	sm.begin_boss()
+	sm.record_boss_kill()
+	_check(sm.phase == StageManager.Phase.CLEARED and int(sm.highest_cleared["cheongpung_mountain"]) == 1, "보스 처치 시 돌파 기록")
+	sm.advance()
+	_check(sm.stage_no == 2 and sm.kill_count == 0 and sm.phase == StageManager.Phase.NORMAL, "다음 스테이지로 진행")
+	sm.start(sm.stage_count())
+	sm.advance()
+	_check(sm.stage_no == sm.stage_count(), "마지막 스테이지 뒤에는 마지막 스테이지 반복 (가안)")
+	var save := sm.to_save()
+	_check(save["region"] == "cheongpung_mountain" and save.has("highest_cleared"), "저장 데이터 모양으로 내보내기")
+	_finish()
+
+
+func _test_stage_loop() -> void:
+	print("[스테이지 루프 시뮬레이션]")
+	var battle := _make_battle()
+	var stage: StageManager = battle.stage
+	var boss_seen := false
+	var normals_left_at_boss := -1
+	var max_patterns := 0
+	var t := 0.0
+	while t < 600.0 and stage.stage_no == 1:
+		battle.tick(0.05)
+		t += 0.05
+		if stage.phase == StageManager.Phase.BOSS_INTRO and normals_left_at_boss < 0:
+			normals_left_at_boss = battle.alive_count()
+		if is_instance_valid(battle.boss):
+			boss_seen = true
+			max_patterns = maxi(max_patterns, battle.boss.patterns_used)
+	_check(normals_left_at_boss == 0, "일반 몬스터 50마리를 모두 처치한 뒤 보스 등장")
+	_check(boss_seen, "보스가 등장함")
+	_check(max_patterns >= 2, "보스가 예고 후 패턴 공격을 사용함 (%d회)" % max_patterns)
+	_check(stage.stage_no == 2, "보스 처치 후 스테이지 2로 자동 진행 (%.0f초)" % t)
+	_check(stage.kill_count == 0 and stage.remaining_to_boss() == 50, "새 스테이지에서 처치 진행도 초기화")
+	_check(battle.player.hp == battle.player.max_hp, "새 스테이지 시작 시 체력 회복 (가안)")
 	battle.free()
 	_finish()

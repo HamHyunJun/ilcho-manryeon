@@ -11,6 +11,8 @@ var martial_arts: Dictionary = {}
 var techniques: Dictionary = {}
 ## 몬스터 ID → 몬스터 데이터(Dictionary)
 var monsters: Dictionary = {}
+## 지역 ID → 지역 스테이지 데이터(Dictionary). data/stages/*.json
+var regions: Dictionary = {}
 ## 공통 수치 파일 이름(확장자 제외) → 내용. 예: "training"
 var balance: Dictionary = {}
 ## 로드/검증 중 발견한 오류 메시지 목록
@@ -26,6 +28,7 @@ func load_all(root: String = DATA_ROOT) -> int:
 	martial_arts.clear()
 	techniques.clear()
 	monsters.clear()
+	regions.clear()
 	balance.clear()
 	errors.clear()
 
@@ -38,6 +41,12 @@ func load_all(root: String = DATA_ROOT) -> int:
 		var data = _read_json(path)
 		if data is Dictionary:
 			_register_monsters(data, path)
+
+	# 스테이지는 몬스터 ID를 참조하므로 몬스터 다음에 읽는다
+	for path in _list_json(root.path_join("stages")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			_register_region(data, path)
 
 	for path in _list_json(root.path_join("balance")):
 		var data = _read_json(path)
@@ -63,6 +72,58 @@ func get_technique(id: String) -> Dictionary:
 
 func get_monster(id: String) -> Dictionary:
 	return monsters.get(id, {})
+
+
+func get_region(id: String) -> Dictionary:
+	return regions.get(id, {})
+
+
+## 지역 스테이지 파일을 검증해 등록한다. 참조하는 몬스터/보스가 실제로 있는지도 확인한다.
+func _register_region(data: Dictionary, path: String) -> void:
+	for key in ["region_id", "name", "stages"]:
+		if not data.has(key):
+			errors.append("%s: 필수 항목 '%s' 없음" % [path, key])
+			return
+	if not (data["stages"] is Array) or data["stages"].is_empty():
+		errors.append("%s: 스테이지가 하나도 없음" % path)
+		return
+	if regions.has(data["region_id"]):
+		errors.append("%s: 지역 ID 중복 '%s'" % [path, data["region_id"]])
+		return
+	var ok := true
+	var seen := {}
+	for s in data["stages"]:
+		if not (s is Dictionary):
+			errors.append("%s: 스테이지 항목 형식 오류" % path)
+			ok = false
+			continue
+		for key in ["stage_no", "kills_to_boss", "spawn_pool", "scaling", "boss"]:
+			if not s.has(key):
+				errors.append("%s: 스테이지 %s에 필수 항목 '%s' 없음" % [path, s.get("stage_no", "?"), key])
+				ok = false
+		if not ok:
+			continue
+		var no := int(s["stage_no"])
+		if seen.has(no):
+			errors.append("%s: 스테이지 번호 중복 %d" % [path, no])
+			ok = false
+		seen[no] = true
+		if not (s["spawn_pool"] is Array) or s["spawn_pool"].is_empty():
+			errors.append("%s: 스테이지 %d 생성 목록이 비어 있음" % [path, no])
+			ok = false
+			continue
+		for e in s["spawn_pool"]:
+			if not monsters.has(e.get("monster", "")):
+				errors.append("%s: 스테이지 %d에서 없는 몬스터 '%s' 참조" % [path, no, e.get("monster", "")])
+				ok = false
+		var boss: Dictionary = monsters.get(s["boss"], {})
+		if boss.is_empty() or boss.get("type", "") != "boss":
+			errors.append("%s: 스테이지 %d의 보스 '%s'가 없거나 보스 유형이 아님" % [path, no, s["boss"]])
+			ok = false
+	if not ok:
+		return
+	data["stages"].sort_custom(func(a, b): return int(a["stage_no"]) < int(b["stage_no"]))
+	regions[data["region_id"]] = data
 
 
 ## 몬스터 목록 파일을 검증해 등록한다. 형식: {"monsters": [ {...}, ... ]}
