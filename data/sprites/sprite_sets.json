@@ -1,0 +1,406 @@
+{
+  "_comment": "스프라이트 세트. tools/sprites/generate_sprites.py --write-data 로 만든다. 그림을 바꿀 때는 sheet의 PNG를 같은 프레임 크기/순서로 교체하거나, 이 파일의 sheet/frame_size/pivot/animations를 새 그림에 맞게 고친다. 몬스터 데이터의 sprite 값이 없으면 type_defaults의 유형별 기본 스프라이트를 쓴다.",
+  "player_sprite": "hero_swordsman",
+  "type_defaults": {
+    "melee": "bandit",
+    "charge": "assassin",
+    "ranged": "archer",
+    "defense": "shield_guard",
+    "elite": "elite_cultist",
+    "boss": "bandit_chief"
+  },
+  "sets": [
+    {
+      "id": "hero_swordsman",
+      "name": "청의 검객 (주인공)",
+      "sheet": "res://assets/sprites/characters/hero_swordsman.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        18,
+        39
+      ],
+      "scale": 3,
+      "facing": "right",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "bandit",
+      "name": "산적 (일반 근접형)",
+      "sheet": "res://assets/sprites/monsters/bandit.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "brute",
+      "name": "거한 (일반 근접형, 무거움)",
+      "sheet": "res://assets/sprites/monsters/brute.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "assassin",
+      "name": "흑의 자객 (빠른 돌진형)",
+      "sheet": "res://assets/sprites/monsters/assassin.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "archer",
+      "name": "삿갓 궁수 (원거리형)",
+      "sheet": "res://assets/sprites/monsters/archer.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "shield_guard",
+      "name": "철갑 수문위사 (방어형)",
+      "sheet": "res://assets/sprites/monsters/shield_guard.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "elite_cultist",
+      "name": "흑혈대 정예 (정예)",
+      "sheet": "res://assets/sprites/monsters/elite_cultist.png",
+      "frame_size": [
+        40,
+        40
+      ],
+      "pivot": [
+        21,
+        39
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    },
+    {
+      "id": "bandit_chief",
+      "name": "산채 두목 (보스)",
+      "sheet": "res://assets/sprites/monsters/bandit_chief.png",
+      "frame_size": [
+        72,
+        64
+      ],
+      "pivot": [
+        39,
+        63
+      ],
+      "scale": 3,
+      "facing": "left",
+      "animations": {
+        "idle": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 2.0,
+          "loop": true
+        },
+        "attack": {
+          "frames": [
+            2,
+            3,
+            4
+          ],
+          "fps": 10.0,
+          "loop": false
+        },
+        "hit": {
+          "frames": [
+            5
+          ],
+          "fps": 6.0,
+          "loop": false
+        },
+        "down": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 5.0,
+          "loop": false
+        }
+      }
+    }
+  ]
+}

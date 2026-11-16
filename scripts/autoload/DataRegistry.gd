@@ -21,6 +21,10 @@ var effects: Dictionary = {}
 var equipment: Dictionary = {}
 ## 던전 ID → 던전 데이터 (data/dungeons/*.json, M9)
 var dungeons: Dictionary = {}
+## 스프라이트 세트 ID → 세트 데이터 (data/sprites/sprite_sets.json). 시트 경로, 프레임 크기, 기준점, 동작
+var sprite_sets: Dictionary = {}
+## 스프라이트 공통 설정: player_sprite(주인공 세트 ID), type_defaults(몬스터 유형별 기본 세트 ID)
+var sprite_config: Dictionary = {}
 ## 로드/검증 중 발견한 오류 메시지 목록
 var errors: PackedStringArray = []
 
@@ -39,6 +43,8 @@ func load_all(root: String = DATA_ROOT) -> int:
 	effects.clear()
 	equipment.clear()
 	dungeons.clear()
+	sprite_sets.clear()
+	sprite_config.clear()
 	errors.clear()
 
 	for path in _list_json(root.path_join("martial_arts")):
@@ -82,6 +88,11 @@ func load_all(root: String = DATA_ROOT) -> int:
 		if data is Dictionary:
 			_register_dungeon(data, path)
 
+	for path in _list_json(root.path_join("sprites")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			_register_sprites(data, path)
+
 	for e in errors:
 		push_error("[DataRegistry] " + e)
 
@@ -107,6 +118,47 @@ func _register_dungeon(data: Dictionary, path: String) -> void:
 		if not martial_arts.has(e.get("art", "")):
 			errors.append("%s: 보상 무공 없음 %s" % [path, e.get("art", "")])
 	dungeons[id] = data
+
+
+## 스프라이트 세트 등록과 검증. 그림 파일은 없어도 오류로 보지 않는다(도형으로 대신 그린다).
+## 프레임 번호, 기준점, 유형별 기본값과 몬스터의 sprite 참조만 검사한다.
+func _register_sprites(data: Dictionary, path: String) -> void:
+	for s in data.get("sets", []):
+		var id: String = s.get("id", "")
+		if id == "" or not s.has("sheet") or not s.has("frame_size"):
+			errors.append("%s: 스프라이트 세트에 id, sheet, frame_size가 필요함" % path)
+			continue
+		for anim_name in ["idle", "attack", "hit", "down"]:
+			if not s.get("animations", {}).has(anim_name):
+				errors.append("%s: 스프라이트 %s에 동작 %s 없음" % [path, id, anim_name])
+		sprite_sets[id] = s
+	for key in ["player_sprite"]:
+		if data.has(key) and not sprite_sets.has(data[key]):
+			errors.append("%s: 없는 스프라이트 %s" % [path, data[key]])
+	for t in data.get("type_defaults", {}):
+		if not sprite_sets.has(data["type_defaults"][t]):
+			errors.append("%s: 유형 %s의 기본 스프라이트 없음: %s" % [path, t, data["type_defaults"][t]])
+	sprite_config = data
+	for mid in monsters:
+		var sid: String = monsters[mid].get("sprite", "")
+		if sid != "" and not sprite_sets.has(sid):
+			errors.append("%s: 몬스터 %s의 스프라이트 없음: %s" % [path, mid, sid])
+
+
+func get_sprite_set(id: String) -> Dictionary:
+	return sprite_sets.get(id, {})
+
+
+## 몬스터 데이터에 맞는 스프라이트 세트. sprite 값 → 유형별 기본값 순서로 찾고, 없으면 빈 Dictionary
+func monster_sprite_set(monster: Dictionary) -> Dictionary:
+	var sid: String = monster.get("sprite", "")
+	if sid == "":
+		sid = sprite_config.get("type_defaults", {}).get(monster.get("type", ""), "")
+	return get_sprite_set(sid)
+
+
+func player_sprite_set() -> Dictionary:
+	return get_sprite_set(sprite_config.get("player_sprite", ""))
 
 
 func get_dungeon(id: String) -> Dictionary:
