@@ -1,7 +1,7 @@
 extends Control
-## M0 진입 화면.
-## 완료 기준: 세로 화면에서 실행되고, JSON 데이터를 읽어 화면에 출력한다.
-## 전투 화면(M1)이 생기면 이 화면은 화면 전환 담당으로 바뀐다.
+## 진입 화면.
+## M1: 전투 화면(Battle)을 띄우고, 아래쪽에 불러온 데이터 요약을 작게 표시한다(개발 확인용).
+## 화면 전환과 하단 메뉴는 이후 단계에서 추가한다.
 
 @onready var _info: Label = $Margin/VBox/Info
 
@@ -14,25 +14,19 @@ func _ready() -> void:
 
 ## 화면에 보여 줄 데이터 요약 문자열을 만든다.
 func build_info_text() -> String:
-	var lines: PackedStringArray = []
-	var size := get_viewport_rect().size
-	lines.append("화면 크기: %d × %d" % [size.x, size.y])
-	lines.append("")
-
 	if not DataRegistry.errors.is_empty():
-		lines.append("데이터 오류 %d건" % DataRegistry.errors.size())
+		var lines: PackedStringArray = ["데이터 오류 %d건" % DataRegistry.errors.size()]
 		for e in DataRegistry.errors:
 			lines.append("- " + e)
 		return "\n".join(lines)
 
-	lines.append("불러온 무공 %d종" % DataRegistry.martial_arts.size())
+	var names: PackedStringArray = []
 	var ids := DataRegistry.martial_arts.keys()
 	ids.sort()
 	for id in ids:
-		var art: Dictionary = DataRegistry.martial_arts[id]
-		lines.append("· %s (%s) 초식 %d개" % [art["name"], art["category"], art["techniques"].size()])
-
-	var training: Dictionary = DataRegistry.balance.get("training", {})
-	lines.append("")
-	lines.append("대성 목표: %d회" % int(training.get("default_mastery_target", 0)))
-	return "\n".join(lines)
+		names.append(DataRegistry.martial_arts[id]["name"])
+	return "[개발 확인] 무공 %d종(%s) · 몬스터 %d종 · 화면 %d×%d" % [
+		DataRegistry.martial_arts.size(), ", ".join(names),
+		DataRegistry.monsters.size(),
+		get_viewport_rect().size.x, get_viewport_rect().size.y,
+	]

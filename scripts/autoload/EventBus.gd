@@ -6,6 +6,12 @@ extends Node
 ## 데이터 레지스트리가 JSON 로드를 마쳤을 때 (오류 수 포함)
 signal data_loaded(error_count: int)
 
+## 몬스터를 처치했을 때 (M1). rewards는 몬스터 데이터의 보상 정보
+signal monster_killed(monster_id: String, rewards: Dictionary)
+
+## 캐릭터가 쓰러졌을 때 (M1, 처리 방식은 미확정 O-06)
+signal player_knocked_out()
+
 ## 초식이 정상 발동했을 때 (M3에서 사용)
 signal technique_performed(martial_art_id: String, technique_id: String)
 
