@@ -11,7 +11,16 @@
 7. 캐릭터/몬스터 스프라이트는 임시 에셋으로 시작해 점진 교체. (사운드/BGM 제작 방식은 [미확정] O-01)
 8. 콘텐츠가 늘어도 기존 구조를 크게 바꾸지 않게 설계하고, 모바일 성능과 실제 Android 빌드/Google Play 출시를 고려한다.
 
-> [미확정] Godot 4의 세부 버전(4.x)과 GDScript / C# 선택. 바이브 코딩과 Android 빌드 편의를 고려하면 GDScript를 [가안]으로 둔다. → O-39
+### 1-1. 개발 환경 [확정, 결정 #27]
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| 엔진 | Godot 4.7 (검증: 4.7.1-stable) | M0 착수 시점의 최신 안정 버전 계열 |
+| 언어 | GDScript | 바이브 코딩과 궁합이 좋고, C#보다 Android 내보내기가 단순하다 |
+| 렌더러 | Compatibility (OpenGL ES 3) | 2D 픽셀 게임에 충분하고, 저사양·구형 Android 기기 지원 범위가 가장 넓다 |
+| 기준 해상도 | 720 × 1280, 세로 고정, `canvas_items` + `expand` | 09 문서의 가안. 다양한 화면비에서 위아래 여백을 늘려 대응 |
+| 텍스처 필터 | Nearest | 픽셀 아트가 흐려지지 않게 |
+| 최소 Android | API 24 (Android 7.0) | Godot 4 Android 내보내기의 기본 최소 버전 |
 
 ## 2. Godot 폴더 구조 [가안]
 
@@ -106,6 +115,8 @@ ilcho-manryeon/
 │   ├── save/
 │   │   ├── SaveData.gd
 │   │   └── migrations/            # migrate_v1_to_v2.gd …
+│   ├── main/
+│   │   └── Main.gd                # 진입 화면 (M0)
 │   └── ui/
 │       ├── BattleHUD.gd
 │       ├── SkillBar.gd
@@ -279,10 +290,25 @@ EffectPreset (Resource)
 - 수련 횟수는 메모리에서 누적하고 저장은 주기/이벤트 단위로 한다.
 - JSON은 시작 시 한 번 읽어 메모리에 캐시한다.
 
-## 6. 빌드와 출시 준비 [가안]
+## 6. 빌드와 출시 준비
+
+### 6-1. CI (GitHub Actions) [구현됨]
+
+`.github/workflows/build.yml`
+
+| 작업 | 시점 | 내용 |
+|---|---|---|
+| 헤드리스 테스트 | 모든 push / PR | Godot 헤드리스로 `tests/run_tests.gd` 실행 |
+| Android 디버그 APK | 테스트 통과 후 | 내보내기 템플릿(캐시) + 러너의 Android SDK로 `export_presets.cfg`의 "Android" 프리셋을 디버그 내보내기, 아티팩트 업로드 |
+
+- 디버그 키스토어는 실행마다 `keytool`로 새로 만들고 환경 변수(`GODOT_ANDROID_KEYSTORE_DEBUG_*`)로 넘긴다. 저장소에 키를 넣지 않는다.
+- 패키지 이름은 임시 값 `com.ilchomanryeon.dev` (O-50).
+- 아키텍처는 arm64-v8a만 빌드한다. [가안]
+
+### 6-2. 출시 준비 [가안]
 
 - Android 내보내기 템플릿, 세로 고정, 최소 SDK 버전 설정.
 - Google Play 출시용 AAB 빌드, 서명 키 관리.
 - 광고/결제 SDK는 MVP 이후 플러그인으로 추가하고, 그 전까지는 인터페이스(빈 구현)만 둔다.
 
-> [미확정] 지원할 최소 Android 버전과 목표 기기 사양. → O-40
+> 최소 Android 버전은 결정 #27로 API 24. [미확정] 목표 기기 사양(성능 기준 기기), 패키지 이름. → O-40, O-50

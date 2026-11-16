@@ -1,0 +1,46 @@
+{
+  "default_mastery_target": 10000,
+  "stage_thresholds": [
+    {
+      "stage": 1,
+      "name": "입문",
+      "min": 0
+    },
+    {
+      "stage": 2,
+      "name": "초급",
+      "min": 100
+    },
+    {
+      "stage": 3,
+      "name": "중급",
+      "min": 1000
+    },
+    {
+      "stage": 4,
+      "name": "고급",
+      "min": 3000
+    },
+    {
+      "stage": 5,
+      "name": "숙련",
+      "min": 5000
+    },
+    {
+      "stage": 6,
+      "name": "절정",
+      "min": 7500
+    },
+    {
+      "stage": 7,
+      "name": "대성",
+      "min": 10000
+    }
+  ],
+  "base_multiplier": 1.0,
+  "offline": {
+    "efficiency": 0.5,
+    "max_hours": 8,
+    "mode": "single"
+  }
+}
