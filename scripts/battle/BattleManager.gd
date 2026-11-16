@@ -294,9 +294,7 @@ func _tick_stage(delta: float) -> void:
 			_spawn_cd -= delta
 			if _spawn_cd <= 0.0:
 				_spawn_cd = float(config["spawn"]["interval"])
-				var alive := alive_count()
-				if alive < int(config["spawn"]["max_alive"]) and stage.needs_more_normals(alive):
-					spawn_monster(_pick_spawn_id())
+				_spawn_group()
 		StageManager.Phase.BOSS_INTRO:
 			_intro_cd -= delta
 			if _intro_cd <= 0.0:
@@ -393,6 +391,27 @@ func spawn_monster(monster_id: String, scaling: float = -1.0) -> Node2D:
 	add_child(m)
 	monsters.append(m)
 	return m
+
+
+## 일반 몬스터를 무리(group_min~group_max마리)로 생성한다. 동시 생성 수와 보스까지 남은 수를 넘지 않는다.
+## 무리는 오른쪽으로 group_gap씩 떨어져 줄지어 들어오고, 멈추는 거리와 높이를 조금씩 달리해 겹치지 않게 한다.
+func _spawn_group() -> void:
+	var sp: Dictionary = config["spawn"]
+	var count := rng.randi_range(int(sp.get("group_min", 1)), int(sp.get("group_max", 1)))
+	var stop_j: Array = sp.get("stop_jitter", [1.0, 1.0])
+	var depth_j: Array = sp.get("depth_jitter", [0, 0])
+	for i in count:
+		var alive := alive_count()
+		if alive >= int(sp["max_alive"]) or not stage.needs_more_normals(alive):
+			return
+		var m := spawn_monster(_pick_spawn_id())
+		if m == null:
+			return
+		m.position.x += float(sp.get("group_gap", 0)) * i
+		m.position.y += rng.randf_range(float(depth_j[0]), float(depth_j[1]))
+		m.stop_range = m.attack_range * rng.randf_range(float(stop_j[0]), float(stop_j[1]))
+		# 아래쪽(앞쪽)에 선 몬스터가 위에 그려지게 한다. 쓰러짐(5)·이펙트(9~10)·HUD(20) 층보다는 아래
+		m.z_index = clampi(int((m.position.y - float(config["layout"]["ground_y"])) / 4.0), -4, 3)
 
 
 func _pick_spawn_id() -> String:

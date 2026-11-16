@@ -207,9 +207,19 @@ func _test_battle_simulation() -> void:
 	_check(player.tick(0.1, [], battle.rng, 100.0).is_empty(), "대상이 없으면 기본 공격하지 않음")
 
 	battle.tick(0.05)
-	_check(battle.alive_count() == 1, "전투 시작 시 몬스터 생성")
+	var group: int = battle.alive_count()
+	_check(group >= int(cfg["spawn"]["group_min"]) and group <= int(cfg["spawn"]["group_max"]), "전투 시작 시 몬스터가 무리로 생성됨 (%d마리)" % group)
 	var first = battle.monsters[0]
-	_check(first.position.x >= float(cfg["layout"]["spawn_x"]) - 5.0, "몬스터는 화면 오른쪽에서 생성됨")
+	var all_right := true
+	var stops := {}
+	for m in battle.monsters:
+		if m.position.x < float(cfg["layout"]["spawn_x"]) - 15.0:  # 생성된 프레임에 한 걸음 움직일 수 있다
+			all_right = false
+		stops[snappedf(m.stop_range, 0.1)] = true
+		if m.stop_range > m.attack_range:
+			all_right = false
+	_check(all_right, "몬스터는 화면 오른쪽에서 생성되고, 멈추는 거리는 사거리 이하")
+	_check(stops.size() == group, "무리 안에서 멈추는 거리가 서로 달라 한 점에 겹치지 않음")
 	var start_x: float = first.position.x
 	for i in 20:
 		battle.tick(0.05)

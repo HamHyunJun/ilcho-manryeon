@@ -17,6 +17,8 @@ var atk: float = 0.0
 var def: float = 0.0
 var move_speed: float = 0.0
 var attack_range: float = 0.0
+## 다가오다 멈추는 거리 (사거리 이하). 무리로 생성될 때 BattleManager가 조금씩 다르게 정한다
+var stop_range: float = 0.0
 var attack_interval: float = 1.0
 var body_size := Vector2(44, 60)
 var body_color := Color.INDIAN_RED
@@ -49,6 +51,7 @@ func setup(d: Dictionary, scaling: float = 1.0) -> void:
 	def = float(d["def"])
 	move_speed = float(d["move_speed"])
 	attack_range = float(d["attack_range"])
+	stop_range = attack_range
 	attack_interval = float(d["attack_interval"])
 	if d.has("size"):
 		body_size = Vector2(d["size"][0], d["size"][1])
@@ -126,10 +129,10 @@ func tick(delta: float, player, defense_constant: float) -> int:
 	var gap := TargetSelector.edge_gap(player.position.x, player.half_width(), position.x, half_width())
 	var dealt := 0
 	_gap = gap
-	_moving = gap > attack_range
-	if gap > attack_range:
-		# 사거리까지 남은 거리만큼만 이동 (지나치지 않게)
-		position.x -= minf(move_speed * delta, gap - attack_range)
+	_moving = gap > stop_range
+	if gap > stop_range:
+		# 멈출 거리까지 남은 만큼만 이동 (지나치지 않게)
+		position.x -= minf(move_speed * delta, gap - stop_range)
 	elif not player.is_down():
 		if not patterns.is_empty():
 			dealt = _tick_patterns(delta, player, defense_constant)
