@@ -114,6 +114,12 @@ func _build_panels() -> void:
 	var eq: EquipmentManager = equipment if equipment != null else (gs.equipment if gs else null)
 	if eq != null:
 		_add_panel("equipment", EquipmentPanel.new(eq))
+	var battle = get_parent().get_node_or_null("Battle") if get_parent() else null
+	if battle != null:
+		var dp := DungeonPanel.new(battle)
+		_add_panel("dungeon", dp)
+		dp.codex_requested.connect(func(): open_menu("codex"))
+		_add_panel("codex", CodexPanel.new(arts, battle))
 
 
 ## 메뉴 화면을 등록한다. 이후 단계(장비, 던전)에서도 같은 방식으로 붙인다.

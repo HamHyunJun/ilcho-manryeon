@@ -9,7 +9,7 @@
   "acquire": {
     "type": "fragments",
     "fragment_item": "frag_arhat_fist",
-    "required": 0
+    "required": 30
   },
   "sources": [
     "manual_dungeon"

@@ -42,6 +42,10 @@ const TESTS := [
 	&"_test_equipment_enhance",
 	&"_test_equipment_synergy",
 	&"_test_equipment_in_battle_and_save",
+	&"_test_manual_fragments_unlock",
+	&"_test_dungeon_entry_and_rewards",
+	&"_test_dungeon_run_in_battle",
+	&"_test_codex_and_dungeon_ui",
 ]
 
 var _failed := 0
@@ -993,5 +997,124 @@ func _test_equipment_in_battle_and_save() -> void:
 	_check(int(nx["uid"]) > int(it["uid"]), "불러온 뒤에도 장비 고유 번호가 겹치지 않음")
 	sm.delete_all()
 	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_manual_fragments_unlock() -> void:
+	print("[M9 비급 조각과 무공 개방]")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	_check(col.required_of("arhat_fist") == 30, "나한권 필요 조각 30개 (테스트 수치)")
+	_check(not col.add_fragments("arhat_fist", 29) and not arts.is_unlocked("arhat_fist"), "필요 개수 전에는 개방되지 않음")
+	_check(col.add_fragments("arhat_fist", 3) and arts.is_unlocked("arhat_fist"), "필요 개수를 채우면 무공 개방")
+	_check(col.fragments_of("arhat_fist") == 2, "남는 조각은 보관")
+	_check(arts.is_tech_unlocked("arhat_fist.t1") and not arts.is_tech_unlocked("arhat_fist.t2"), "개방하면 1초식만 해금")
+	_check(arts.equip_main("arhat_fist") and arts.main_art() == "arhat_fist", "개방한 무공을 주력으로 장착 가능")
+	var silver0 := eq.silver()
+	col.add_fragments("plum_blossom_sword", 4)
+	_check(eq.silver() == silver0 + 200 and col.fragments_of("plum_blossom_sword") == 0, "이미 개방한 무공의 조각은 은냥으로 전환 (가안 조각당 50)")
+	_finish()
+
+
+func _test_dungeon_entry_and_rewards() -> void:
+	print("[M9 비급 던전 입장과 보상]")
+	var d: Dictionary = _reg().get_dungeon("manual_cave")
+	_check(not d.is_empty() and d["waves"].size() == 3, "비급 던전 데이터 (웨이브 3개, 마지막 보스)")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	_check(not col.can_enter(d, {}, "2026-01-01")["ok"], "스테이지 1 돌파 전에는 입장 불가")
+	var hc := {"cheongpung_mountain": 1}
+	_check(col.can_enter(d, hc, "2026-01-01")["ok"], "스테이지 1 돌파 후 입장 가능")
+	for i in 3:
+		col.record_entry(d, "2026-01-01")
+	_check(not col.can_enter(d, hc, "2026-01-01")["ok"] and col.entries_left(d, "2026-01-01") == 0, "하루 입장 3회 제한 (가안)")
+	_check(col.entries_left(d, "2026-01-02") == 3, "날짜가 바뀌면 입장 횟수 초기화")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var res := col.grant_clear(d, rng, "2026-01-02")
+	var total := 0
+	for f in res["fragments"]:
+		total += int(f["amount"])
+		_check(f["art"] == "arhat_fist" or f["art"] == "yin_yang_five_elements", "보상 테이블의 무공 조각만 나옴 (%s)" % f["art"])
+	_check(res["fragments"].size() == 2 and total >= 4 and total <= 8, "클리어당 2회 × 2~4개 (테스트 수치)")
+	_check(eq.silver() >= 200, "클리어 은냥 보상")
+	for i in 3:
+		col.grant_clear(d, rng, "2026-01-02")
+	_check(col.pity_of("manual_cave") == 4, "천장 카운트 누적")
+	var r5 := col.grant_clear(d, rng, "2026-01-02")
+	_check(not r5["pity_bonus"].is_empty() and col.pity_of("manual_cave") == 0, "클리어 5회째 천장 보너스 지급 후 초기화 (테스트 수치)")
+	var guard := 0
+	while not (arts.is_unlocked("arhat_fist") and arts.is_unlocked("yin_yang_five_elements")) and guard < 100:
+		col.grant_clear(d, rng, "2026-01-02")
+		guard += 1
+	_check(arts.is_unlocked("arhat_fist") and arts.is_unlocked("yin_yang_five_elements"), "던전을 반복하면 두 무공 모두 개방 (%d회 추가)" % guard)
+	_finish()
+
+
+func _test_dungeon_run_in_battle() -> void:
+	print("[M9 던전 전투]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	battle.growth.state["level"] = 20
+	battle._refresh_stats()
+	_check(not battle.start_dungeon("manual_cave", "2026-02-01")["ok"], "스테이지 돌파 전 입장 거부")
+	battle.stage.highest_cleared["cheongpung_mountain"] = 1
+	battle.stage.kill_count = 17
+	var kc0: int = battle.stage.kill_count
+	var r: Dictionary = battle.start_dungeon("manual_cave", "2026-02-01")
+	_check(r["ok"] and battle.dungeon != null, "입장하면 던전 진행")
+	var t := 0.0
+	var saw_boss := false
+	while t < 400.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		if is_instance_valid(battle.boss):
+			saw_boss = true
+		t += 0.05
+	_check(saw_boss, "마지막 웨이브에 던전 보스 등장")
+	_check(battle.last_dungeon_result.get("cleared", false), "모든 웨이브를 처치해 클리어 (%.0f초)" % t)
+	_check(battle.collection.clears_of("manual_cave") == 1, "클리어 기록")
+	_check(battle.dungeon == null and battle.stage.kill_count == kc0, "끝나면 스테이지로 돌아가고 스테이지 처치 수는 그대로")
+	# 실패: 제한 시간
+	var r2: Dictionary = battle.start_dungeon("manual_cave", "2026-02-01")
+	battle.dungeon.time_left = 0.1
+	t = 0.0
+	while t < 10.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		t += 0.05
+	_check(r2["ok"] and not battle.last_dungeon_result.get("cleared", true) and battle.last_dungeon_result.get("reason", "") == "시간 초과", "제한 시간이 지나면 실패")
+	# 수련은 던전에서도 오른다
+	var c0 := arts.count_of("plum_blossom_sword.t1")
+	battle.start_dungeon("manual_cave", "2026-02-01")
+	for i in 400:
+		battle.tick(0.05)
+	_check(arts.count_of("plum_blossom_sword.t1") > c0, "던전에서도 초식 수련 횟수가 오름")
+	battle.free()
+	_finish()
+
+
+func _test_codex_and_dungeon_ui() -> void:
+	print("[M9 도감과 던전 화면]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	ui.open_menu("dungeon")
+	_check(ui.panels.has("dungeon") and ui.panels["dungeon"].visible, "앱바 던전 메뉴가 던전 화면을 엶")
+	ui.panels["dungeon"]._enter("manual_cave")
+	_check(ui.panels["dungeon"].message.contains("돌파"), "입장 조건 미달 안내")
+	ui.open_menu("codex")
+	var codex = ui.panels["codex"]
+	_check(codex.visible and codex.root.get_child_count() > 0, "무공 도감 화면")
+	var texts := ""
+	for c in codex.root.get_children():
+		if c is Label:
+			texts += c.text + "\n"
+	_check(texts.contains("매화검법") and texts.contains("습득") and texts.contains("0 / 30"), "도감에 습득 여부와 조각 수 표시")
+	_check(texts.contains("화산파") and texts.contains("검법"), "도감에 문파와 계열 표시")
+	main.free()
 	gs.reset_to_new_game()
 	_finish()

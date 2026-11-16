@@ -198,7 +198,13 @@ func _build_debug() -> void:
 		var b := button("x%d" % s, 20)
 		b.pressed.connect(_set_speed.bind(s))
 		speed_row.add_child(b)
-	var unlock_all := button("무공 모두 개방 (비급 없이)", 20)
+	var codex := button("무공 도감 보기", 20)
+	codex.pressed.connect(func():
+		var ui = get_parent()
+		if ui and ui.has_method("open_menu"):
+			ui.open_menu("codex"))
+	root.add_child(codex)
+	var unlock_all := button("무공 모두 개방 (비급 없이, 디버그)", 20)
 	unlock_all.pressed.connect(_unlock_all)
 	root.add_child(unlock_all)
 	var save_row := HBoxContainer.new()

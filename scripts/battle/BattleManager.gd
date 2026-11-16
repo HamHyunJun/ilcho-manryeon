@@ -52,6 +52,13 @@ var effects: EffectDirector
 var growth: CharacterGrowth
 ## 장비와 재화 (M8). GameState를 쓰지 않는 전투(테스트)는 따로 만든다
 var equipment: EquipmentManager
+## 비급 조각/던전 기록 (M9)
+var collection: ManualCollection
+## 진행 중인 던전 (없으면 null, M9)
+var dungeon: DungeonRun = null
+var _dungeon_spawn_cd := 0.0
+## 마지막 던전 결과 {cleared, rewards} (테스트, 표시용)
+var last_dungeon_result: Dictionary = {}
 
 
 func _ready() -> void:
@@ -92,10 +99,14 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 	else:
 		equipment = EquipmentManager.new(EquipmentManager.new_state(), EquipmentManager.new_currencies(), DataRegistry.equipment)
 	equipment.equipment_changed.connect(_refresh_stats)
+	collection = get_node("/root/GameState").collection if _persist else null
+	dungeon = null
 	if arts != null and arts.equipment_changed.is_connected(_refresh_stats):
 		arts.equipment_changed.disconnect(_refresh_stats)
 	arts = martial_arts
 	if arts != null:
+		if collection == null:
+			collection = ManualCollection.new(ManualCollection.new_state(), arts, equipment)
 		arts.equipment_changed.connect(_refresh_stats)
 		techniques = TechniqueModeController.new(arts, float(config["player_base"].get("technique_interval", 1.0)))
 
@@ -236,6 +247,29 @@ func tick(delta: float) -> void:
 		_redraw_all()
 		return
 
+	if dungeon != null:
+		_tick_dungeon(delta)
+	else:
+		_tick_stage(delta)
+
+	var hit: Dictionary = player.tick(delta, monsters, rng, _defense_constant)
+	if not hit.is_empty() and is_instance_valid(hit["target"]):
+		var color := Color(1.0, 0.85, 0.2) if hit["crit"] else Color.WHITE
+		_show_damage(hit["damage"], hit["target"].position + Vector2(0, -hit["target"].body_size.y), color, hit["crit"])
+
+	_try_cast_technique()
+
+	for m in monsters.duplicate():
+		if not is_instance_valid(m) or m.is_dead():
+			continue
+		var dealt: int = m.tick(delta, player, _defense_constant)
+		if dealt > 0:
+			_show_damage(dealt, player.position + Vector2(0, -player.body_size.y), Color(1.0, 0.4, 0.4))
+	_redraw_all()
+
+
+## 일반 스테이지 진행: 몬스터 생성, 보스 등장, 다음 스테이지
+func _tick_stage(delta: float) -> void:
 	match stage.phase:
 		StageManager.Phase.NORMAL:
 			_spawn_cd -= delta
@@ -252,21 +286,6 @@ func tick(delta: float) -> void:
 			_clear_cd -= delta
 			if _clear_cd <= 0.0:
 				_go_next_stage()
-
-	var hit: Dictionary = player.tick(delta, monsters, rng, _defense_constant)
-	if not hit.is_empty() and is_instance_valid(hit["target"]):
-		var color := Color(1.0, 0.85, 0.2) if hit["crit"] else Color.WHITE
-		_show_damage(hit["damage"], hit["target"].position + Vector2(0, -hit["target"].body_size.y), color, hit["crit"])
-
-	_try_cast_technique()
-
-	for m in monsters.duplicate():
-		if not is_instance_valid(m) or m.is_dead():
-			continue
-		var dealt: int = m.tick(delta, player, _defense_constant)
-		if dealt > 0:
-			_show_damage(dealt, player.position + Vector2(0, -player.body_size.y), Color(1.0, 0.4, 0.4))
-	_redraw_all()
 
 
 ## 자동 초식 발동. 대상이 없거나, 대기 중이거나, 내공이 부족하면 발동하지 않고 수련 횟수도 오르지 않는다.
@@ -343,13 +362,13 @@ func alive_count() -> int:
 
 
 ## 몬스터 하나를 화면 오른쪽에 생성한다. 스테이지 배율을 적용한다.
-func spawn_monster(monster_id: String) -> Node2D:
+func spawn_monster(monster_id: String, scaling: float = -1.0) -> Node2D:
 	var d: Dictionary = DataRegistry.get_monster(monster_id)
 	if d.is_empty():
 		push_error("[Battle] 알 수 없는 몬스터: " + monster_id)
 		return null
 	var m: Node2D = MonsterScript.new()
-	m.setup(d, stage.scaling())
+	m.setup(d, stage.scaling() if scaling < 0.0 else scaling)
 	m.position = Vector2(config["layout"]["spawn_x"], config["layout"]["ground_y"])
 	m.died.connect(_on_monster_died)
 	add_child(m)
@@ -381,12 +400,22 @@ func _on_monster_died(m: Node) -> void:
 	kill_count += 1
 	monsters.erase(m)
 	var rewards: Dictionary = m.data.get("rewards", {})
+	var sc: float = dungeon.scaling() if dungeon != null else stage.scaling()
 	var exp_gain := float(rewards.get("exp", 0))
 	if bool(DataRegistry.balance.get("growth", {}).get("exp_stage_scaling", true)):
-		exp_gain *= stage.scaling()
+		exp_gain *= sc
 	growth.add_exp(int(round(exp_gain)))
-	# 은냥, 강화석, 장비 드롭 (M8, 수치 가안)
-	equipment.add_currency("silver", int(round(float(rewards.get("silver", 0)) * stage.scaling())))
+	equipment.add_currency("silver", int(round(float(rewards.get("silver", 0)) * sc)))
+	if dungeon != null:
+		# 던전 몬스터는 장비를 떨어뜨리지 않고 스테이지 진행에도 들어가지 않는다 (보상은 클리어 보상)
+		if m == boss:
+			boss = null
+		dungeon.record_kill()
+		if dungeon.state == DungeonRun.State.CLEARED:
+			_on_dungeon_cleared()
+		m.queue_free()
+		return
+	# 장비 드롭 (M8, 수치 가안)
 	var drop: Dictionary = equipment.roll_drop(m.is_boss(), stage.scaling(), rng)
 	if not drop["item"].is_empty():
 		last_drop = drop["item"]
@@ -412,6 +441,91 @@ func _on_monster_died(m: Node) -> void:
 	m.queue_free()
 
 
+# ---- 비급 던전 (M9) ----
+
+## 던전에 들어간다. 일반 스테이지 진행(처치 수, 스테이지)은 그대로 두고 돌아온다.
+## 반환값: {ok, reason}
+func start_dungeon(dungeon_id: String, today: String = "") -> Dictionary:
+	var d: Dictionary = DataRegistry.get_dungeon(dungeon_id)
+	if d.is_empty():
+		return {"ok": false, "reason": "없는 던전"}
+	if dungeon != null:
+		return {"ok": false, "reason": "이미 던전 진행 중"}
+	var check: Dictionary = collection.can_enter(d, stage.highest_cleared, today)
+	if not check["ok"]:
+		return check
+	collection.record_entry(d, today)
+	_clear_monsters()
+	boss = null
+	player.recover()
+	dungeon = DungeonRun.new(d)
+	_dungeon_spawn_cd = 0.5
+	last_dungeon_result = {}
+	_set_banner("%s 입장" % d.get("name", ""), 1.5)
+	return {"ok": true, "reason": ""}
+
+
+func _tick_dungeon(delta: float) -> void:
+	var was_running := dungeon.state == DungeonRun.State.RUNNING
+	dungeon.tick(delta)
+	if was_running and dungeon.state == DungeonRun.State.FAILED:
+		_on_dungeon_failed()
+		return
+	if dungeon.state == DungeonRun.State.RUNNING:
+		_dungeon_spawn_cd -= delta
+		if _dungeon_spawn_cd <= 0.0:
+			_dungeon_spawn_cd = float(dungeon.battle_cfg().get("spawn_interval", 1.2))
+			if alive_count() < int(dungeon.battle_cfg().get("max_alive", 4)):
+				var sp: Dictionary = dungeon.next_spawn()
+				if not sp.is_empty():
+					var m := spawn_monster(sp["id"], dungeon.scaling())
+					if sp["boss"]:
+						boss = m
+						_set_banner("던전 보스 등장", 1.5)
+	elif dungeon.is_finished():
+		_leave_dungeon()
+
+
+func _on_dungeon_cleared() -> void:
+	var rng2 := rng
+	var res: Dictionary = collection.grant_clear(dungeon.data, rng2)
+	last_dungeon_result = {"cleared": true, "rewards": res}
+	var parts: PackedStringArray = []
+	for f in res["fragments"]:
+		parts.append("%s 조각 %d" % [DataRegistry.get_martial_art(f["art"]).get("name", f["art"]), int(f["amount"])])
+	if not res["pity_bonus"].is_empty():
+		parts.append("천장 보너스 %d" % int(res["pity_bonus"]["amount"]))
+	var unlocked := ""
+	for f in res["fragments"] + ([res["pity_bonus"]] if not res["pity_bonus"].is_empty() else []):
+		if f.get("unlocked", false):
+			unlocked = DataRegistry.get_martial_art(f["art"]).get("name", "")
+	if unlocked != "":
+		_set_banner("%s 개방!" % unlocked, 2.5)
+		if effects:
+			effects.play_mastery("spell", player.position + Vector2(0, -40), "%s 개방" % unlocked)
+	else:
+		_set_banner("던전 클리어: " + ", ".join(parts), 2.5)
+
+
+func _on_dungeon_failed() -> void:
+	last_dungeon_result = {"cleared": false, "reason": dungeon.fail_reason}
+	_set_banner("던전 실패: %s" % dungeon.fail_reason, 2.0)
+
+
+## 던전을 나와 일반 스테이지로 돌아간다
+func _leave_dungeon() -> void:
+	_clear_monsters()
+	boss = null
+	dungeon = null
+	player.recover()
+	_spawn_cd = 0.5
+	# 보스전 중에 들어갔다면 보스 등장부터 다시
+	if stage.phase == StageManager.Phase.BOSS:
+		stage.phase = StageManager.Phase.BOSS_INTRO
+		_intro_cd = _stage_cfg("boss_intro_delay", 1.5)
+	_start_stage_banner()
+
+
 func _go_next_stage() -> void:
 	_clear_monsters()
 	stage.advance()
@@ -426,12 +540,20 @@ func _go_next_stage() -> void:
 ## 캐릭터가 쓰러졌을 때의 임시 처리 (미확정 O-06): 잠시 멈춘 뒤 현재 스테이지를 처음부터 다시 시작한다.
 func _on_player_knocked_out() -> void:
 	_recover_cd = float(config.get("knockout", {}).get("recover_delay", 2.0))
+	if dungeon != null:
+		dungeon.fail("쓰러짐")
+		_on_dungeon_failed()
+		return
 	_set_banner("쓰러짐… 스테이지 재시작", _recover_cd)
 	if has_node("/root/EventBus"):
 		get_node("/root/EventBus").player_knocked_out.emit()
 
 
 func _restart_after_knockout() -> void:
+	# 던전에서 쓰러지면 던전만 실패하고 스테이지로 돌아간다 (스테이지 진행은 유지)
+	if dungeon != null:
+		_leave_dungeon()
+		return
 	_clear_monsters()
 	stage.restart()
 	player.recover()

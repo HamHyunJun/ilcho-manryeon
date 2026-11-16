@@ -20,9 +20,12 @@ func _draw() -> void:
 	var stage: StageManager = battle.stage
 	var player = battle.player
 
-	# 1줄: 지역명 · 스테이지
-	draw_string(font, Vector2(LEFT, TOP), "%s · 스테이지 %d" % [stage.region_name(), stage.stage_no],
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.95, 0.9, 0.75))
+	# 1줄: 지역명 · 스테이지 (던전 중에는 던전 이름)
+	var dg = battle.dungeon
+	var title := "%s · 스테이지 %d" % [stage.region_name(), stage.stage_no]
+	if dg != null:
+		title = dg.data.get("name", "던전")
+	draw_string(font, Vector2(LEFT, TOP), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.95, 0.9, 0.75))
 	if battle.equipment != null:
 		draw_string(font, Vector2(LEFT, TOP), "은냥 %s" % MenuPanel.fmt(battle.equipment.silver()),
 			HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 22, Color(0.95, 0.85, 0.5))
@@ -31,7 +34,13 @@ func _draw() -> void:
 	var bar := Rect2(Vector2(LEFT, TOP + 44), Vector2(WIDTH, 16))
 	draw_rect(bar, Color(0.15, 0.15, 0.15))
 	var boss = battle.boss
-	if stage.phase == StageManager.Phase.BOSS and is_instance_valid(boss):
+	if dg != null and not (dg.is_boss_wave() and is_instance_valid(boss)):
+		var tl: float = float(dg.battle_cfg().get("time_limit", 180))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * clampf(dg.time_left / tl, 0.0, 1.0), bar.size.y)), Color(0.5, 0.75, 1.0))
+		draw_string(font, Vector2(LEFT, TOP + 36), "웨이브 %d / %d · 남은 적 %d" % [mini(dg.wave_index + 1, dg.wave_count()), dg.wave_count(), dg.remaining_in_wave()],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 20)
+		draw_string(font, Vector2(LEFT, TOP + 36), "남은 시간 %d초" % ceili(maxf(dg.time_left, 0.0)), HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 20)
+	elif (stage.phase == StageManager.Phase.BOSS or dg != null) and is_instance_valid(boss):
 		var r := float(boss.hp) / float(boss.max_hp)
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * r, bar.size.y)), Color(0.85, 0.25, 0.2))
 		draw_string(font, Vector2(LEFT, TOP + 36), "보스 %s" % boss.data.get("name", ""),

@@ -5,6 +5,7 @@ extends Node
 ## M4: 스테이지 진행(stage) 보관, 불러온 데이터 적용, 중요 이벤트 때 저장 요청.
 ## M7: 캐릭터 레벨/경지(character)와 성장 관리자(growth).
 ## M8: 장비(equipment)와 재화(currencies), 장비 관리자(equipment).
+## M9: 비급 조각과 던전 기록(collection).
 
 ## 저장 스키마 버전. 구조가 바뀔 때마다 올리고 SaveManager.migrations에 변환을 추가한다.
 const SAVE_VERSION := 1
@@ -17,6 +18,8 @@ var arts: MartialArtManager
 var growth: CharacterGrowth
 ## 장비와 재화 관리자 (M8). data["equipment"], data["currencies"]를 직접 다룬다.
 var equipment: EquipmentManager
+## 비급 조각과 던전 기록 (M9). data["collection"]을 직접 다룬다.
+var collection: ManualCollection
 
 
 func _ready() -> void:
@@ -37,10 +40,12 @@ func reset_to_new_game() -> void:
 		"character": CharacterGrowth.new_state(),
 		"equipment": EquipmentManager.new_state(),
 		"currencies": EquipmentManager.new_currencies(),
+		"collection": ManualCollection.new_state(),
 	}
 	_bind_arts()
 	_bind_growth()
 	_bind_equipment()
+	_bind_collection()
 	arts.unlock(start_art)
 	arts.refresh_training_target()
 
@@ -64,12 +69,15 @@ func apply_loaded(loaded: Dictionary) -> void:
 		data["equipment"] = EquipmentManager.new_state()
 	if not (data.get("currencies") is Dictionary):
 		data["currencies"] = EquipmentManager.new_currencies()
+	if not (data.get("collection") is Dictionary):
+		data["collection"] = ManualCollection.new_state()
 	# 저장 메타 정보는 상태에 남기지 않는다 (저장할 때 다시 쓴다)
 	for key in ["save_seq", "saved_at_unix", "saved_at_monotonic_ms", "boot_session_id"]:
 		data.erase(key)
 	_bind_arts()
 	_bind_growth()
 	_bind_equipment()
+	_bind_collection()
 	if arts.main_art() != "" and not arts.is_unlocked(arts.main_art()):
 		arts.unlock(arts.main_art())
 	arts.refresh_training_target()
@@ -101,6 +109,11 @@ func _bind_equipment() -> void:
 	# 장착 변경과 강화는 중요 이벤트로 저장한다
 	equipment.equipment_changed.connect(_request_save)
 	equipment.inventory_changed.connect(_request_save)
+
+
+func _bind_collection() -> void:
+	collection = ManualCollection.new(data["collection"], arts, equipment)
+	collection.fragments_changed.connect(func(_a, _n): _request_save())
 
 
 func _request_save() -> void:
