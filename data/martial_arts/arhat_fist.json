@@ -1,0 +1,88 @@
+{
+  "_comment": "수치와 초식 이름은 테스트용 자리 값이다. 초식 이름·구성은 미확정(O-11), 수치는 밸런스 단계에서 확정한다.",
+  "id": "arhat_fist",
+  "name": "나한권",
+  "category": "fist",
+  "sect": "shaolin",
+  "alignment": "orthodox",
+  "description": "소림사의 권법. 높은 방어력과 강력한 단타, 기절이 특징이다.",
+  "acquire": {
+    "type": "fragments",
+    "fragment_item": "frag_arhat_fist",
+    "required": 0
+  },
+  "sources": [
+    "manual_dungeon"
+  ],
+  "passive_as_sub": [],
+  "techniques": [
+    {
+      "id": "arhat_fist.t1",
+      "name": "나한권 1초식",
+      "order": 1,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.3,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "arhat_fist.t2",
+      "name": "나한권 2초식",
+      "order": 2,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.6,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "arhat_fist.t3",
+      "name": "나한권 3초식",
+      "order": 3,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.9,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "arhat_fist.t4",
+      "name": "나한권 4초식",
+      "order": 4,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 2.2,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    }
+  ]
+}

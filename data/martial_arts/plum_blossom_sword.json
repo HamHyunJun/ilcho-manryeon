@@ -1,0 +1,88 @@
+{
+  "_comment": "수치와 초식 이름은 테스트용 자리 값이다. 초식 이름·구성은 미확정(O-11), 수치는 밸런스 단계에서 확정한다.",
+  "id": "plum_blossom_sword",
+  "name": "매화검법",
+  "category": "sword",
+  "sect": "hwasan",
+  "alignment": "orthodox",
+  "description": "화산파의 검법. 빠른 연속 공격과 치명타, 검기가 특징이다.",
+  "acquire": {
+    "type": "fragments",
+    "fragment_item": "frag_plum_blossom_sword",
+    "required": 0
+  },
+  "sources": [
+    "manual_dungeon"
+  ],
+  "passive_as_sub": [],
+  "techniques": [
+    {
+      "id": "plum_blossom_sword.t1",
+      "name": "매화검법 1초식",
+      "order": 1,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.3,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "plum_blossom_sword.t2",
+      "name": "매화검법 2초식",
+      "order": 2,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.6,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "plum_blossom_sword.t3",
+      "name": "매화검법 3초식",
+      "order": 3,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 1.9,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    },
+    {
+      "id": "plum_blossom_sword.t4",
+      "name": "매화검법 4초식",
+      "order": 4,
+      "mastery_target": 10000,
+      "trainable": true,
+      "power_coef": 2.2,
+      "range": 0.25,
+      "max_targets": 1,
+      "mp_cost": 5,
+      "cooldown": 1.0,
+      "element": "none",
+      "status_effects": [],
+      "special": [],
+      "animation": "",
+      "effect_override": null
+    }
+  ]
+}

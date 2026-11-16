@@ -1,0 +1,36 @@
+; 일초만련 Godot 프로젝트 설정
+; 엔진 버전: Godot 4.7 (결정 기록 #27 참고)
+
+config_version=5
+
+[application]
+
+config/name="일초만련"
+config/description="2D 픽셀 무협 세로형 Android 싱글 RPG"
+run/main_scene="res://scenes/main/Main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+EventBus="*res://scripts/autoload/EventBus.gd"
+TimeService="*res://scripts/autoload/TimeService.gd"
+DataRegistry="*res://scripts/autoload/DataRegistry.gd"
+GameState="*res://scripts/autoload/GameState.gd"
+SaveManager="*res://scripts/autoload/SaveManager.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=405
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
