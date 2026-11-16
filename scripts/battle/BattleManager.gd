@@ -46,6 +46,8 @@ var _persist := false
 var _hud: Node2D
 ## 초식 연출 관리자 (M6)
 var effects: EffectDirector
+## 캐릭터 레벨/경지 (M7). GameState를 쓰지 않는 전투(테스트)는 따로 만든다
+var growth: CharacterGrowth
 
 
 func _ready() -> void:
@@ -70,6 +72,15 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 	if _persist:
 		martial_arts = get_node("/root/GameState").arts
 		_restore_stage(get_node("/root/GameState").data.get("stage", {}))
+	if growth != null and growth.leveled_up.is_connected(_on_leveled_up):
+		growth.leveled_up.disconnect(_on_leveled_up)
+		growth.realm_promoted.disconnect(_on_realm_promoted)
+	if _persist:
+		growth = get_node("/root/GameState").growth
+	else:
+		growth = CharacterGrowth.new(CharacterGrowth.new_state(), DataRegistry.balance.get("growth", {}))
+	growth.leveled_up.connect(_on_leveled_up)
+	growth.realm_promoted.connect(_on_realm_promoted)
 	if arts != null and arts.equipment_changed.is_connected(_refresh_stats):
 		arts.equipment_changed.disconnect(_refresh_stats)
 	arts = martial_arts
@@ -131,10 +142,42 @@ func _sync_stage() -> void:
 		get_node("/root/GameState").data["stage"] = stage.to_save()
 
 
-## 기본 능력치에 보조 무공 패시브를 더한 능력치
+## 기본 능력치에 보조 무공 패시브, 레벨/경지 보너스를 더한 능력치
 func _effective_stats() -> Dictionary:
-	var bonuses: Dictionary = arts.sub_passives() if arts != null else {}
-	return PlayerStats.apply(config["player_base"], bonuses)
+	var list: Array = []
+	if arts != null:
+		list.append(arts.sub_passives())
+	if growth != null:
+		list.append(growth.stat_bonuses())
+	return PlayerStats.apply(config["player_base"], PlayerStats.merge(list))
+
+
+## 전투력 (HUD 표시, 가안 가중합)
+func combat_power() -> int:
+	var w: Dictionary = DataRegistry.balance.get("growth", {}).get("combat_power", {})
+	return CharacterGrowth.combat_power(_effective_stats(), arts.total_mastered() if arts else 0, w)
+
+
+func _on_leveled_up(level: int) -> void:
+	_refresh_stats()
+	_set_banner("레벨 업!  Lv %d" % level, 1.2)
+	_check_promotion()
+
+
+func _on_realm_promoted(_tier: int) -> void:
+	_refresh_stats()
+	var name: String = growth.realm().get("name", "")
+	_set_banner("경지 승급!  %s" % name, 2.5)
+	if effects:
+		effects.play_mastery("spell", player.position + Vector2(0, -player.body_size.y * 0.5), name)
+
+
+## 레벨과 대성 초식 수가 다음 경지 조건을 채우면 승급한다 (자동 승급, 가안 O-22)
+func _check_promotion() -> void:
+	if growth == null or arts == null:
+		return
+	if bool(DataRegistry.balance.get("growth", {}).get("auto_promote", true)):
+		growth.try_promote(arts.total_mastered())
 
 
 ## 장착이 바뀌면 능력치를 다시 계산한다 (체력 비율 유지)
@@ -235,6 +278,8 @@ func _try_cast_technique() -> void:
 	if mastered_now:
 		effects.play_mastery(category, at, "%s 대성!" % tech.get("name", ""), tech)
 		_set_banner("%s 대성! 다음 초식이 열렸습니다" % tech.get("name", ""), 2.0)
+		# 승급 안내가 대성 안내보다 우선한다
+		_check_promotion()
 	elif stage_after > stage_before:
 		var th: Array = DataRegistry.balance.get("training", {}).get("stage_thresholds", [])
 		effects.play_stage_up(category, stage_after, at, "%s · %s" % [tech.get("name", ""), MartialArtManager.stage_name_for(arts.count_of(tid), th)])
@@ -312,6 +357,11 @@ func _spawn_boss() -> void:
 func _on_monster_died(m: Node) -> void:
 	kill_count += 1
 	monsters.erase(m)
+	var rewards: Dictionary = m.data.get("rewards", {})
+	var exp_gain := float(rewards.get("exp", 0))
+	if bool(DataRegistry.balance.get("growth", {}).get("exp_stage_scaling", true)):
+		exp_gain *= stage.scaling()
+	growth.add_exp(int(round(exp_gain)))
 	if has_node("/root/EventBus"):
 		get_node("/root/EventBus").monster_killed.emit(m.data.get("id", ""), m.data.get("rewards", {}))
 	if m == boss:

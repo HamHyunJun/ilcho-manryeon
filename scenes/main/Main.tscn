@@ -52,7 +52,7 @@ horizontal_alignment = 1
 [node name="Subtitle" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "일초만련 · M6 수련 단계 이펙트"
+text = "일초만련 · M7 캐릭터 성장과 경지"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="Margin/VBox"]

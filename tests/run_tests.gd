@@ -35,6 +35,9 @@ const TESTS := [
 	&"_test_effect_presets",
 	&"_test_effect_director_in_battle",
 	&"_test_effect_performance_cap",
+	&"_test_growth_level_and_exp",
+	&"_test_growth_realm_promotion",
+	&"_test_growth_in_battle_and_save",
 ]
 
 var _failed := 0
@@ -737,4 +740,104 @@ func _test_effect_performance_cap() -> void:
 		fx.tick(0.05)
 	_check(fx.active_count() == 0 and fx.shake_offset == Vector2.ZERO, "연출이 끝나면 모두 정리되고 흔들림도 멈춤")
 	fx.free()
+	_finish()
+
+
+func _growth_cfg() -> Dictionary:
+	return _reg().balance.get("growth", {})
+
+
+func _test_growth_level_and_exp() -> void:
+	print("[M7 경험치와 레벨]")
+	var g := CharacterGrowth.new(CharacterGrowth.new_state(), _growth_cfg())
+	_check(g.level() == 1 and g.current_exp() == 0 and g.realm_tier() == 1, "새 캐릭터: Lv 1, 경험치 0, 삼류 무인")
+	_check(g.exp_to_next() == 100, "Lv 1 → 2 필요 경험치 100 (100 × 1^1.6)")
+	g.state["level"] = 10
+	_check(g.exp_to_next() == int(round(100.0 * pow(10.0, 1.6))), "Lv 10 필요 경험치 = 100 × 10^1.6")
+	g.state["level"] = 1
+	var ups := g.add_exp(99)
+	_check(ups == 0 and g.current_exp() == 99, "모자라면 레벨이 오르지 않음")
+	ups = g.add_exp(1)
+	_check(ups == 1 and g.level() == 2 and g.current_exp() == 0, "채우면 레벨 업, 남는 경험치 이월")
+	ups = g.add_exp(100000)
+	_check(ups > 1, "많이 얻으면 여러 레벨이 한 번에 오름")
+	var b := g.stat_bonuses()
+	_check(is_equal_approx(float(b["atk"]["percent"]), pow(1.03, g.level() - 1) - 1.0), "레벨당 공격력 +3% 복리")
+	g.state["level"] = g.level_cap() - 1
+	g.add_exp(99999999)
+	_check(g.level() == g.level_cap() and g.current_exp() == 0 and g.add_exp(100) == 0, "레벨 상한에서 멈춤 (가안 %d)" % g.level_cap())
+	_finish()
+
+
+func _test_growth_realm_promotion() -> void:
+	print("[M7 경지 승급]")
+	var g := CharacterGrowth.new(CharacterGrowth.new_state(), _growth_cfg())
+	_check(g.realms().size() == 9 and g.realm()["name"] == "삼류 무인" and g.realms()[8]["name"] == "무극", "경지 9단계 데이터 (삼류 무인 ~ 무극)")
+	g.state["level"] = 10
+	_check(not g.can_promote(0), "레벨만 채우고 대성 초식이 없으면 승급 불가")
+	g.state["level"] = 9
+	_check(not g.can_promote(1), "대성만 채우고 레벨이 모자라면 승급 불가")
+	g.state["level"] = 10
+	var promoted := [0]
+	g.realm_promoted.connect(func(_t): promoted[0] += 1)
+	_check(g.try_promote(1) == 1 and g.realm()["name"] == "이류 무인", "Lv 10 + 대성 1개 → 이류 무인")
+	g.state["level"] = 35
+	_check(g.try_promote(6) == 2 and g.realm()["name"] == "절정 고수", "조건을 넘게 채우면 여러 단계 한 번에 승급")
+	_check(promoted[0] == 2, "승급 알림 신호")
+	var b := g.stat_bonuses()
+	_check(float(b["def"]["percent"]) > 0.3, "경지 보너스가 능력치에 반영 (가안)")
+	g.state["level"] = 150
+	g.try_promote(100)
+	_check(g.realm_tier() == 9 and not g.can_promote(999), "무극이 최고 경지")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 10000)
+	arts.unlock("arhat_fist")
+	arts.debug_set_count("arhat_fist.t1", 10000)
+	_check(arts.total_mastered() == 3, "대성 초식 수는 모든 무공 합산")
+	_finish()
+
+
+func _test_growth_in_battle_and_save() -> void:
+	print("[M7 전투 경험치, HUD, 저장]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var g: CharacterGrowth = battle.growth
+	var cp0: int = battle.combat_power()
+	var atk0: float = battle.player.atk
+	var t := 0.0
+	while t < 120.0 and g.level() < 2:
+		battle.tick(0.05)
+		t += 0.05
+	_check(g.level() >= 2, "몬스터를 처치하면 경험치가 쌓여 레벨 업")
+	_check(battle.player.atk > atk0 and battle.combat_power() > cp0, "레벨 업하면 공격력과 전투력이 오름")
+	_check(battle.banner_text.contains("레벨") or battle.banner_text != "", "레벨 업 안내")
+	g.state["level"] = 10
+	arts.debug_set_count("plum_blossom_sword.t1", 9999)
+	t = 0.0
+	while t < 30.0 and g.realm_tier() == 1:
+		battle.tick(0.05)
+		t += 0.05
+	_check(g.realm()["name"] == "이류 무인", "Lv 10에서 첫 초식을 대성하면 이류 무인으로 자동 승급")
+	_check(battle.banner_text.contains("이류"), "승급 안내가 HUD에 뜸")
+	battle.free()
+	# 저장/불러오기
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	gs.growth.add_exp(5000)
+	gs.growth.state["realm_tier"] = 2
+	var lv: int = gs.growth.level()
+	var sm = _make_save_manager("user://test_m7_save")
+	sm.save_game()
+	gs.reset_to_new_game()
+	var r: Dictionary = sm.load_game()
+	gs.apply_loaded(r["data"])
+	_check(gs.growth.level() == lv and gs.growth.realm_tier() == 2, "레벨과 경지가 저장/불러오기로 유지")
+	var old: Dictionary = r["data"].duplicate(true)
+	old.erase("character")
+	gs.apply_loaded(old)
+	_check(gs.growth.level() == 1, "예전 저장(캐릭터 항목 없음)도 기본값으로 불러옴")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
 	_finish()

@@ -1,0 +1,20 @@
+{
+  "_comment": "캐릭터 성장 수치 (docs/05, docs/11 5장). 모든 수치는 가안. 경지 능력치 보너스는 O-22, 레벨 상한은 O-21.",
+  "exp_curve": { "base": 100, "exponent": 1.6 },
+  "level_cap": 150,
+  "per_level_compound": { "atk": 0.03, "max_hp": 0.03 },
+  "exp_stage_scaling": true,
+  "realms": [
+    { "tier": 1, "id": "third_rate",   "name": "삼류 무인",   "level": 1,   "mastered": 0,  "bonus": {} },
+    { "tier": 2, "id": "second_rate",  "name": "이류 무인",   "level": 10,  "mastered": 1,  "bonus": { "atk": 0.10, "max_hp": 0.10, "def": 0.10 } },
+    { "tier": 3, "id": "first_rate",   "name": "일류 무인",   "level": 20,  "mastered": 3,  "bonus": { "atk": 0.20, "max_hp": 0.20, "def": 0.20 } },
+    { "tier": 4, "id": "peak",         "name": "절정 고수",   "level": 35,  "mastered": 6,  "bonus": { "atk": 0.35, "max_hp": 0.35, "def": 0.35 } },
+    { "tier": 5, "id": "super_peak",   "name": "초절정 고수", "level": 50,  "mastered": 10, "bonus": { "atk": 0.55, "max_hp": 0.55, "def": 0.55 } },
+    { "tier": 6, "id": "transformed",  "name": "화경",        "level": 70,  "mastered": 15, "bonus": { "atk": 0.80, "max_hp": 0.80, "def": 0.80 } },
+    { "tier": 7, "id": "mysterious",   "name": "현경",        "level": 90,  "mastered": 21, "bonus": { "atk": 1.10, "max_hp": 1.10, "def": 1.10 } },
+    { "tier": 8, "id": "life_death",   "name": "생사경",      "level": 110, "mastered": 28, "bonus": { "atk": 1.50, "max_hp": 1.50, "def": 1.50 } },
+    { "tier": 9, "id": "limitless",    "name": "무극",        "level": 130, "mastered": 36, "bonus": { "atk": 2.00, "max_hp": 2.00, "def": 2.00 } }
+  ],
+  "auto_promote": true,
+  "combat_power": { "atk": 10, "max_hp": 1, "def": 5, "crit": 1000, "mastered": 100 }
+}

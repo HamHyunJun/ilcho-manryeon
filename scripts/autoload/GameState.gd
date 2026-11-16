@@ -3,6 +3,7 @@ extends Node
 ## 저장 데이터(SaveData) 구조는 docs/10-save-data.md를 따른다.
 ## M3: 무공 장착/수련 기록(martial_arts)과 무공 관리자(arts).
 ## M4: 스테이지 진행(stage) 보관, 불러온 데이터 적용, 중요 이벤트 때 저장 요청.
+## M7: 캐릭터 레벨/경지(character)와 성장 관리자(growth).
 
 ## 저장 스키마 버전. 구조가 바뀔 때마다 올리고 SaveManager.migrations에 변환을 추가한다.
 const SAVE_VERSION := 1
@@ -11,6 +12,8 @@ const SAVE_VERSION := 1
 var data: Dictionary = {}
 ## 무공 장착/수련 기록 관리자. data["martial_arts"]를 직접 다룬다.
 var arts: MartialArtManager
+## 캐릭터 레벨/경지 관리자 (M7). data["character"]를 직접 다룬다.
+var growth: CharacterGrowth
 
 
 func _ready() -> void:
@@ -28,8 +31,10 @@ func reset_to_new_game() -> void:
 		"version": SAVE_VERSION,
 		"martial_arts": MartialArtManager.new_state(start_art),
 		"stage": new_stage_state(),
+		"character": CharacterGrowth.new_state(),
 	}
 	_bind_arts()
+	_bind_growth()
 	arts.unlock(start_art)
 	arts.refresh_training_target()
 
@@ -47,10 +52,13 @@ func apply_loaded(loaded: Dictionary) -> void:
 		data["martial_arts"] = MartialArtManager.new_state(start_art)
 	if not (data.get("stage") is Dictionary):
 		data["stage"] = new_stage_state()
+	if not (data.get("character") is Dictionary):
+		data["character"] = CharacterGrowth.new_state()
 	# 저장 메타 정보는 상태에 남기지 않는다 (저장할 때 다시 쓴다)
 	for key in ["save_seq", "saved_at_unix", "saved_at_monotonic_ms", "boot_session_id"]:
 		data.erase(key)
 	_bind_arts()
+	_bind_growth()
 	if arts.main_art() != "" and not arts.is_unlocked(arts.main_art()):
 		arts.unlock(arts.main_art())
 	arts.refresh_training_target()
@@ -69,6 +77,12 @@ func _bind_arts() -> void:
 	arts.equipment_changed.connect(_request_save)
 	arts.art_unlocked.connect(func(_id): _request_save())
 	arts.chain_mode_changed.connect(func(_on): _request_save())
+
+
+func _bind_growth() -> void:
+	growth = CharacterGrowth.new(data["character"], get_node("/root/DataRegistry").balance.get("growth", {}))
+	# 경지 승급은 중요 이벤트로 바로 저장한다
+	growth.realm_promoted.connect(func(_t): _request_save())
 
 
 func _request_save() -> void:

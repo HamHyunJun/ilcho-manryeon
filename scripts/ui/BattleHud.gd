@@ -2,7 +2,7 @@ extends Node2D
 ## 전투 상단 HUD (M2).
 ## 지역명 · 스테이지 번호, 처치 진행도(예: 37 / 50), 보스까지 남은 몬스터 수, 캐릭터 체력,
 ## 보스전에서는 보스 체력 바를 표시한다 (docs/09 2-1).
-## M3에서 내공 바와 발동한 초식 이름을 추가했다. 경지, 전투력, 재화는 해당 단계(M7, M8)에서 추가한다.
+## M3에서 내공 바와 발동한 초식 이름, M7에서 경지·레벨·전투력·경험치 바를 추가했다. 재화는 M8.
 ## 임시 UI: 폰트와 색은 정식 UI 작업 때 바꾼다.
 
 ## 표시할 BattleManager
@@ -63,6 +63,18 @@ func _draw() -> void:
 		Color(0.35, 0.55, 1.0))
 	draw_string(font, Vector2(LEFT, TOP + 92), "내공 %d / %d" % [int(player.mp), int(player.max_mp)],
 		HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 20, Color(0.7, 0.8, 1.0))
+
+	# 5줄: 경지 · 레벨 · 전투력과 경험치 (M7)
+	var growth = battle.growth
+	if growth != null:
+		draw_string(font, Vector2(LEFT, TOP + 160), "%s · Lv %d" % [growth.realm().get("name", ""), growth.level()],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1.0, 0.85, 0.55))
+		draw_string(font, Vector2(LEFT, TOP + 160), "전투력 %s" % MenuPanel.fmt(battle.combat_power()),
+			HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 22, Color(1.0, 0.95, 0.8))
+		var exp_bar := Rect2(Vector2(LEFT, TOP + 170), Vector2(WIDTH, 6))
+		draw_rect(exp_bar, Color(0.15, 0.15, 0.15))
+		var er := 1.0 if growth.level() >= growth.level_cap() else float(growth.current_exp()) / float(maxi(growth.exp_to_next(), 1))
+		draw_rect(Rect2(exp_bar.position, Vector2(exp_bar.size.x * er, exp_bar.size.y)), Color(0.75, 0.6, 1.0))
 
 	# 캐릭터 머리 위: 방금 발동한 초식 이름
 	if battle.last_technique_left > 0.0 and battle.last_technique_name != "":

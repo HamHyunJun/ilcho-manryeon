@@ -11,6 +11,7 @@ var selected_art := ""
 var _tech_labels: Dictionary = {}
 var _speed_label: Label
 var _save_label: Label
+var _char_label: Label
 
 
 func _init(martial_arts: MartialArtManager) -> void:
@@ -33,6 +34,7 @@ func _process(_delta: float) -> void:
 	if visible:
 		_update_tech_labels()
 		_update_save_label()
+		_update_character()
 
 
 func _rebuild() -> void:
@@ -40,12 +42,60 @@ func _rebuild() -> void:
 		return
 	clear_root()
 	_tech_labels.clear()
+	_build_character()
+	root.add_child(HSeparator.new())
 	_build_art_rows()
 	root.add_child(HSeparator.new())
 	_build_tech_rows()
 	root.add_child(HSeparator.new())
 	_build_debug()
 	_update_tech_labels()
+
+
+# ---- 캐릭터 레벨과 경지 (M7) ----
+
+func _growth() -> CharacterGrowth:
+	var gs = get_node_or_null("/root/GameState")
+	return gs.growth if gs else null
+
+
+func _build_character() -> void:
+	root.add_child(label("캐릭터 · 경지", 22))
+	_char_label = label("", 18)
+	root.add_child(_char_label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	root.add_child(row)
+	for d in [["경험치 +1000", 0], ["레벨 +10", 10]]:
+		var b := button(d[0], 16)
+		b.pressed.connect(_debug_level.bind(d[1]))
+		row.add_child(b)
+	_update_character()
+
+
+func _update_character() -> void:
+	var g := _growth()
+	if g == null or _char_label == null:
+		return
+	var nx := g.next_realm()
+	var next_text := "최고 경지"
+	if not nx.is_empty():
+		next_text = "다음 %s: Lv %d · 대성 초식 %d개 (현재 Lv %d · 대성 %d개)" % [nx["name"], int(nx["level"]), int(nx["mastered"]), g.level(), arts.total_mastered()]
+	var exp_text := "최대 레벨" if g.level() >= g.level_cap() else "%s / %s" % [fmt(g.current_exp()), fmt(g.exp_to_next())]
+	_char_label.text = "%s · Lv %d · 경험치 %s\n%s" % [g.realm().get("name", ""), g.level(), exp_text, next_text]
+
+
+## 디버그: 0이면 경험치 1000, 그 밖에는 레벨을 n만큼 올린다
+func _debug_level(levels: int) -> void:
+	var g := _growth()
+	if g == null:
+		return
+	if levels == 0:
+		g.add_exp(1000)
+	else:
+		for i in levels:
+			g.add_exp(g.exp_to_next() - g.current_exp())
+	_update_character()
 
 
 func _build_art_rows() -> void:

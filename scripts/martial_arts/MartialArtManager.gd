@@ -73,6 +73,17 @@ func unlock(art_id: String) -> bool:
 	return true
 
 
+## 모든 무공의 대성 초식 합계 (경지 승급 조건, docs/05 3-1)
+func total_mastered() -> int:
+	var n := 0
+	for art_id in state["progress"].keys():
+		var techs: Dictionary = state["progress"][art_id].get("techniques", {})
+		for tid in techs.keys():
+			if bool(techs[tid].get("mastered", false)):
+				n += 1
+	return n
+
+
 func unlocked_arts() -> Array:
 	var ids: Array = []
 	for id in state["progress"].keys():
