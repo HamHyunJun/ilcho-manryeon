@@ -290,7 +290,22 @@ EffectPreset (Resource)
 - 수련 횟수는 메모리에서 누적하고 저장은 주기/이벤트 단위로 한다.
 - JSON은 시작 시 한 번 읽어 메모리에 캐시한다.
 
-## 6. 빌드와 출시 준비 [가안]
+## 6. 빌드와 출시 준비
+
+### 6-1. CI (GitHub Actions) [구현됨]
+
+`.github/workflows/build.yml`
+
+| 작업 | 시점 | 내용 |
+|---|---|---|
+| 헤드리스 테스트 | 모든 push / PR | Godot 헤드리스로 `tests/run_tests.gd` 실행 |
+| Android 디버그 APK | 테스트 통과 후 | 내보내기 템플릿(캐시) + 러너의 Android SDK로 `export_presets.cfg`의 "Android" 프리셋을 디버그 내보내기, 아티팩트 업로드 |
+
+- 디버그 키스토어는 실행마다 `keytool`로 새로 만들고 환경 변수(`GODOT_ANDROID_KEYSTORE_DEBUG_*`)로 넘긴다. 저장소에 키를 넣지 않는다.
+- 패키지 이름은 임시 값 `com.ilchomanryeon.dev` (O-50).
+- 아키텍처는 arm64-v8a만 빌드한다. [가안]
+
+### 6-2. 출시 준비 [가안]
 
 - Android 내보내기 템플릿, 세로 고정, 최소 SDK 버전 설정.
 - Google Play 출시용 AAB 빌드, 서명 키 관리.

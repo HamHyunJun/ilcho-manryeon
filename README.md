@@ -29,6 +29,18 @@ godot --headless --path . -s res://tests/run_tests.gd
 
 테스트가 모두 통과하면 종료 코드 0으로 끝납니다.
 
+## Android 디버그 APK 받기 (GitHub Actions)
+
+push나 PR이 올라오면 GitHub Actions가 자동으로 테스트를 돌리고, 통과하면 디버그 APK를 빌드합니다.
+
+1. 저장소의 **Actions** 탭에서 "테스트 및 Android 디버그 빌드" 실행을 엽니다. (직접 돌리려면 **Run workflow** 버튼)
+2. 실행이 끝나면 아래쪽 **Artifacts**에서 `ilcho-manryeon-debug-apk`를 내려받습니다. (14일 보관)
+3. 압축을 풀어 나온 APK를 Android 기기로 옮겨 설치합니다. 기기에서 "출처를 알 수 없는 앱 설치"를 허용해야 할 수 있습니다.
+
+- 디버그 키스토어는 실행할 때마다 새로 만들어지므로, 새 APK를 설치할 때 기존 앱을 먼저 지워야 할 수 있습니다.
+- 패키지 이름은 임시 값 `com.ilchomanryeon.dev`입니다. 출시 전에 확정합니다(미확정 O-50).
+- 릴리스 서명 키와 비밀값은 저장소에 넣지 않습니다.
+
 ## 기획 문서
 
 | 문서 | 내용 |
