@@ -18,6 +18,13 @@ const TESTS := [
 	&"_test_stage_data_detects_errors",
 	&"_test_stage_manager",
 	&"_test_stage_loop",
+	&"_test_new_game_martial_arts",
+	&"_test_original_scenario_switch_restore",
+	&"_test_mastery_and_unlock",
+	&"_test_training_rules",
+	&"_test_sub_passive_only",
+	&"_test_battle_training_single",
+	&"_test_battle_training_chain",
 ]
 
 var _failed := 0
@@ -139,13 +146,22 @@ func _test_target_selector() -> void:
 	_finish()
 
 
-## 전투 씬을 수동 진행 모드로 띄운다.
-func _make_battle() -> Node2D:
+## 전투 씬을 수동 진행 모드로 띄운다. arts를 주면 그 무공 관리자로 전투를 다시 초기화한다.
+func _make_battle(arts: MartialArtManager = null) -> Node2D:
 	var battle: Node2D = load("res://scenes/battle/Battle.tscn").instantiate()
 	battle.manual_tick = true
 	root.add_child(battle)
+	if arts != null:
+		battle.setup(battle.config, {}, arts)
 	battle.rng.seed = 12345
 	return battle
+
+
+## 테스트용 새 무공 관리자 (GameState와 분리된 상태). 매화검법 개방.
+func _new_arts() -> MartialArtManager:
+	var arts := MartialArtManager.new(MartialArtManager.new_state("plum_blossom_sword"), _reg())
+	arts.unlock("plum_blossom_sword")
+	return arts
 
 
 func _test_battle_simulation() -> void:
@@ -283,3 +299,135 @@ func _test_stage_loop() -> void:
 	_check(battle.player.hp == battle.player.max_hp, "새 스테이지 시작 시 체력 회복 (가안)")
 	battle.free()
 	_finish()
+
+
+func _test_new_game_martial_arts() -> void:
+	print("[새 게임 무공]")
+	var arts: MartialArtManager = root.get_node("GameState").arts
+	_check(arts.main_art() == "plum_blossom_sword", "시작 무공 매화검법 (확정 사항 29)")
+	_check(arts.unlocked_arts() == ["plum_blossom_sword"], "처음에는 매화검법만 개방")
+	_check(arts.is_tech_unlocked("plum_blossom_sword.t1") and not arts.is_tech_unlocked("plum_blossom_sword.t2"), "1초식만 해금된 상태로 시작")
+	_check(arts.training_target() == "plum_blossom_sword.t1", "수련 중인 초식은 1초식")
+	_finish()
+
+
+## 원문 4-2 예시: 매화검법 수련 → 나한권으로 교체 → 다시 매화검법 복귀 시 기록 복원
+func _test_original_scenario_switch_restore() -> void:
+	print("[원문 예시: 무공 교체 시 수련 기록 보존]")
+	var arts := _new_arts()
+	for i in 3:
+		arts.debug_set_count("plum_blossom_sword.t%d" % (i + 1), 10000)
+	arts.debug_set_count("plum_blossom_sword.t4", 8214)
+	_check(arts.training_target() == "plum_blossom_sword.t4", "매화검법 1~3초식 대성, 4초식 수련 중")
+	arts.unlock("arhat_fist")
+	arts.equip_main("arhat_fist")
+	_check(arts.training_target() == "arhat_fist.t1" and arts.count_of("arhat_fist.t1") == 0, "나한권 1초식부터 새로 수련")
+	for i in 5:
+		arts.record_performed("arhat_fist.t1")
+	_check(arts.count_of("arhat_fist.t1") == 5, "나한권 수련 기록 증가")
+	_check(arts.count_of("plum_blossom_sword.t4") == 8214, "나한권 수련 중에도 매화검법 기록 유지")
+	arts.equip_main("plum_blossom_sword")
+	var restored := true
+	for i in 3:
+		restored = restored and arts.is_mastered("plum_blossom_sword.t%d" % (i + 1))
+	_check(restored and arts.count_of("plum_blossom_sword.t4") == 8214, "매화검법 복귀 시 1~3초식 대성과 4초식 8,214회 복원")
+	_check(arts.training_target() == "plum_blossom_sword.t4", "복귀 후 4초식부터 이어서 수련")
+	_check(arts.count_of("arhat_fist.t1") == 5, "나한권 기록도 그대로 남음")
+	_finish()
+
+
+func _test_mastery_and_unlock() -> void:
+	print("[대성과 다음 초식 해금]")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 9999)
+	_check(not arts.is_mastered("plum_blossom_sword.t1"), "9,999회는 아직 대성 아님")
+	var mastered := arts.record_performed("plum_blossom_sword.t1")
+	_check(mastered and arts.is_mastered("plum_blossom_sword.t1"), "10,000회 달성 시 대성")
+	_check(arts.is_tech_unlocked("plum_blossom_sword.t2"), "대성하면 다음 초식 해금")
+	_check(arts.training_target() == "plum_blossom_sword.t2", "수련 중인 초식이 다음 초식으로 자동 변경")
+	for i in 4:
+		arts.debug_set_count("plum_blossom_sword.t%d" % (i + 1), 10000)
+	_check(arts.training_target() == "plum_blossom_sword.t4", "모든 초식 대성 후에는 마지막 초식 반복 (확정 사항 26)")
+	_finish()
+
+
+func _test_training_rules() -> void:
+	print("[수련 횟수 규칙]")
+	var arts := _new_arts()
+	arts.record_performed("plum_blossom_sword.t1", 0.5)
+	_check(arts.count_of("plum_blossom_sword.t1") == 0, "배율 0.5 한 번은 정수 횟수 0")
+	arts.record_performed("plum_blossom_sword.t1", 0.5)
+	_check(arts.count_of("plum_blossom_sword.t1") == 1, "소수점 누적으로 손실 없이 1회")
+	arts.record_performed("plum_blossom_sword.t2")
+	_check(arts.count_of("plum_blossom_sword.t2") == 0, "잠긴 초식은 수련되지 않음")
+	arts.unlock("arhat_fist")
+	arts.record_performed("arhat_fist.t1")
+	_check(arts.count_of("arhat_fist.t1") == 0, "주력이 아닌 무공의 초식은 수련되지 않음")
+	_finish()
+
+
+func _test_sub_passive_only() -> void:
+	print("[보조 무공은 패시브만]")
+	var arts := _new_arts()
+	_check(not arts.equip_sub(0, "plum_blossom_sword"), "주력과 같은 무공은 보조로 장착 불가 (가안)")
+	_check(not arts.equip_sub(0, "arhat_fist"), "개방하지 않은 무공은 장착 불가")
+	arts.unlock("arhat_fist")
+	_check(arts.equip_sub(0, "arhat_fist"), "나한권 보조 장착")
+	var battle := _make_battle(arts)
+	var base_def := float(battle.config["player_base"]["def"])
+	_check(battle.player.def > base_def, "보조 무공 패시브 적용 (방어력 %.1f → %.1f)" % [base_def, battle.player.def])
+	var t := 0.0
+	while t < 40.0:
+		battle.tick(0.05)
+		t += 0.05
+	_check(arts.count_of("arhat_fist.t1") == 0, "보조 무공 초식은 발동·수련되지 않음")
+	_check(arts.count_of("plum_blossom_sword.t1") > 0, "주력 무공 초식만 수련됨 (%d회)" % arts.count_of("plum_blossom_sword.t1"))
+	arts.equip_sub(0, null)
+	_check(is_equal_approx(battle.player.def, base_def), "보조 해제 시 패시브 제거")
+	battle.free()
+	_finish()
+
+
+func _test_battle_training_single() -> void:
+	print("[전투 중 단일 수련]")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	var battle := _make_battle(arts)
+	# 대상이 없으면 초식이 발동하지 않고 수련 횟수도 오르지 않는다
+	for m in battle.monsters:
+		m.free()
+	battle.monsters.clear()
+	battle._try_cast_technique()
+	_check(arts.count_of("plum_blossom_sword.t2") == 0 and battle.techniques_cast == 0, "대상이 없으면 수련 횟수가 오르지 않음")
+	var t := 0.0
+	while t < 40.0:
+		battle.tick(0.05)
+		t += 0.05
+	var c2 := arts.count_of("plum_blossom_sword.t2")
+	_check(c2 > 0 and c2 == battle.techniques_cast, "수련 중인 2초식만 발동하고 발동 수만큼 수련 (%d회)" % c2)
+	_check(arts.count_of("plum_blossom_sword.t1") == 10000, "단일 수련에서는 대성한 1초식은 발동하지 않음")
+	_check(battle.player.mp <= battle.player.max_mp, "내공 최대치 유지")
+	battle.free()
+	_finish()
+
+
+func _test_battle_training_chain() -> void:
+	print("[전투 중 연속초식 (디버그 토글)]")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 10000)
+	arts.set_chain_mode(true)
+	var battle := _make_battle(arts)
+	var t := 0.0
+	while t < 60.0:
+		battle.tick(0.05)
+		t += 0.05
+	var c1 := arts.count_of("plum_blossom_sword.t1") - 10000
+	var c2 := arts.count_of("plum_blossom_sword.t2") - 10000
+	var c3 := arts.count_of("plum_blossom_sword.t3")
+	_check(c1 > 0 and c2 > 0 and c3 > 0, "해금한 1~3초식이 모두 발동하고 수련됨 (%d, %d, %d)" % [c1, c2, c3])
+	_check(absi(c1 - c3) <= 2, "1초식부터 순서대로 돌아가며 발동")
+	_check(arts.training_target() == "plum_blossom_sword.t3", "연속초식 중에도 수련 중인 초식은 3초식 유지")
+	battle.free()
+	_finish()
+

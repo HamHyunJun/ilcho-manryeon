@@ -2,7 +2,7 @@ extends Node2D
 ## 전투 상단 HUD (M2).
 ## 지역명 · 스테이지 번호, 처치 진행도(예: 37 / 50), 보스까지 남은 몬스터 수, 캐릭터 체력,
 ## 보스전에서는 보스 체력 바를 표시한다 (docs/09 2-1).
-## 경지, 전투력, 재화, 내공은 해당 기능이 생기는 단계(M3, M7, M8)에서 추가한다.
+## M3에서 내공 바와 발동한 초식 이름을 추가했다. 경지, 전투력, 재화는 해당 단계(M7, M8)에서 추가한다.
 ## 임시 UI: 폰트와 색은 정식 UI 작업 때 바꾼다.
 
 ## 표시할 BattleManager
@@ -55,6 +55,21 @@ func _draw() -> void:
 		Color(0.3, 0.8, 0.4))
 	draw_string(font, Vector2(LEFT, TOP + 92), "체력 %d / %d" % [player.hp, player.max_hp],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 20)
+
+	# 4줄: 내공
+	var mp_bar := Rect2(Vector2(LEFT, TOP + 120), Vector2(WIDTH, 8))
+	draw_rect(mp_bar, Color(0.15, 0.15, 0.15))
+	draw_rect(Rect2(mp_bar.position, Vector2(mp_bar.size.x * player.mp / maxf(player.max_mp, 1.0), mp_bar.size.y)),
+		Color(0.35, 0.55, 1.0))
+	draw_string(font, Vector2(LEFT, TOP + 92), "내공 %d / %d" % [int(player.mp), int(player.max_mp)],
+		HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 20, Color(0.7, 0.8, 1.0))
+
+	# 캐릭터 머리 위: 방금 발동한 초식 이름
+	if battle.last_technique_left > 0.0 and battle.last_technique_name != "":
+		var a2 := clampf(battle.last_technique_left / 0.3, 0.0, 1.0)
+		var pp: Vector2 = player.position
+		draw_string(font, Vector2(pp.x - 80, pp.y - player.body_size.y - 20), battle.last_technique_name,
+			HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color(1, 0.85, 0.9, a2))
 
 	# 화면 가운데 안내 문구
 	if battle.banner_left > 0.0 and battle.banner_text != "":

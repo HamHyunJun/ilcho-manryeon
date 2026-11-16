@@ -14,7 +14,14 @@
   "sources": [
     "manual_dungeon"
   ],
-  "passive_as_sub": [],
+  "_passive_comment": "보조로 장착했을 때의 패시브. 무공별 고정값은 가안이며 결정 방식은 미확정(O-09)이다.",
+  "passive_as_sub": [
+    {
+      "stat": "crit_rate",
+      "type": "flat",
+      "value": 0.05
+    }
+  ],
   "techniques": [
     {
       "id": "plum_blossom_sword.t1",
