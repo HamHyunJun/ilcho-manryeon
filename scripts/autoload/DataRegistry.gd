@@ -9,6 +9,8 @@ const DATA_ROOT := "res://data"
 var martial_arts: Dictionary = {}
 ## 초식 ID → 초식 데이터(Dictionary). 빠른 조회용 색인
 var techniques: Dictionary = {}
+## 몬스터 ID → 몬스터 데이터(Dictionary)
+var monsters: Dictionary = {}
 ## 공통 수치 파일 이름(확장자 제외) → 내용. 예: "training"
 var balance: Dictionary = {}
 ## 로드/검증 중 발견한 오류 메시지 목록
@@ -23,6 +25,7 @@ func _ready() -> void:
 func load_all(root: String = DATA_ROOT) -> int:
 	martial_arts.clear()
 	techniques.clear()
+	monsters.clear()
 	balance.clear()
 	errors.clear()
 
@@ -30,6 +33,11 @@ func load_all(root: String = DATA_ROOT) -> int:
 		var data = _read_json(path)
 		if data is Dictionary:
 			_register_martial_art(data, path)
+
+	for path in _list_json(root.path_join("monsters")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			_register_monsters(data, path)
 
 	for path in _list_json(root.path_join("balance")):
 		var data = _read_json(path)
@@ -51,6 +59,32 @@ func get_martial_art(id: String) -> Dictionary:
 
 func get_technique(id: String) -> Dictionary:
 	return techniques.get(id, {})
+
+
+func get_monster(id: String) -> Dictionary:
+	return monsters.get(id, {})
+
+
+## 몬스터 목록 파일을 검증해 등록한다. 형식: {"monsters": [ {...}, ... ]}
+func _register_monsters(data: Dictionary, path: String) -> void:
+	if not (data.get("monsters") is Array):
+		errors.append("%s: 'monsters' 배열 없음" % path)
+		return
+	for m in data["monsters"]:
+		if not (m is Dictionary):
+			errors.append("%s: 몬스터 항목 형식 오류" % path)
+			continue
+		var missing := false
+		for key in ["id", "name", "type", "max_hp", "atk", "def", "move_speed", "attack_range", "attack_interval"]:
+			if not m.has(key):
+				errors.append("%s: 몬스터 '%s'에 필수 항목 '%s' 없음" % [path, m.get("id", "?"), key])
+				missing = true
+		if missing:
+			continue
+		if monsters.has(m["id"]):
+			errors.append("%s: 몬스터 ID 중복 '%s'" % [path, m["id"]])
+			continue
+		monsters[m["id"]] = m
 
 
 ## 무공 데이터를 검증해 등록한다. 필수 항목이 없으면 등록하지 않는다.
