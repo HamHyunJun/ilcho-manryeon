@@ -136,7 +136,7 @@ ilcho-manryeon/
 
 ```
 AutoAttackController / ManualSkillController
-   └ 초식 발동 요청
+   └ 초식 발동 요청 (단일 수련: 수련 중인 초식 / 연속초식: 1초식부터 해금 초식 순서)
 SkillManager
    └ 재사용 대기, 내공 확인 → 실패 시 종료 (수련 없음)
 CombatController
@@ -144,7 +144,8 @@ CombatController
    └ 정상 발동 → DamageCalculator → 피해 적용
    └ EventBus.technique_performed(martial_art_id, technique_id)
 MartialArtManager
-   └ 배율 = 주력 1.0 / 보조 0.5 × 가속 배율
+   └ 주력 무공 초식만 처리 (보조 무공은 패시브만)
+   └ 배율 = 기본 1.0 × 가속 배율
    └ TechniqueProgress.add(배율) → 대성 도달 시 다음 초식 해금
    └ EventBus.technique_progressed / technique_mastered
 EffectDirector
@@ -206,7 +207,7 @@ EffectDirector
     { "stage": 6, "name": "절정", "min": 7500 },
     { "stage": 7, "name": "대성", "min": 10000 }
   ],
-  "slot_multipliers": { "main": 1.0, "sub": 0.5 },
+  "base_multiplier": 1.0,
   "offline": { "efficiency": 0.5, "max_hours": 8 }
 }
 ```

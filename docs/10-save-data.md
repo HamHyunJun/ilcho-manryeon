@@ -89,6 +89,8 @@
       "free": "plum_blossom_sword.t2"
     },
     "auto_technique_enabled": true,
+    "chain_mode": false,
+    "training_target": "plum_blossom_sword.t4",
 
     "progress": {
       "plum_blossom_sword": {
@@ -105,7 +107,7 @@
         "unlocked": true,
         "unlocked_at_unix": 1794700000,
         "techniques": {
-          "arhat_fist.t1": { "unlocked": true,  "count": 1532, "fraction": 0.5, "mastered": false, "mastered_at_unix": null },
+          "arhat_fist.t1": { "unlocked": true,  "count": 1532, "fraction": 0.0, "mastered": false, "mastered_at_unix": null },
           "arhat_fist.t2": { "unlocked": false, "count": 0,    "fraction": 0.0, "mastered": false, "mastered_at_unix": null }
         }
       }
@@ -180,7 +182,10 @@
 | `martial_arts.equipped` | 현재 장착 정보. **진행도와 분리**되어 있어 교체해도 진행도에 영향 없음 |
 | `martial_arts.progress` | **무공 ID → 초식 ID → 진행도**. 한 번 생긴 기록은 삭제하지 않는다 |
 | `count` | 정수 수련 횟수 |
-| `fraction` | 수련 배율(보조 0.5 등)로 생긴 소수점 누적값. 1.0 이상이 되면 `count`로 넘긴다 |
+| `fraction` | 수련 배율(가속 효과 등)이 소수일 때 생기는 누적값. 1.0 이상이 되면 `count`로 넘긴다 |
+| `martial_arts.equipped.sub` | 보조 무공. 패시브만 제공하며, 보조로 장착해도 그 무공의 `progress`는 바뀌지 않는다 |
+| `chain_mode` | 연속초식 모드 켜짐 여부 (토글 방식 가안 기준, O-45) |
+| `training_target` | 단일 수련 모드에서 반복할 초식 ID. 지정 방식은 미확정(O-43), 가안은 가장 앞의 미대성 초식 자동 지정 |
 | `mastered` | 대성 여부. `count`가 대성 목표(기본 10,000)에 도달하면 true |
 | `manual_slots` | 수동 버튼 3개에 넣은 초식 ID |
 | `saved_at_monotonic_ms`, `boot_session_id` | 오프라인 보상 시계 조작 완화용 |
