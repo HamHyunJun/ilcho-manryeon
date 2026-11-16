@@ -19,7 +19,8 @@
       "rewards": {
         "exp": 5,
         "silver": 3
-      }
+      },
+      "sprite": "bandit"
     },
     {
       "id": "test_brute",
@@ -39,7 +40,9 @@
       "rewards": {
         "exp": 12,
         "silver": 7
-      }
+      },
+      "sprite": "masked",
+      "sprite_scale": 1.15
     },
     {
       "id": "test_boss",
@@ -80,7 +83,9 @@
       "rewards": {
         "exp": 100,
         "silver": 60
-      }
+      },
+      "sprite": "chief"
     }
-  ]
+  ],
+  "_sprite_comment": "sprite: 2등신 픽셀 스프라이트 종류 (bandit 산적, masked 복면 자객, chief 산채 두목). sprite_scale: 그림 배율(보스 기본 1.5)."
 }

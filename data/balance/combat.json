@@ -22,7 +22,7 @@
   "layout": {
     "_comment": "720x1280 기준 화면 좌표(px)",
     "player_x": 140,
-    "ground_y": 760,
+    "ground_y": 1020,
     "spawn_x": 780,
     "screen_width": 720
   },
