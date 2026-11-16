@@ -126,7 +126,7 @@ ilcho-manryeon/
 │       ├── DungeonUI.gd
 │       └── GrowthUI.gd
 ├── assets/
-│   ├── sprites/                   # 임시 에셋 → 점진 교체
+│   ├── sprites/                   # 픽셀 스프라이트 시트 (characters/, monsters/). tools/sprites로 생성, PNG만 교체 가능
 │   ├── fonts/
 │   └── audio/
 └── tests/                         # 수련/저장/마이그레이션 단위 테스트
@@ -232,7 +232,7 @@ EffectDirector
     "type": "melee",
     "hp": 100, "atk": 10, "def": 5,
     "move_speed": 60, "attack_range": 40, "attack_interval": 1.5,
-    "sprite": "res://assets/sprites/monsters/bandit.png",
+    "sprite": "bandit",
     "rewards": { "exp": 5, "silver": 3 }
   },
   {
@@ -247,6 +247,16 @@ EffectDirector
   }
 ]
 ```
+
+
+### 4-3-1. 스프라이트 (`data/sprites/sprite_sets.json`, 디자인 1)
+
+- 몬스터의 `sprite`는 그림 파일 경로가 아니라 **스프라이트 세트 ID**다. 없으면 `type_defaults`의 유형별 기본 세트(melee, charge, ranged, defense, elite, boss)를 쓴다. 주인공은 `player_sprite`.
+- 세트 하나: `sheet`(가로 한 줄 시트 PNG), `frame_size`, `pivot`(발 밑 기준점, 프레임 안 px), `scale`(화면 배율), `animations`(idle/attack/hit/down의 프레임 번호, fps, 반복 여부).
+- 공통 프레임 순서: 대기0, 대기1, 공격 준비, 타격, 회수, 피격, 무릎, 쓰러짐. 같은 크기·순서의 PNG로 바꾸면 코드와 데이터를 고치지 않아도 된다. 크기나 프레임 수가 다르면 이 파일만 고친다.
+- 현재 그림은 외부 에셋 없이 `tools/sprites/generate_sprites.py`(Pillow)로 코드가 픽셀을 찍어 만든다. `python3 tools/sprites/generate_sprites.py --write-data`로 PNG와 이 JSON을 다시 만든다.
+- 그리기: `scripts/sprites/PixelSprite.gd`가 시트에서 칸을 잘라 그린다. 프레임이 바뀔 때만 다시 그리고, 피격 번쩍임은 셰이더 없이 같은 그림을 밝게 한 번 더 겹친다. 그림 파일이 없으면 예전처럼 도형으로 그린다.
+- 처치된 몬스터는 판정에서 바로 빠지고, 같은 스프라이트의 쓰러짐 그림만 1초 동안 남았다가 흐려진다.
 
 ### 4-4. 스테이지 (`data/stages/cheongpung_mountain.json`)
 
