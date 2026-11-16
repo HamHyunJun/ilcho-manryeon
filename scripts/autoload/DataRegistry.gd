@@ -15,6 +15,8 @@ var monsters: Dictionary = {}
 var regions: Dictionary = {}
 ## 공통 수치 파일 이름(확장자 제외) → 내용. 예: "training"
 var balance: Dictionary = {}
+## 이펙트 데이터 파일 이름(확장자 제외) → 내용. 예: "effect_presets" (M6)
+var effects: Dictionary = {}
 ## 로드/검증 중 발견한 오류 메시지 목록
 var errors: PackedStringArray = []
 
@@ -30,6 +32,7 @@ func load_all(root: String = DATA_ROOT) -> int:
 	monsters.clear()
 	regions.clear()
 	balance.clear()
+	effects.clear()
 	errors.clear()
 
 	for path in _list_json(root.path_join("martial_arts")):
@@ -52,6 +55,15 @@ func load_all(root: String = DATA_ROOT) -> int:
 		var data = _read_json(path)
 		if data is Dictionary:
 			balance[path.get_file().get_basename()] = data
+
+	for path in _list_json(root.path_join("effects")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			effects[path.get_file().get_basename()] = data
+	# 이펙트 프리셋이 있으면 검증한다 (없으면 연출 없이 동작)
+	if effects.has("effect_presets"):
+		for e in EffectPresets.validate(effects["effect_presets"]):
+			errors.append("effects: " + e)
 
 	for e in errors:
 		push_error("[DataRegistry] " + e)

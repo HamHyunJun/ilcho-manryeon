@@ -44,6 +44,8 @@ var _effects_layer: Node2D
 ## GameState에 스테이지 진행을 기록하는지
 var _persist := false
 var _hud: Node2D
+## 초식 연출 관리자 (M6)
+var effects: EffectDirector
 
 
 func _ready() -> void:
@@ -88,6 +90,12 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		_effects_layer.name = "Effects"
 		_effects_layer.z_index = 10
 		add_child(_effects_layer)
+	if effects == null:
+		effects = EffectDirector.new()
+		effects.name = "EffectDirector"
+		effects.z_index = 9
+		add_child(effects)
+	effects.setup(DataRegistry.effects.get("effect_presets", {}), float(config["layout"]["ground_y"]))
 	if _hud == null:
 		_hud = HudScript.new()
 		_hud.name = "Hud"
@@ -147,6 +155,12 @@ func tick(delta: float) -> void:
 	last_technique_left = maxf(0.0, last_technique_left - delta)
 	if techniques:
 		techniques.tick(delta)
+	if effects:
+		effects.tick(delta)
+		# 화면 흔들림: 전투 화면만 흔들고 HUD는 제자리에 둔다
+		position = effects.shake_offset
+		if _hud:
+			_hud.position = -effects.shake_offset
 
 	if player.is_down():
 		_recover_cd -= delta
@@ -202,12 +216,28 @@ func _try_cast_technique() -> void:
 	if targets.is_empty():
 		return
 	var art_id := String(tech["id"]).get_slice(".", 0)
-	var color := _category_color(DataRegistry.get_martial_art(art_id).get("category", ""))
+	var category: String = DataRegistry.get_martial_art(art_id).get("category", "")
+	var color := _category_color(category)
+	var tid: String = tech["id"]
+	var stage_before := technique_stage(tid)
+	# 연출은 발동 시점의 수련 단계로 정한다
+	var positions: Array = []
+	for t in targets:
+		positions.append(t.position)
+	effects.play_technique(category, stage_before, player.position + Vector2(player.half_width(), 0), positions, tech)
 	var hits: Array = player.cast_technique(tech, targets, rng, _defense_constant, color)
 	techniques.on_cast(tech)
 	techniques_cast += 1
 	var multiplier := float(DataRegistry.balance.get("training", {}).get("base_multiplier", 1.0))
-	arts.record_performed(tech["id"], multiplier)
+	var mastered_now := arts.record_performed(tid, multiplier)
+	var stage_after := technique_stage(tid)
+	var at := player.position + Vector2(0, -player.body_size.y * 0.5)
+	if mastered_now:
+		effects.play_mastery(category, at, "%s 대성!" % tech.get("name", ""), tech)
+		_set_banner("%s 대성! 다음 초식이 열렸습니다" % tech.get("name", ""), 2.0)
+	elif stage_after > stage_before:
+		var th: Array = DataRegistry.balance.get("training", {}).get("stage_thresholds", [])
+		effects.play_stage_up(category, stage_after, at, "%s · %s" % [tech.get("name", ""), MartialArtManager.stage_name_for(arts.count_of(tid), th)])
 	last_technique_name = tech.get("name", "")
 	last_technique_left = 0.8
 	if has_node("/root/EventBus"):
@@ -218,7 +248,13 @@ func _try_cast_technique() -> void:
 			_show_damage(h["damage"], h["target"].position + Vector2(0, -h["target"].body_size.y - 30), c, h["crit"])
 
 
-## 계열별 임시 색 (계열 이펙트 프리셋은 M6)
+## 초식의 현재 수련 단계 (1~7, 이펙트 프리셋 선택용)
+func technique_stage(tech_id: String) -> int:
+	var th: Array = DataRegistry.balance.get("training", {}).get("stage_thresholds", [])
+	return EffectPresets.stage_index_for(arts.count_of(tech_id), th, arts.is_mastered(tech_id))
+
+
+## 계열 기본색 (데미지 숫자, 캐릭터 테두리). 연출 색은 effect_presets.json
 func _category_color(category: String) -> Color:
 	match category:
 		"sword":

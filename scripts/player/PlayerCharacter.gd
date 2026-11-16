@@ -157,8 +157,7 @@ func _draw() -> void:
 		var reach := 60.0 * (1.0 - _swing / 0.15) + 20.0
 		draw_line(Vector2(half_width(), -body_size.y * 0.6), Vector2(half_width() + reach, -body_size.y * 0.5), Color(1, 1, 0.8), 4.0)
 	if _tech_flash > 0.0:
-		# 초식 발동 표시 (임시): 앞쪽으로 퍼지는 호. 단계별 이펙트는 M6
-		var t := 1.0 - _tech_flash / 0.3
+		# 초식 발동 순간 몸 테두리만 계열색으로 빛낸다. 초식 연출 자체는 EffectDirector (M6)
 		var c := _tech_color
-		c.a = 1.0 - t
-		draw_arc(Vector2(half_width(), -body_size.y * 0.5), 30.0 + 120.0 * t, -0.9, 0.9, 16, c, 6.0)
+		c.a = _tech_flash / 0.3
+		draw_rect(rect.grow(3.0), c, false, 3.0)

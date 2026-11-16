@@ -32,6 +32,9 @@ const TESTS := [
 	&"_test_save_restores_stage_in_battle",
 	&"_test_chain_toggle_off_returns_to_single",
 	&"_test_game_ui_chain_button",
+	&"_test_effect_presets",
+	&"_test_effect_director_in_battle",
+	&"_test_effect_performance_cap",
 ]
 
 var _failed := 0
@@ -639,4 +642,99 @@ func _test_game_ui_chain_button() -> void:
 	ui.open_menu("")
 	_check(not ui.panels["growth"].visible, "닫기")
 	ui.free()
+	_finish()
+
+
+func _test_effect_presets() -> void:
+	print("[M6 이펙트 프리셋]")
+	var presets: Dictionary = _reg().effects.get("effect_presets", {})
+	_check(EffectPresets.validate(presets).is_empty(), "프리셋 데이터 검증 통과 (3계열, 7단계, 단계마다 커짐)")
+	var th: Array = _reg().balance["training"]["stage_thresholds"]
+	_check(EffectPresets.stage_index_for(0, th) == 1, "0회는 입문(1단계)")
+	_check(EffectPresets.stage_index_for(100, th) == 2, "100회는 초급(2단계)")
+	_check(EffectPresets.stage_index_for(7500, th) == 6, "7,500회는 절정(6단계)")
+	_check(EffectPresets.stage_index_for(10000, th) == 6, "대성 플래그가 없으면 7단계로 올리지 않음")
+	_check(EffectPresets.stage_index_for(10000, th, true) == 7, "대성하면 7단계")
+	var cats_ok := true
+	var grows := true
+	for cat in ["sword", "fist", "spell"]:
+		var prev: Dictionary = {}
+		for st in range(1, 8):
+			var p := EffectPresets.resolve(presets, cat, st)
+			if p["category"] != cat:
+				cats_ok = false
+			if not prev.is_empty() and (int(p["particles"]) < int(prev["particles"]) or float(p["scale"]) < float(prev["scale"]) or float(p["duration"]) < float(prev["duration"])):
+				grows = false
+			prev = p
+	_check(cats_ok, "3계열 × 7단계 프리셋이 모두 해석됨")
+	_check(grows, "단계가 오를수록 파티클 수, 크기, 지속 시간이 줄지 않음")
+	var sw := EffectPresets.resolve(presets, "sword", 1)
+	var fi := EffectPresets.resolve(presets, "fist", 1)
+	_check(sw["color_primary"] != fi["color_primary"] and sw["particle_shape"] != fi["particle_shape"], "계열마다 색과 파티클 모양이 다름")
+	_check(EffectPresets.resolve(presets, "unknown", 3)["category"] == "sword", "모르는 계열은 기본 계열 사용")
+	var m := EffectPresets.resolve(presets, "sword", 7, {"mastery_effect": "plum_special"})
+	_check(m["mastery_effect"] == "plum_special" and bool(m.get("mastery_burst", false)), "대성 단계는 초식 전용 연출 지정을 받음 (없으면 계열 대성 프리셋)")
+	_finish()
+
+
+func _test_effect_director_in_battle() -> void:
+	print("[M6 전투 중 이펙트]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var fx: EffectDirector = battle.effects
+	_check(fx != null and fx.max_active > 0, "전투에 이펙트 관리자가 붙음")
+	arts.debug_set_count("plum_blossom_sword.t1", 95)
+	var t := 0.0
+	var played_before := fx.played_count
+	var stage_up_seen := false
+	while t < 40.0 and arts.count_of("plum_blossom_sword.t1") < 102:
+		battle.tick(0.05)
+		for c in fx.get_children():
+			if c.kind == "stage_up":
+				stage_up_seen = true
+		t += 0.05
+	_check(fx.played_count > played_before, "초식 발동 때 연출이 재생됨")
+	_check(fx.last_params.get("category", "") == "sword", "매화검법은 검법 계열 연출")
+	_check(stage_up_seen, "입문 → 초급으로 오를 때 단계 상승 알림 연출")
+	_check(int(fx.last_params.get("stage", 0)) == 2, "초급이 되면 2단계 프리셋으로 바뀜")
+	arts.debug_set_count("plum_blossom_sword.t1", 9998)
+	var mastery_seen := false
+	t = 0.0
+	while t < 30.0 and not arts.is_mastered("plum_blossom_sword.t1"):
+		battle.tick(0.05)
+		t += 0.05
+	for c in fx.get_children():
+		if c.kind == "mastery":
+			mastery_seen = true
+	_check(mastery_seen and battle.banner_text.contains("대성"), "대성 순간 대성 알림 연출과 안내")
+	battle.free()
+	_finish()
+
+
+func _test_effect_performance_cap() -> void:
+	print("[M6 이펙트 성능 상한]")
+	var fx := EffectDirector.new()
+	root.add_child(fx)
+	fx.setup(_reg().effects.get("effect_presets", {}), 760.0)
+	fx.rng.seed = 1
+	var started := Time.get_ticks_usec()
+	for i in 200:
+		fx.play_technique("fist", 7, Vector2(160, 760), [Vector2(400, 760), Vector2(460, 760)])
+		fx.tick(1.0 / 60.0)
+	var per_frame_ms := float(Time.get_ticks_usec() - started) / 200.0 / 1000.0
+	print("    (참고) 최대 단계 연출 연속 재생 시 프레임당 갱신 %.3f ms" % per_frame_ms)
+	_check(fx.active_count() <= fx.max_active, "동시에 살아 있는 연출 수가 상한(%d) 이하" % fx.max_active)
+	fx.play_mastery("sword", Vector2(140, 700), "테스트 대성!")
+	for i in 20:
+		fx.play_technique("sword", 7, Vector2(160, 760), [Vector2(400, 760)])
+	var kept := false
+	for c in fx.get_children():
+		if c.kind == "mastery":
+			kept = true
+	_check(kept, "상한을 넘겨도 대성 알림은 초식 연출보다 늦게 지움")
+	_check(per_frame_ms < 4.0, "연출 갱신 비용이 프레임 예산 안 (4ms 미만, 헤드리스 기준)")
+	for i in 200:
+		fx.tick(0.05)
+	_check(fx.active_count() == 0 and fx.shake_offset == Vector2.ZERO, "연출이 끝나면 모두 정리되고 흔들림도 멈춤")
+	fx.free()
 	_finish()
