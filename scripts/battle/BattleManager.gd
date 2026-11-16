@@ -41,6 +41,8 @@ var _intro_cd := 0.0
 var _clear_cd := 0.0
 var _defense_constant := 100.0
 var _effects_layer: Node2D
+## GameState에 스테이지 진행을 기록하는지
+var _persist := false
 var _hud: Node2D
 
 
@@ -61,8 +63,11 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		region_data = DataRegistry.get_region(config.get("stage", {}).get("start_region", ""))
 	stage = StageManager.new(region_data, int(config.get("stage", {}).get("start_stage", 1)))
 
-	if martial_arts == null and has_node("/root/GameState"):
+	# 무공 관리자를 따로 주지 않으면 GameState를 쓰고, 스테이지 진행도 GameState에 저장/복원한다 (M4)
+	_persist = martial_arts == null and has_node("/root/GameState")
+	if _persist:
 		martial_arts = get_node("/root/GameState").arts
+		_restore_stage(get_node("/root/GameState").data.get("stage", {}))
 	if arts != null and arts.equipment_changed.is_connected(_refresh_stats):
 		arts.equipment_changed.disconnect(_refresh_stats)
 	arts = martial_arts
@@ -93,7 +98,29 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 	_spawn_cd = 0.0
 	_recover_cd = 0.0
 	_start_stage_banner()
+	_sync_stage()
 	queue_redraw()
+
+
+## 저장된 스테이지 진행을 복원한다. 처치 수는 유지하고, 보스 조건을 이미 채웠으면 보스 등장부터 다시 한다.
+func _restore_stage(saved: Dictionary) -> void:
+	if saved.is_empty() or saved.get("region", "") != stage.region_id():
+		return
+	stage.start(int(saved.get("stage_no", 1)))
+	stage.kill_count = int(saved.get("kill_count", 0))
+	var hc: Dictionary = saved.get("highest_cleared", {})
+	for k in hc.keys():
+		stage.highest_cleared[k] = int(hc[k])
+	if stage.kill_count >= stage.kills_to_boss():
+		stage.kill_count = stage.kills_to_boss()
+		stage.phase = StageManager.Phase.BOSS_INTRO
+		_intro_cd = _stage_cfg("boss_intro_delay", 1.5)
+
+
+## 스테이지 진행을 GameState에 기록한다 (저장은 SaveManager가 주기/이벤트로 한다)
+func _sync_stage() -> void:
+	if _persist:
+		get_node("/root/GameState").data["stage"] = stage.to_save()
 
 
 ## 기본 능력치에 보조 무공 패시브를 더한 능력치
@@ -263,6 +290,7 @@ func _on_monster_died(m: Node) -> void:
 		_set_banner("보스 등장", _intro_cd + 0.5)
 		if bool(config.get("stage", {}).get("recover_on_boss", false)):
 			player.recover()
+	_sync_stage()
 	m.queue_free()
 
 
@@ -272,6 +300,7 @@ func _go_next_stage() -> void:
 	player.recover()
 	_spawn_cd = 0.0
 	_start_stage_banner()
+	_sync_stage()
 	if has_node("/root/EventBus"):
 		get_node("/root/EventBus").stage_started.emit(stage.region_id(), stage.stage_no)
 
@@ -290,6 +319,7 @@ func _restart_after_knockout() -> void:
 	player.recover()
 	_spawn_cd = float(config["spawn"]["interval"])
 	_start_stage_banner()
+	_sync_stage()
 
 
 func _clear_monsters() -> void:
