@@ -30,6 +30,8 @@ const TESTS := [
 	&"_test_save_corruption_recovery",
 	&"_test_save_version_and_migration",
 	&"_test_save_restores_stage_in_battle",
+	&"_test_chain_toggle_off_returns_to_single",
+	&"_test_game_ui_chain_button",
 ]
 
 var _failed := 0
@@ -587,3 +589,54 @@ func _test_save_restores_stage_in_battle() -> void:
 	gs.reset_to_new_game()
 	_finish()
 
+
+
+
+func _test_chain_toggle_off_returns_to_single() -> void:
+	print("[M5 연속초식 켜고 끄기]")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 10000)
+	var battle := _make_battle(arts)
+	arts.set_chain_mode(true)
+	var t := 0.0
+	while t < 30.0:
+		battle.tick(0.05)
+		t += 0.05
+	var on_c1 := arts.count_of("plum_blossom_sword.t1")
+	_check(on_c1 > 10000, "켜면 대성한 1초식도 순서대로 발동")
+	arts.set_chain_mode(false)
+	battle.techniques.reset_chain()
+	var c1 := arts.count_of("plum_blossom_sword.t1")
+	var c2 := arts.count_of("plum_blossom_sword.t2")
+	var c3 := arts.count_of("plum_blossom_sword.t3")
+	t = 0.0
+	while t < 30.0:
+		battle.tick(0.05)
+		t += 0.05
+	_check(arts.count_of("plum_blossom_sword.t1") == c1 and arts.count_of("plum_blossom_sword.t2") == c2, "끄면 대성한 초식은 발동하지 않음")
+	_check(arts.count_of("plum_blossom_sword.t3") > c3, "끄면 수련 중인 3초식만 다시 반복")
+	battle.free()
+	_finish()
+
+
+func _test_game_ui_chain_button() -> void:
+	print("[M5 연속초식 버튼과 앱바]")
+	var arts := _new_arts()
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = arts
+	root.add_child(ui)
+	ui._process(0.0)
+	_check(not ui._chain_button.button_pressed and ui._chain_button.text.contains("OFF"), "처음에는 단일 수련(OFF)")
+	ui._chain_button.button_pressed = true
+	ui._process(0.0)
+	_check(arts.is_chain_mode() and ui._chain_button.text.contains("ON"), "버튼을 누르면 연속초식 ON")
+	_check(ui._chain_label.text.contains("1"), "켜짐 상태에 발동 순서 표시")
+	ui._chain_button.button_pressed = false
+	_check(not arts.is_chain_mode(), "다시 누르면 단일 수련으로 돌아감")
+	ui.open_menu("growth")
+	_check(ui.panels["growth"].visible, "앱바 육성 메뉴가 육성 화면을 엶")
+	ui.open_menu("")
+	_check(not ui.panels["growth"].visible, "닫기")
+	ui.free()
+	_finish()

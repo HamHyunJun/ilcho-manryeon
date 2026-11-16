@@ -15,6 +15,7 @@ signal technique_progressed(technique_id: String, count: int)
 signal technique_mastered(technique_id: String)
 signal equipment_changed()
 signal art_unlocked(art_id: String)
+signal chain_mode_changed(on: bool)
 
 const SUB_SLOTS := 2
 
@@ -260,7 +261,10 @@ func is_chain_mode() -> bool:
 
 
 func set_chain_mode(on: bool) -> void:
+	if is_chain_mode() == on:
+		return
 	state["chain_mode"] = on
+	chain_mode_changed.emit(on)
 
 
 ## 수련 단계 이름 (입문~대성). 단계는 count에서 계산하고 따로 저장하지 않는다 (docs/10).

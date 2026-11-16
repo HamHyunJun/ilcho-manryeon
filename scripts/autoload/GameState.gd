@@ -68,6 +68,7 @@ func _bind_arts() -> void:
 	arts.technique_mastered.connect(func(_id): _request_save())
 	arts.equipment_changed.connect(_request_save)
 	arts.art_unlocked.connect(func(_id): _request_save())
+	arts.chain_mode_changed.connect(func(_on): _request_save())
 
 
 func _request_save() -> void:

@@ -1,7 +1,7 @@
 extends Control
 ## 진입 화면.
-## M1~M3: 전투 화면(Battle, 스테이지 루프·초식 수련 포함)과 조작 영역(GameUi)을 띄우고, 아래쪽에 불러온 데이터 요약을 작게 표시한다(개발 확인용).
-## 화면 전환과 하단 메뉴는 이후 단계에서 추가한다.
+## 전투 화면(Battle)과 아래쪽 조작 영역·하단 앱바(GameUi)를 띄운다.
+## 데이터 요약은 로그에만 남기고, 데이터 오류나 저장 불러오기 오류가 있을 때만 제목 아래에 표시한다.
 
 @onready var _info: Label = $Margin/VBox/Info
 
@@ -14,6 +14,11 @@ func _ready() -> void:
 	_info.text = build_info_text()
 	# 헤드리스 확인용으로 같은 내용을 로그에도 남긴다
 	print(_info.text)
+	var has_problem: bool = not DataRegistry.errors.is_empty() or (has_node("/root/SaveManager") and get_node("/root/SaveManager").load_error != "")
+	_info.visible = has_problem
+	if has_problem:
+		_info.add_theme_color_override("font_color", Color(1, 0.6, 0.5))
+		_info.get_parent().move_child(_info, 2)
 
 
 ## 화면에 보여 줄 데이터 요약 문자열을 만든다.
