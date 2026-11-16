@@ -2,7 +2,8 @@ extends Node2D
 ## 플레이어 캐릭터 (왼쪽 고정, 이동 없음).
 ## 기본 공격은 사거리 안 대상에게 자동 발동한다 (M1).
 ## 초식은 BattleManager가 TechniqueModeController로 고른 뒤 cast_technique로 발동한다 (M3).
-## 임시 그래픽: 사각형과 공격 표시를 직접 그린다.
+## 그래픽: data/sprites 의 player_sprite 세트로 픽셀 스프라이트를 그린다.
+## 그림 파일이 없으면 예전처럼 사각형과 공격 표시를 직접 그린다.
 
 signal knocked_out()
 
@@ -30,6 +31,8 @@ var _tech_flash := 0.0
 var _tech_color := Color.WHITE
 var _hit_flash := 0.0
 var _down := false
+## 픽셀 스프라이트 (그림이 없으면 null)
+var sprite: PixelSprite
 
 
 func setup(base: Dictionary) -> void:
@@ -37,7 +40,32 @@ func setup(base: Dictionary) -> void:
 	hp = max_hp
 	mp = max_mp
 	_attack_cd = 0.0
+	_setup_sprite()
 	queue_redraw()
+
+
+func _setup_sprite() -> void:
+	if sprite != null:
+		return
+	var ml := Engine.get_main_loop()
+	var reg: Node = ml.root.get_node_or_null("DataRegistry") if ml is SceneTree else null
+	if reg == null:
+		return
+	var set_data: Dictionary = reg.player_sprite_set()
+	if set_data.is_empty():
+		return
+	sprite = PixelSprite.new()
+	sprite.name = "Sprite"
+	add_child(sprite)
+	sprite.setup(set_data)
+	if not sprite.is_valid():
+		sprite.queue_free()
+		sprite = null
+
+
+func _play(anim_name: String) -> void:
+	if sprite != null:
+		sprite.play(anim_name, true)
 
 
 ## 장착이 바뀌었을 때 능력치만 다시 적용한다. 체력 비율은 유지한다.
@@ -89,6 +117,7 @@ func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_con
 		return {}
 	_attack_cd = attack_interval
 	_swing = 0.15
+	_play("attack")
 	var crit := DamageCalculator.roll_crit(rng, crit_rate)
 	var bonus := boss_damage if target.is_boss() else 0.0
 	var dmg := DamageCalculator.compute(atk, attack_coef, target.def, defense_constant, crit, crit_mult, bonus)
@@ -116,6 +145,7 @@ func cast_technique(tech: Dictionary, targets: Array, rng: RandomNumberGenerator
 	mp = maxf(0.0, mp - float(tech.get("mp_cost", 0)))
 	_tech_flash = 0.3
 	_tech_color = color
+	_play("attack")
 	var hits: Array = []
 	for t in targets:
 		var crit := DamageCalculator.roll_crit(rng, crit_rate)
@@ -134,6 +164,13 @@ func take_damage(amount: int) -> int:
 	amount = maxi(1, roundi(amount * (1.0 - clampf(damage_reduction, 0.0, 0.9))))
 	hp = maxi(0, hp - amount)
 	_hit_flash = 0.12
+	if sprite != null:
+		sprite.flash(0.1)
+		if hp == 0:
+			sprite.play("down", true)
+		elif sprite.current == "idle":
+			# 공격 동작 중에는 끊지 않고 번쩍임만 준다
+			sprite.play("hit", true)
 	queue_redraw()
 	if hp == 0:
 		_down = true
@@ -147,10 +184,18 @@ func recover() -> void:
 	mp = max_mp
 	_down = false
 	_attack_cd = 0.0
+	_play("idle")
 	queue_redraw()
 
 
 func _draw() -> void:
+	if sprite != null:
+		if _tech_flash > 0.0:
+			# 초식 발동 순간 발밑에 계열색 빛을 깐다. 초식 연출 자체는 EffectDirector (M6)
+			var c := _tech_color
+			c.a = 0.5 * _tech_flash / 0.3
+			draw_circle(Vector2(0, -2), 26.0 + 20.0 * (1.0 - _tech_flash / 0.3), c)
+		return
 	var color := Color(0.35, 0.55, 0.95)
 	if _down:
 		color = Color(0.4, 0.4, 0.45)

@@ -52,6 +52,9 @@ const TESTS := [
 	&"_test_save_export_import",
 	&"_test_settings_and_sound",
 	&"_test_tutorial_steps",
+	&"_test_sprite_sets",
+	&"_test_pixel_sprite_animation",
+	&"_test_sprites_in_battle",
 ]
 
 var _failed := 0
@@ -1321,4 +1324,99 @@ func _test_tutorial_steps() -> void:
 	_check(ui.panels.has("settings"), "설정 화면 등록 (화면 위 설정 버튼)")
 	main.free()
 	gs.reset_to_new_game()
+	_finish()
+
+
+## ---- 캐릭터·몬스터 픽셀 스프라이트 (디자인 1단계) ----
+
+func _test_sprite_sets() -> void:
+	print("[스프라이트 세트 데이터]")
+	var reg := _reg()
+	_check(reg.sprite_sets.size() >= 8, "스프라이트 세트 8개 이상 (%d)" % reg.sprite_sets.size())
+	_check(not reg.player_sprite_set().is_empty(), "주인공 스프라이트 지정")
+	for t in ["melee", "charge", "ranged", "defense", "elite", "boss"]:
+		_check(not reg.monster_sprite_set({"type": t}).is_empty(), "몬스터 유형별 기본 스프라이트: " + t)
+	for mid in reg.monsters:
+		_check(not reg.monster_sprite_set(reg.get_monster(mid)).is_empty(), "몬스터 스프라이트 연결: " + mid)
+	for sid in reg.sprite_sets:
+		var s: Dictionary = reg.sprite_sets[sid]
+		var tex: Texture2D = load(s["sheet"]) if ResourceLoader.exists(s["sheet"]) else null
+		_check(tex != null, "시트 그림 로드: " + sid)
+		if tex == null:
+			continue
+		var fw := int(s["frame_size"][0])
+		var count := tex.get_width() / fw
+		_check(tex.get_height() == int(s["frame_size"][1]) and tex.get_width() % fw == 0, "시트 크기가 프레임 크기와 맞음: " + sid)
+		var ok := true
+		for a in s["animations"]:
+			for f in s["animations"][a]["frames"]:
+				if int(f) >= count:
+					ok = false
+		_check(ok, "동작 프레임 번호가 시트 안에 있음: " + sid)
+	# 잘못된 참조는 오류로 잡는다
+	var dir := "user://test_sprite_data"
+	DirAccess.make_dir_recursive_absolute(dir.path_join("sprites"))
+	var f := FileAccess.open(dir.path_join("sprites/bad.json"), FileAccess.WRITE)
+	f.store_string('{"player_sprite": "nope", "type_defaults": {"melee": "nope"}, "sets": [{"id": "x", "sheet": "res://none.png", "frame_size": [8, 8], "animations": {"idle": {"frames": [0]}}}]}')
+	f.close()
+	var bad = load("res://scripts/autoload/DataRegistry.gd").new()
+	var errs: int = bad.load_all(dir)
+	_check(errs >= 3, "없는 스프라이트 참조와 빠진 동작을 오류로 잡음 (%d건)" % errs)
+	bad.free()
+	_finish()
+
+
+func _test_pixel_sprite_animation() -> void:
+	print("[픽셀 스프라이트 동작]")
+	var sp := PixelSprite.new()
+	root.add_child(sp)
+	sp.setup(_reg().get_sprite_set("bandit"))
+	_check(sp.is_valid(), "그림 로드됨")
+	_check(sp.current == "idle", "처음에는 대기 동작")
+	_check(sp.visual_height() > 40.0, "그림 높이 계산 (%.0f)" % sp.visual_height())
+	sp.play("attack", true)
+	sp.advance(0.11)
+	_check(sp.current == "attack" and sp.sheet_frame() == 3, "공격 동작 진행 (타격 프레임)")
+	sp.advance(0.5)
+	_check(sp.current == "idle", "공격이 끝나면 대기로 돌아감")
+	sp.play("hit", true)
+	sp.advance(0.5)
+	_check(sp.current == "idle", "피격이 끝나면 대기로 돌아감")
+	sp.play("down", true)
+	sp.advance(2.0)
+	_check(sp.current == "down" and sp.sheet_frame() == 7 and not sp.is_playing(), "쓰러짐은 마지막 프레임에서 멈춤")
+	sp.flash(0.1)
+	_check(sp.flash_left > 0.0, "피격 번쩍임")
+	sp.advance(0.2)
+	_check(sp.flash_left == 0.0, "번쩍임이 끝남")
+	# 그림이 없는 세트는 무효 (도형으로 대신 그림)
+	var none := PixelSprite.new()
+	none.setup({"sheet": "res://assets/sprites/none.png", "frame_size": [8, 8], "animations": {}})
+	_check(not none.is_valid(), "그림 파일이 없으면 무효")
+	none.free()
+	sp.free()
+	_finish()
+
+
+func _test_sprites_in_battle() -> void:
+	print("[전투에서 스프라이트 사용]")
+	var battle := _make_battle()
+	var player = battle.player
+	_check(player.sprite != null and player.sprite.is_valid(), "주인공 스프라이트 표시")
+	battle.tick(0.05)
+	var m = battle.monsters[0]
+	_check(m.sprite != null and m.sprite.is_valid(), "몬스터 스프라이트 표시")
+	_check(m.visual_height() > m.body_size.y * 0.5, "몬스터 체력 바 위치가 그림 높이를 따름")
+	m.take_damage(1)
+	_check(m.sprite.current == "hit", "몬스터 피격 동작")
+	var corpses_before: int = battle.get_node("Effects").get_child_count()
+	m.take_damage(m.hp)
+	_check(battle.get_node("Effects").get_child_count() > corpses_before, "처치하면 쓰러짐 그림을 남김")
+	var boss = battle.spawn_monster("test_boss", 1.0)
+	_check(boss.sprite != null and boss.sprite.set_data.get("id") == "bandit_chief", "보스 스프라이트: 산채 두목")
+	player.take_damage(player.max_hp)
+	_check(player.sprite.current == "down", "주인공 쓰러짐 동작")
+	player.recover()
+	_check(player.sprite.current == "idle", "회복하면 대기 동작")
+	battle.free()
 	_finish()

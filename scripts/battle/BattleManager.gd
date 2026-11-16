@@ -400,6 +400,7 @@ func _spawn_boss() -> void:
 
 func _on_monster_died(m: Node) -> void:
 	kill_count += 1
+	_spawn_corpse(m)
 	monsters.erase(m)
 	var rewards: Dictionary = m.data.get("rewards", {})
 	var sc: float = dungeon.scaling() if dungeon != null else stage.scaling()
@@ -590,6 +591,22 @@ func _set_banner(text: String, sec: float) -> void:
 
 func _start_stage_banner() -> void:
 	_set_banner("%s %d" % [stage.region_name(), stage.stage_no], 1.5)
+
+
+## 처치된 몬스터의 쓰러짐 동작. 몬스터 노드는 곧바로 지우고(전투 판정과 무관),
+## 같은 스프라이트로 쓰러지는 그림만 잠깐 보여 준 뒤 흐려지며 사라진다.
+func _spawn_corpse(m: Node) -> void:
+	if _effects_layer == null or m.get("sprite") == null:
+		return
+	var c := PixelSprite.new()
+	c.setup(m.sprite.set_data)
+	c.position = m.position
+	c.play("down", true)
+	_effects_layer.add_child(c)
+	var tw := c.create_tween()
+	tw.tween_interval(0.6)
+	tw.tween_property(c, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(c.queue_free)
 
 
 func _show_damage(amount: int, pos: Vector2, color: Color, crit: bool = false) -> void:
