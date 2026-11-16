@@ -53,6 +53,7 @@ const TESTS := [
 	&"_test_settings_and_sound",
 	&"_test_tutorial_steps",
 	&"_test_design_visuals",
+	&"_test_equipment_summon_and_level_up",
 ]
 
 var _failed := 0
@@ -1376,6 +1377,70 @@ func _test_design_visuals() -> void:
 	_check(grow._detail.visible, "보유 장비를 누르면 상세 창")
 	ui._on_menu_pressed("main")
 	_check(not grow.visible and ui._app_bar.active == "main", "메인(태극) 버튼은 화면을 닫고 전투로")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_equipment_summon_and_level_up() -> void:
+	print("[장비 소환과 장비 레벨업]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var starter := int(_reg().equipment.get("summon", {}).get("starter_tickets", 0))
+	_check(eq.tickets() == starter and starter > 0, "새 게임 시작 소환패 지급 (%d장)" % starter)
+	var r1: Dictionary = eq.summon(1, 1.0, rng)
+	_check(r1["ok"] and r1["items"].size() == 1 and eq.tickets() == starter - 1, "1회 소환: 소환패 1장 소모, 장비 1개")
+	var r2: Dictionary = eq.summon(10, 1.0, rng)
+	_check(not r2["ok"] and eq.tickets() == starter - 1, "소환패가 모자라면 소환하지 않음")
+	eq.add_currency("ticket", 1)
+	var r3: Dictionary = eq.summon(10, 1.0, rng)
+	var best := 0
+	for it in r3["items"]:
+		best = maxi(best, eq.grade_index(it["grade"]))
+	_check(r3["ok"] and r3["items"].size() == 10 and best >= eq.grade_index("rare"), "10회 소환은 희귀 이상 1개 보장")
+	_check(eq.auto_equip_best(r3["items"]) > 0 and not eq.equipped_item("weapon").is_empty() or not eq.equipped_item("armor").is_empty(), "자동 장착이 부위별로 장비를 등록")
+	# 보스 처치 소환패
+	var t0 := eq.tickets()
+	eq.roll_drop(true, 1.0, rng)
+	_check(eq.tickets() == t0 + int(_reg().equipment["summon"].get("boss_tickets", 0)), "보스 처치로 소환패 획득")
+	# 레벨업: 같은 부위·같은 등급 중복 장비를 재료로
+	var eq2 := _new_equipment()
+	var a: Dictionary = eq2.generate("helmet", "rare", 1.0, rng)
+	var b: Dictionary = eq2.generate("helmet", "rare", 1.0, rng)
+	var c: Dictionary = eq2.generate("helmet", "epic", 1.0, rng)
+	var d: Dictionary = eq2.generate("armor", "rare", 1.0, rng)
+	for it in [a, b, c, d]:
+		eq2.add_item(it)
+	eq2.equip(int(a["uid"]))
+	_check(eq2.level_up_materials(int(a["uid"])).size() == 1, "재료는 같은 부위·같은 등급의 장착하지 않은 장비만")
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.NOT_ENOUGH, "은냥이 없으면 레벨업 불가")
+	eq2.add_currency("silver", 100000)
+	var def0: float = float(eq2.item_base_stats(a)["def"])
+	var bonus0: float = float(eq2.stat_bonuses()["def"]["flat"])
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.OK and eq2.item_level(a) == 2, "레벨업 성공: Lv 2")
+	_check(eq2.find(int(b["uid"])).is_empty() and not eq2.find(int(c["uid"])).is_empty(), "재료 장비만 사라짐")
+	_check(float(eq2.item_base_stats(a)["def"]) > def0 and float(eq2.stat_bonuses()["def"]["flat"]) > bonus0, "레벨이 오르면 장착 능력치도 오름")
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.NO_MATERIAL, "재료가 없으면 레벨업 불가")
+	_check(eq2.item_name(a).contains("Lv2"), "장비 이름에 레벨 표시")
+	# 소환 화면과 육성 화면 연결
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	ui._on_menu_pressed("summon")
+	var sp = ui.panels["summon"]
+	_check(sp.visible and ui._app_bar.active == "summon", "앱바 소환 → 장비 소환 화면")
+	var res: Dictionary = sp.do_summon(10)
+	_check(res["ok"] and sp.last_results.size() == 10, "소환 화면에서 10회 소환")
+	ui._on_menu_pressed("growth")
+	var grow = ui.panels["growth"]
+	grow._slot_buttons["shoes"].pressed.emit()
+	if gs.equipment.equipped_item("shoes").is_empty():
+		_check(grow.slot_filter == "shoes", "빈 슬롯을 누르면 그 부위 장비만 보여 줌")
+	else:
+		_check(grow._detail.visible, "장착된 슬롯을 누르면 상세 창")
 	main.free()
 	gs.reset_to_new_game()
 	_finish()

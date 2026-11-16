@@ -19,7 +19,18 @@ func _initialize() -> void:
 	var ui = main.get_node_or_null("GameUi")
 	if ui and ui.tutorial:
 		ui.tutorial.visible = false
-	if ui and menu != "":
+	if ui and menu == "summon10":
+		ui.open_menu("summon")
+		ui.panels["summon"].do_summon(10)
+	elif ui and menu == "growdetail":
+		# 레벨업 재료가 있는 장비의 상세 창
+		ui.open_menu("growth")
+		var g = ui.panels["growth"]
+		for it in root.get_node("GameState").equipment.items():
+			if not root.get_node("GameState").equipment.level_up_materials(int(it["uid"])).is_empty():
+				g._open_detail(int(it["uid"]))
+				break
+	elif ui and menu != "":
 		ui.open_menu(menu)
 	await create_timer(sec).timeout
 	await process_frame
@@ -45,6 +56,9 @@ func _demo_data(art: String) -> void:
 		eq.add_item(it)
 		if i < 5:
 			eq.equip(int(it["uid"]))
+	# 레벨업 재료가 되는 중복 장비 (같은 부위·같은 등급)
+	for i in 2:
+		eq.add_item(eq.generate("weapon", "legendary", 1.0, rng))
 	eq.add_currency("silver", 12400)
 	eq.add_currency("stone", 58)
 	var arts = gs.arts

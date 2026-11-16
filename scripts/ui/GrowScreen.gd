@@ -4,7 +4,9 @@ class_name GrowScreen
 ## - 맨 위: 제목, 경지 · 전투력, 재화(은냥, 강화석, 보관함)
 ## - 가운데: 큰 주인공과 바닥 마법진, 좌우 장비 슬롯 5부위(등급색 테두리, 강화 수치). 슬롯을 누르면 상세
 ## - 아래: 능력치 4칸(공격력, 방어력, 체력, 내공)과 [장비 / 소환수 / 무공] 탭
-## - [장비] 탭: 등급 필터가 있는 보유 장비 목록. 장비를 누르면 상세 창에서 장착/해제, 강화, 버리기
+## - [장비] 탭: 등급 필터가 있는 보유 장비 목록. 장비를 누르면 상세 창에서 장착/해제, 강화, 레벨업, 버리기
+##   빈 슬롯을 누르면 그 부위 장비만 보여 줘 바로 골라 등록(장착)할 수 있다.
+##   레벨업: 같은 부위·같은 등급 중복 장비를 재료로 장비 레벨을 올린다 (EquipmentManager.level_up)
 ## - [무공] 탭: 기존 무공 장착·초식 수련 화면(GrowthPanel)을 그대로 넣는다
 ## 시안의 수치와 장비 종류는 예시이며, 실제 데이터(EquipmentManager 5부위, 6등급)를 따른다.
 ## 화면은 상단 바까지 덮고, 하단 앱바(육성 활성) 위까지 차지한다.
@@ -14,6 +16,7 @@ const LEFT_SLOTS := ["helmet", "armor", "shoes"]
 const RIGHT_SLOTS := ["weapon", "accessory"]
 const STAT_NAMES := {"atk": "공격력", "def": "방어력", "max_hp": "체력", "crit_rate": "치명타 확률", "crit_mult": "치명타 피해", "mp_regen": "내공 회복", "max_mp": "내공"}
 const RESULT_TEXT := {0: "강화 성공", 1: "최대 강화 단계입니다", 2: "강화석 또는 은냥이 부족합니다", 3: "장비가 없습니다", 4: "강화 실패"}
+const LEVEL_TEXT := {0: "레벨업 성공", 1: "최대 레벨입니다", 2: "같은 부위·같은 등급의 재료 장비가 없습니다", 3: "은냥이 부족합니다", 4: "장비가 없습니다"}
 const TAB_Y := 728.0
 const LIST_Y := 790.0
 
@@ -24,6 +27,8 @@ var battle: Node2D
 var tab := "equip"
 ## 보유 장비 등급 필터 ("" = 전체)
 var grade_filter := ""
+## 보유 장비 부위 필터 ("" = 전체). 빈 슬롯을 누르면 그 부위로 정해진다
+var slot_filter := ""
 var selected_uid := 0
 var message := ""
 
@@ -77,6 +82,7 @@ func _ready() -> void:
 
 func on_open() -> void:
 	message = ""
+	slot_filter = ""
 	_close_detail()
 	_set_tab(tab)
 
@@ -110,10 +116,11 @@ func _add_slot(layer: Control, slot: String, pos: Vector2) -> void:
 		if not it.is_empty():
 			_open_detail(int(it["uid"]))
 		else:
+			# 빈 슬롯: 그 부위 장비만 보여 주고 골라서 등록(장착)하게 한다
 			grade_filter = ""
-			_set_tab("equip")
-			message = "%s 장비가 없습니다. 보유 장비에서 골라 장착하세요." % _slot_name(slot)
-			_canvas.queue_redraw())
+			slot_filter = slot
+			message = "%s 장비를 눌러 장착하세요" % _slot_name(slot)
+			_set_tab("equip"))
 	layer.add_child(b)
 	_slot_buttons[slot] = b
 
@@ -210,6 +217,16 @@ func _refresh_list() -> void:
 	if equipment == null:
 		return
 	# 등급 필터 칩: 전체 + 등급들 (등급색 테두리)
+	if slot_filter != "":
+		# 부위 필터 칩 (누르면 해제)
+		var sf := MenuPanel.button("%s ✕" % _slot_name(slot_filter), 15)
+		sf.focus_mode = Control.FOCUS_NONE
+		sf.custom_minimum_size = Vector2(70, 30)
+		sf.pressed.connect(func():
+			slot_filter = ""
+			message = ""
+			_refresh_list())
+		_chips.add_child(sf)
 	var chips := [["", "전체", Color(0.8, 0.8, 0.85)]]
 	for g in equipment.cfg.get("grades", []):
 		chips.append([g["id"], g["name"], Color.html(g["color"])])
@@ -234,6 +251,8 @@ func _refresh_list() -> void:
 	var shown := 0
 	for it in items:
 		if grade_filter != "" and it["grade"] != grade_filter:
+			continue
+		if slot_filter != "" and it["slot"] != slot_filter:
 			continue
 		var card := EquipCard.new()
 		card.item = it
@@ -300,7 +319,7 @@ func _rebuild_detail() -> void:
 		_detail.visible = false
 		return
 	_detail.visible = true
-	var name_l := MenuPanel.label(equipment.item_name(it) + "  +%d" % int(it["enh"]) + ("  (장착 중)" if equipment.is_equipped(selected_uid) else ""), 24, equipment.grade_color(it["grade"]))
+	var name_l := MenuPanel.label("%s %s  Lv %d / %d  +%d" % [equipment.grade_data(it["grade"]).get("name", ""), _slot_name(it["slot"]), equipment.item_level(it), equipment.max_item_level(), int(it["enh"])] + ("  (장착 중)" if equipment.is_equipped(selected_uid) else ""), 24, equipment.grade_color(it["grade"]))
 	_detail_box.add_child(name_l)
 	var lines: PackedStringArray = []
 	var bs := equipment.item_base_stats(it)
@@ -346,9 +365,32 @@ func _rebuild_detail() -> void:
 	close.custom_minimum_size = Vector2(100, 60)
 	close.pressed.connect(_close_detail)
 	row.add_child(close)
+	# 장비 레벨업: 중복 장비(같은 부위·같은 등급)를 재료로 소모
+	var mats := equipment.level_up_materials(selected_uid)
+	var lrow := HBoxContainer.new()
+	lrow.add_theme_constant_override("separation", 8)
+	_detail_box.add_child(lrow)
+	var lv := equipment.item_level(it)
+	var lc := equipment.level_up_cost(it)
+	var ltext := "레벨업 (최대)"
+	if lv < equipment.max_item_level():
+		ltext = "레벨업 Lv %d → %d\n재료 %d개 · 은냥 %s" % [lv, lv + 1, int(lc["materials"]), fmt(int(lc["silver"]))]
+	var lb := MenuPanel.button(ltext, 16)
+	lb.custom_minimum_size = Vector2(230, 60)
+	lb.disabled = not equipment.can_level_up(selected_uid)
+	lb.pressed.connect(func():
+		message = LEVEL_TEXT.get(equipment.level_up(selected_uid), "")
+		_rebuild_detail())
+	lrow.add_child(lb)
+	var stat_per := float(equipment.cfg.get("level_up", {}).get("stat_per_level", 0.1)) * 100.0
+	var info := MenuPanel.label("재료로 쓸 수 있는 같은 %s %s: %d개\n(레벨·강화가 낮은 것부터 사용, 레벨당 기본 능력치 +%d%%)" % [equipment.grade_data(it["grade"]).get("name", ""), _slot_name(it["slot"]), mats.size(), roundi(stat_per)], 15, Color(0.7, 0.9, 1.0))
+	info.custom_minimum_size = Vector2(320, 0)
+	lrow.add_child(info)
 	if message != "":
 		_detail_box.add_child(MenuPanel.label(message, 18, Color(1, 0.8, 0.5)))
-	_detail.reset_size()
+	# 지운 자식이 빠진 뒤 크기를 다시 맞춘다
+	_detail.size = Vector2(600, 0)
+	_detail.reset_size.call_deferred()
 
 
 # ---- 능력치 (BattleManager의 실제 적용 능력치) ----
@@ -384,8 +426,14 @@ class EquipCard extends Button:
 		UiIcons.slot_icon(self, item["slot"], Vector2(size.x * 0.5, 52), 46, col)
 		UiIcons.round_rect(self, Rect2(8, 8, 36, 22), 8, Color(col, 0.9))
 		UiIcons.text(self, Vector2(8, 25), "+%d" % int(item["enh"]), 15, Color(0.05, 0.05, 0.08), HORIZONTAL_ALIGNMENT_CENTER, 36, 0)
+		var lv := equipment.item_level(item)
+		UiIcons.text(self, Vector2(size.x - 60, 25), "Lv%d" % lv, 15, Color(1, 1, 1) if lv > 1 else Color(0.7, 0.7, 0.78), HORIZONTAL_ALIGNMENT_RIGHT, 50, 3)
 		if equipment.is_equipped(int(item["uid"])):
-			UiIcons.text(self, Vector2(size.x - 26, 27), "E", 18, Color(1, 0.9, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			UiIcons.text(self, Vector2(size.x - 28, 84), "E", 20, Color(1, 0.9, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		elif equipment.can_level_up(int(item["uid"])):
+			# 레벨업 가능 표시 (초록 위 화살표)
+			var a := Vector2(size.x - 22, 78)
+			draw_colored_polygon(PackedVector2Array([a + Vector2(0, -10), a + Vector2(9, 0), a + Vector2(3, 0), a + Vector2(3, 8), a + Vector2(-3, 8), a + Vector2(-3, 0), a + Vector2(-9, 0)]), Color("#5ee07a"))
 		var grade_name: String = equipment.grade_data(item["grade"]).get("name", "")
 		var slot_name: String = equipment.slot_data(item["slot"]).get("name", "")
 		UiIcons.text(self, Vector2(4, size.y - 14), "%s %s" % [grade_name, slot_name], 16, Color(0.95, 0.95, 1.0), HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 3)

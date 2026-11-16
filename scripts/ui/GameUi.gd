@@ -1,7 +1,7 @@
 extends Control
 ## 전투 위의 조작 화면 (M3 → M5 → 디자인 시안 mock-vector-v30-bigbar 반영).
 ## - 전투 조작 영역: 수련 중인 초식과 진행도(앱바 위 초식 게이지), 연속초식 토글 (docs/09 2-3, 확정 사항 21·22).
-## - 하단 앱바(AppBar, 높이 134): 상점 │ 육성 │ 메인(태극) │ 던전 │ 소환. 장비는 육성 화면의 [장비] 탭에서 다룬다.
+## - 하단 앱바(AppBar, 높이 134): 상점 │ 육성 │ 메인(태극) │ 던전 │ 소환(장비 소환). 장비는 육성 화면의 [장비] 탭에서 다룬다.
 ## - 오른쪽 위 설정 버튼 (상단 바 가로 중심선에 맞춤).
 
 ## 하단 앱바 윗선 (720×1280 기준). 앱바 높이 약 100 → 134px로 키웠다
@@ -176,6 +176,8 @@ func _build_panels() -> void:
 	_add_panel("growth", GrowScreen.new(arts, eq, battle))
 	if eq != null:
 		_add_panel("equipment", EquipmentPanel.new(eq))
+		# 장비 소환 (소환패, 결과에서 바로 장착)
+		_add_panel("summon", SummonPanel.new(eq, battle))
 	if battle != null:
 		var dp := DungeonPanel.new(battle)
 		_add_panel("dungeon", dp)
@@ -290,7 +292,7 @@ func _refresh_menu_buttons() -> void:
 	# 육성 화면은 상단 바까지 덮으므로 설정 버튼을 숨긴다
 	if _gear_button:
 		_gear_button.visible = _open_name != "growth"
-	_app_bar.active = {"growth": "growth", "equipment": "growth", "dungeon": "dungeon", "codex": "dungeon"}.get(_open_name, "main")
+	_app_bar.active = {"growth": "growth", "equipment": "growth", "dungeon": "dungeon", "codex": "dungeon", "summon": "summon"}.get(_open_name, "main")
 	_app_bar.queue_redraw()
 
 
