@@ -41,7 +41,9 @@
   "offline": {
     "efficiency": 0.5,
     "max_hours": 8,
-    "mode": "single"
+    "mode": "single",
+    "min_seconds": 60,
+    "_min_seconds": "이보다 짧게 비운 시간은 요약 없이 무시 (가안)"
   },
   "_comment": "수련 공통 수치. start_martial_art(매화검법)는 확정 사항 29, 나머지 수치는 docs/11 기준.",
   "start_martial_art": "plum_blossom_sword"

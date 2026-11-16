@@ -120,6 +120,13 @@ func _build_panels() -> void:
 		_add_panel("dungeon", dp)
 		dp.codex_requested.connect(func(): open_menu("codex"))
 		_add_panel("codex", CodexPanel.new(arts, battle))
+	# 복귀 요약 (M10): 시작할 때 이미 계산된 결과가 있으면 바로, 이후(모바일 복귀)에는 신호로 띄운다
+	if gs != null:
+		var op := OfflineSummaryPanel.new(gs.get_node("/root/DataRegistry"))
+		_add_panel("offline", op)
+		gs.offline_summary_ready.connect(_show_offline)
+		if not gs.offline_summary.is_empty():
+			_show_offline.call_deferred(gs.offline_summary)
 
 
 ## 메뉴 화면을 등록한다. 이후 단계(장비, 던전)에서도 같은 방식으로 붙인다.
@@ -127,6 +134,16 @@ func _add_panel(menu: String, panel: MenuPanel) -> void:
 	panels[menu] = panel
 	panel.close_requested.connect(func(): open_menu(""))
 	add_child(panel)
+
+
+func _show_offline(summary: Dictionary) -> void:
+	if not panels.has("offline") or summary.is_empty():
+		return
+	panels["offline"].summary = summary
+	open_menu("offline")
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.offline_summary = {}
 
 
 func _build_app_bar() -> void:

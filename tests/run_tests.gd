@@ -46,6 +46,9 @@ const TESTS := [
 	&"_test_dungeon_entry_and_rewards",
 	&"_test_dungeon_run_in_battle",
 	&"_test_codex_and_dungeon_ui",
+	&"_test_offline_elapsed_and_clock",
+	&"_test_offline_training_apply",
+	&"_test_offline_game_flow",
 ]
 
 var _failed := 0
@@ -1116,5 +1119,93 @@ func _test_codex_and_dungeon_ui() -> void:
 	_check(texts.contains("매화검법") and texts.contains("습득") and texts.contains("0 / 30"), "도감에 습득 여부와 조각 수 표시")
 	_check(texts.contains("화산파") and texts.contains("검법"), "도감에 문파와 계열 표시")
 	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_offline_elapsed_and_clock() -> void:
+	print("[M10 경과 시간과 시계 조작 완화]")
+	var max_sec := 8.0 * 3600.0
+	var saved := {"unix": 1000000, "mono_ms": 5000, "session": "A"}
+	var e := OfflineTraining.elapsed(saved, {"unix": 1003600, "mono_ms": 999999999, "session": "B"}, max_sec)
+	_check(e["method"] == "device" and is_equal_approx(float(e["seconds"]), 3600.0), "다른 실행(재시작)이면 기기 시간 차이 사용")
+	e = OfflineTraining.elapsed(saved, {"unix": 9999999, "mono_ms": 5000 + 600000, "session": "A"}, max_sec)
+	_check(e["method"] == "monotonic" and is_equal_approx(float(e["seconds"]), 600.0), "같은 실행이면 단조 시간 차이 사용 (기기 시간을 앞당겨도 영향 없음)")
+	e = OfflineTraining.elapsed(saved, {"unix": 1000000 + 20 * 3600, "mono_ms": 0, "session": "B"}, max_sec)
+	_check(is_equal_approx(float(e["seconds"]), max_sec) and e["capped"], "최대 8시간까지만 인정")
+	e = OfflineTraining.elapsed(saved, {"unix": 1000000 - 3600, "mono_ms": 0, "session": "B"}, max_sec)
+	_check(e["rollback"] and float(e["seconds"]) == 0.0 and int(e["rollback_until"]) == 1000000, "기기 시간이 과거로 가면 보상 0, 되돌림 기준 시각 기록")
+	# 되돌린 시각으로 저장된 뒤 시간을 원래대로 돌려도, 원래 저장 시점부터 센다
+	var saved_back := {"unix": 1000000 - 3600, "mono_ms": 0, "session": "C"}
+	e = OfflineTraining.elapsed(saved_back, {"unix": 1000000 - 1800, "mono_ms": 0, "session": "D"}, max_sec, 1000000)
+	_check(e["rollback"] and float(e["seconds"]) == 0.0, "되돌림 기준 시각을 지나기 전까지 계속 0")
+	e = OfflineTraining.elapsed(saved_back, {"unix": 1000000 + 600, "mono_ms": 0, "session": "D"}, max_sec, 1000000)
+	_check(not e["rollback"] and is_equal_approx(float(e["seconds"]), 600.0) and int(e["rollback_until"]) == 0, "기준 시각을 지나면 그 시각부터 정상 계산 (되돌린 만큼 이득 없음)")
+	e = OfflineTraining.elapsed({}, {"unix": 1000000, "mono_ms": 0, "session": "A"}, max_sec)
+	_check(float(e["seconds"]) == 0.0, "저장 기록이 없으면 0")
+	_check(OfflineTraining.format_duration(3 * 3600 + 12 * 60) == "3시간 12분", "경과 시간 표시 형식")
+	_finish()
+
+
+func _test_offline_training_apply() -> void:
+	print("[M10 오프라인 수련 계산]")
+	var cfg := {"efficiency": 0.5, "multiplier": 1.0, "technique_interval": 1.0, "mp_regen": 5.0}
+	var arts := _new_arts()
+	var tech: Dictionary = _reg().get_technique("plum_blossom_sword.t1")
+	_check(is_equal_approx(OfflineTraining.casts_per_second(tech, 1.0, 5.0), 1.0), "초당 발동 수 1회 (초식 간격 1초, 내공 5/초, 소모 5, 가안)")
+	var r := OfflineTraining.apply(arts, 3600.0, cfg)
+	_check(arts.count_of("plum_blossom_sword.t1") == 1800 and int(r["gains"]["plum_blossom_sword.t1"]) == 1800, "1시간 → 3,600회 × 효율 50% = 1,800회")
+	arts.set_chain_mode(true)
+	arts.debug_set_count("plum_blossom_sword.t1", 9000)
+	r = OfflineTraining.apply(arts, 8.0 * 3600.0, cfg)
+	_check(arts.is_mastered("plum_blossom_sword.t1"), "오프라인 중 대성")
+	_check(arts.is_mastered("plum_blossom_sword.t2") and arts.count_of("plum_blossom_sword.t3") == 14400 - 1000 - 10000, "남은 횟수는 다음 초식으로 이월 (2초식 대성 후 3초식까지)")
+	_check(int(r["gains"]["plum_blossom_sword.t1"]) == 1000 and r["mastered"].has("plum_blossom_sword.t1"), "대성까지 필요한 만큼만 1초식에 반영")
+	_check(arts.count_of("plum_blossom_sword.t4") == 0 and arts.count_of("plum_blossom_sword.t1") == 10000, "연속초식을 켜 두었어도 단일 수련 기준 (대성한 초식은 더 쌓지 않음)")
+	# 모두 대성한 경우: 마지막 초식 반복
+	var arts2 := _new_arts()
+	for t in arts2.techniques_of("plum_blossom_sword"):
+		arts2.debug_set_count(t["id"], 10000)
+	var last: String = arts2.techniques_of("plum_blossom_sword").back()["id"]
+	var c0 := arts2.count_of(last)
+	OfflineTraining.apply(arts2, 600.0, cfg)
+	_check(arts2.count_of(last) == c0 + 300, "모두 대성했으면 마지막 초식에 계속 쌓임")
+	var arts3 := _new_arts()
+	r = OfflineTraining.apply(arts3, 0.0, cfg)
+	_check(r["gains"].is_empty(), "경과 0이면 변화 없음")
+	_finish()
+
+
+func _test_offline_game_flow() -> void:
+	print("[M10 저장 → 복귀 흐름과 요약 화면]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var sm = _make_save_manager("user://test_m10_save")
+	sm.save_game()
+	var r: Dictionary = sm.load_game()
+	var meta: Dictionary = sm.saved_time_of(r["data"])
+	_check(int(meta["unix"]) > 0 and String(meta["session"]) != "", "저장 파일에 기기 시간, 단조 시간, 세션 기록")
+	gs.apply_loaded(r["data"])
+	var now := {"unix": int(meta["unix"]) + 2 * 3600, "mono_ms": 0, "session": "다른 실행"}
+	var res: Dictionary = gs.apply_offline(meta, now)
+	_check(gs.arts.count_of("plum_blossom_sword.t1") == 3600 and int(res["gains"]["plum_blossom_sword.t1"]) == 3600, "2시간 뒤 재실행: 1초식 +3,600회 (효율 50%)")
+	_check(not gs.offline_summary.is_empty(), "복귀 요약이 만들어짐")
+	var short: Dictionary = gs.apply_offline(meta, {"unix": int(meta["unix"]) + 30, "mono_ms": 0, "session": "다른 실행"})
+	_check(short.is_empty(), "60초 미만은 무시 (가안)")
+	var back: Dictionary = gs.apply_offline(meta, {"unix": int(meta["unix"]) - 100, "mono_ms": 0, "session": "다른 실행"})
+	_check(back.get("rollback", false) and int(gs.data["offline"]["rollback_until_unix"]) == int(meta["unix"]), "시계를 되돌리면 보상 없이 기준 시각 저장")
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = gs.arts
+	root.add_child(ui)
+	gs.apply_offline({"unix": int(meta["unix"]), "mono_ms": 0, "session": "x"}, {"unix": int(meta["unix"]) + 4 * 3600, "mono_ms": 0, "session": "y"})
+	_check(ui.panels.has("offline") and ui.panels["offline"].visible, "복귀 요약 화면이 뜸")
+	var texts := ""
+	for c in ui.panels["offline"].root.get_children():
+		if c is Label:
+			texts += c.text
+	_check(texts.contains("효율 50%") and texts.contains("+6,400회") and texts.contains("대성"), "요약에 효율, 오른 횟수, 대성 표시")
+	ui.free()
+	sm.delete_all()
+	sm.free()
 	gs.reset_to_new_game()
 	_finish()

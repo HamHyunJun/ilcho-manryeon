@@ -20,6 +20,10 @@ var growth: CharacterGrowth
 var equipment: EquipmentManager
 ## 비급 조각과 던전 기록 (M9). data["collection"]을 직접 다룬다.
 var collection: ManualCollection
+## 마지막 오프라인 수련 결과 (복귀 요약 화면이 보여 주고 비운다, M10)
+var offline_summary: Dictionary = {}
+## 복귀 요약이 생기면 알린다
+signal offline_summary_ready(summary: Dictionary)
 
 
 func _ready() -> void:
@@ -41,6 +45,7 @@ func reset_to_new_game() -> void:
 		"equipment": EquipmentManager.new_state(),
 		"currencies": EquipmentManager.new_currencies(),
 		"collection": ManualCollection.new_state(),
+		"offline": {"rollback_until_unix": 0},
 	}
 	_bind_arts()
 	_bind_growth()
@@ -71,6 +76,8 @@ func apply_loaded(loaded: Dictionary) -> void:
 		data["currencies"] = EquipmentManager.new_currencies()
 	if not (data.get("collection") is Dictionary):
 		data["collection"] = ManualCollection.new_state()
+	if not (data.get("offline") is Dictionary):
+		data["offline"] = {"rollback_until_unix": 0}
 	# 저장 메타 정보는 상태에 남기지 않는다 (저장할 때 다시 쓴다)
 	for key in ["save_seq", "saved_at_unix", "saved_at_monotonic_ms", "boot_session_id"]:
 		data.erase(key)
@@ -81,6 +88,44 @@ func apply_loaded(loaded: Dictionary) -> void:
 	if arts.main_art() != "" and not arts.is_unlocked(arts.main_art()):
 		arts.unlock(arts.main_art())
 	arts.refresh_training_target()
+
+
+## 오프라인 수련을 계산해 적용한다 (M10). saved_meta: 마지막 저장(또는 백그라운드 전환) 시각 {unix, mono_ms, session}
+## now를 주지 않으면 TimeService의 현재 시각을 쓴다. 반환값: 요약 (보상이 없으면 빈 Dictionary)
+func apply_offline(saved_meta: Dictionary, now: Dictionary = {}) -> Dictionary:
+	var reg := get_node("/root/DataRegistry")
+	var ocfg: Dictionary = reg.balance.get("training", {}).get("offline", {})
+	if now.is_empty() and has_node("/root/TimeService"):
+		now = get_node("/root/TimeService").snapshot()
+	var off: Dictionary = data["offline"]
+	var max_sec := float(ocfg.get("max_hours", 8)) * 3600.0
+	var el := OfflineTraining.elapsed(saved_meta, now, max_sec, int(off.get("rollback_until_unix", 0)))
+	off["rollback_until_unix"] = int(el["rollback_until"])
+	offline_summary = {}
+	if el["rollback"]:
+		offline_summary = {"rollback": true, "seconds": 0.0}
+		offline_summary_ready.emit(offline_summary)
+		_request_save()
+		return offline_summary
+	if float(el["seconds"]) < float(ocfg.get("min_seconds", 60)):
+		return {}
+	var pb: Dictionary = reg.balance.get("combat", {}).get("player_base", {})
+	var cfg := {
+		"efficiency": float(ocfg.get("efficiency", 0.5)),
+		"multiplier": float(reg.balance.get("training", {}).get("base_multiplier", 1.0)),
+		"technique_interval": float(pb.get("technique_interval", 1.0)),
+		"mp_regen": float(pb.get("mp_regen", 5.0)),
+	}
+	var res := OfflineTraining.apply(arts, float(el["seconds"]), cfg)
+	res["raw_seconds"] = el["raw_seconds"]
+	res["capped"] = el["capped"]
+	res["method"] = el["method"]
+	res["efficiency"] = cfg["efficiency"]
+	res["max_hours"] = float(ocfg.get("max_hours", 8))
+	offline_summary = res
+	offline_summary_ready.emit(res)
+	_request_save()
+	return res
 
 
 ## 저장 직전에 호출된다. 캐시 값을 최신으로 맞춘다.

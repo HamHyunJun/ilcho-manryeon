@@ -38,17 +38,22 @@ var manual_only := false
 var target_version := 0
 
 var _pending_save := false
+## 앱이 백그라운드로 간 시각 (모바일 복귀 시 오프라인 계산용)
+var _paused_at: Dictionary = {}
 var _last_autosave_ms := 0
 
 
 func _ready() -> void:
-	boot_session_id = "%x" % (randi() ^ Time.get_ticks_usec())
+	boot_session_id = get_node("/root/TimeService").session_id if has_node("/root/TimeService") else "%x" % (randi() ^ Time.get_ticks_usec())
 	if manual_only or not has_node("/root/GameState"):
 		return
 	var gs = get_node("/root/GameState")
 	var result := load_game()
 	if result.get("ok", false):
+		# 오프라인 판정에 쓸 저장 시각은 apply_loaded가 지우기 전에 꺼내 둔다 (M10)
+		var saved_meta := saved_time_of(result["data"])
 		gs.apply_loaded(result["data"])
+		gs.apply_offline(saved_meta)
 		if result.get("migrated", false):
 			save_game()
 	elif result.get("empty", false):
@@ -74,6 +79,13 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT \
 			or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		save_game()
+	# 모바일에서 앱이 멈춰 있던 시간도 오프라인 수련으로 계산한다 (M10).
+	# 데스크톱 포커스 아웃은 게임이 계속 돌기 때문에 계산하지 않는다.
+	if what == NOTIFICATION_APPLICATION_PAUSED and has_node("/root/TimeService"):
+		_paused_at = get_node("/root/TimeService").snapshot()
+	elif what == NOTIFICATION_APPLICATION_RESUMED and not _paused_at.is_empty() and has_node("/root/GameState"):
+		get_node("/root/GameState").apply_offline(_paused_at)
+		_paused_at = {}
 
 
 ## 중요 이벤트 직후 저장을 요청한다. 같은 프레임의 요청은 한 번으로 합친다.
@@ -195,6 +207,15 @@ func load_game() -> Dictionary:
 	save_seq = int(data.get("save_seq", 0))
 	last_slot = best_slot
 	return {"ok": true, "data": data, "slot": best_slot, "migrated": migrated}
+
+
+## 저장 데이터의 저장 시각 묶음 {unix, mono_ms, session}
+static func saved_time_of(data: Dictionary) -> Dictionary:
+	return {
+		"unix": int(data.get("saved_at_unix", 0)),
+		"mono_ms": int(data.get("saved_at_monotonic_ms", 0)),
+		"session": String(data.get("boot_session_id", "")),
+	}
 
 
 func current_version() -> int:
