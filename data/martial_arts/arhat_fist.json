@@ -14,7 +14,19 @@
   "sources": [
     "manual_dungeon"
   ],
-  "passive_as_sub": [],
+  "_passive_comment": "보조로 장착했을 때의 패시브. 무공별 고정값은 가안이며 결정 방식은 미확정(O-09)이다.",
+  "passive_as_sub": [
+    {
+      "stat": "def",
+      "type": "percent",
+      "value": 0.3
+    },
+    {
+      "stat": "max_hp",
+      "type": "percent",
+      "value": 0.1
+    }
+  ],
   "techniques": [
     {
       "id": "arhat_fist.t1",

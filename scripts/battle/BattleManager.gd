@@ -3,8 +3,8 @@ extends Node2D
 ## - 왼쪽에 캐릭터를 고정 배치하고, 오른쪽에서 몬스터를 주기적으로 생성한다.
 ## - 캐릭터 기본 공격, 몬스터 접근/공격, 피해 숫자, 처치를 처리한다.
 ## - 일반 몬스터 50마리 처치 → 보스 등장 → 보스 처치 → 다음 스테이지 (StageManager).
+## - 주력 무공 초식 자동 발동과 수련 기록 (M3, TechniqueModeController + MartialArtManager).
 ## - 모든 수치는 data/balance/combat.json, data/monsters/*.json, data/stages/*.json에서 읽는다.
-## 초식 발동은 M3에서 추가한다.
 
 const PlayerScript := preload("res://scripts/player/PlayerCharacter.gd")
 const MonsterScript := preload("res://scripts/battle/Monster.gd")
@@ -23,6 +23,14 @@ var rng := RandomNumberGenerator.new()
 var stage: StageManager
 ## 현재 보스 (없으면 null)
 var boss: Node2D = null
+## 무공 장착/수련 기록 (기본은 GameState.arts)
+var arts: MartialArtManager
+var techniques: TechniqueModeController
+## 마지막으로 발동한 초식 이름과 남은 표시 시간 (화면 표시용)
+var last_technique_name := ""
+var last_technique_left := 0.0
+## 지금까지 발동한 초식 수 (테스트, 통계용)
+var techniques_cast := 0
 ## 화면 가운데 안내 문구와 남은 표시 시간
 var banner_text := ""
 var banner_left := 0.0
@@ -42,7 +50,8 @@ func _ready() -> void:
 
 
 ## 전투를 초기화한다. region_data를 주지 않으면 combat.json의 시작 지역을 쓴다.
-func setup(combat_config: Dictionary, region_data: Dictionary = {}) -> void:
+## martial_arts를 주지 않으면 GameState의 무공 관리자를 쓴다.
+func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts: MartialArtManager = null) -> void:
 	config = combat_config
 	_clear_monsters()
 	kill_count = 0
@@ -52,12 +61,21 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}) -> void:
 		region_data = DataRegistry.get_region(config.get("stage", {}).get("start_region", ""))
 	stage = StageManager.new(region_data, int(config.get("stage", {}).get("start_stage", 1)))
 
+	if martial_arts == null and has_node("/root/GameState"):
+		martial_arts = get_node("/root/GameState").arts
+	if arts != null and arts.equipment_changed.is_connected(_refresh_stats):
+		arts.equipment_changed.disconnect(_refresh_stats)
+	arts = martial_arts
+	if arts != null:
+		arts.equipment_changed.connect(_refresh_stats)
+		techniques = TechniqueModeController.new(arts, float(config["player_base"].get("technique_interval", 1.0)))
+
 	if player == null:
 		player = PlayerScript.new()
 		player.name = "Player"
 		add_child(player)
 		player.knocked_out.connect(_on_player_knocked_out)
-	player.setup(config["player_base"])
+	player.setup(_effective_stats())
 	player.position = Vector2(config["layout"]["player_x"], config["layout"]["ground_y"])
 
 	if _effects_layer == null:
@@ -78,6 +96,19 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}) -> void:
 	queue_redraw()
 
 
+## 기본 능력치에 보조 무공 패시브를 더한 능력치
+func _effective_stats() -> Dictionary:
+	var bonuses: Dictionary = arts.sub_passives() if arts != null else {}
+	return PlayerStats.apply(config["player_base"], bonuses)
+
+
+## 장착이 바뀌면 능력치를 다시 계산한다 (체력 비율 유지)
+func _refresh_stats() -> void:
+	player.apply_stats(_effective_stats())
+	if techniques:
+		techniques.reset_chain()
+
+
 func _process(delta: float) -> void:
 	if not manual_tick:
 		tick(delta)
@@ -86,6 +117,9 @@ func _process(delta: float) -> void:
 ## 전투를 delta초 진행한다.
 func tick(delta: float) -> void:
 	banner_left = maxf(0.0, banner_left - delta)
+	last_technique_left = maxf(0.0, last_technique_left - delta)
+	if techniques:
+		techniques.tick(delta)
 
 	if player.is_down():
 		_recover_cd -= delta
@@ -117,6 +151,8 @@ func tick(delta: float) -> void:
 		var color := Color(1.0, 0.85, 0.2) if hit["crit"] else Color.WHITE
 		_show_damage(hit["damage"], hit["target"].position + Vector2(0, -hit["target"].body_size.y), color, hit["crit"])
 
+	_try_cast_technique()
+
 	for m in monsters.duplicate():
 		if not is_instance_valid(m) or m.is_dead():
 			continue
@@ -124,6 +160,47 @@ func tick(delta: float) -> void:
 		if dealt > 0:
 			_show_damage(dealt, player.position + Vector2(0, -player.body_size.y), Color(1.0, 0.4, 0.4))
 	_redraw_all()
+
+
+## 자동 초식 발동. 대상이 없거나, 대기 중이거나, 내공이 부족하면 발동하지 않고 수련 횟수도 오르지 않는다.
+## 발동하면 빗나가도 수련 1회로 센다 (확정 사항 28). 지금은 회피가 없어 발동 = 적중이다.
+func _try_cast_technique() -> void:
+	if techniques == null or player.is_down():
+		return
+	var tech: Dictionary = techniques.pick(player.mp)
+	if tech.is_empty():
+		return
+	var range_px := float(tech.get("range", 0.25)) * float(config["layout"].get("screen_width", 720))
+	var targets: Array = player.technique_targets(tech, monsters, range_px)
+	if targets.is_empty():
+		return
+	var art_id := String(tech["id"]).get_slice(".", 0)
+	var color := _category_color(DataRegistry.get_martial_art(art_id).get("category", ""))
+	var hits: Array = player.cast_technique(tech, targets, rng, _defense_constant, color)
+	techniques.on_cast(tech)
+	techniques_cast += 1
+	var multiplier := float(DataRegistry.balance.get("training", {}).get("base_multiplier", 1.0))
+	arts.record_performed(tech["id"], multiplier)
+	last_technique_name = tech.get("name", "")
+	last_technique_left = 0.8
+	if has_node("/root/EventBus"):
+		get_node("/root/EventBus").technique_performed.emit(art_id, tech["id"])
+	for h in hits:
+		if is_instance_valid(h["target"]):
+			var c := color.lightened(0.3) if h["crit"] else color
+			_show_damage(h["damage"], h["target"].position + Vector2(0, -h["target"].body_size.y - 30), c, h["crit"])
+
+
+## 계열별 임시 색 (계열 이펙트 프리셋은 M6)
+func _category_color(category: String) -> Color:
+	match category:
+		"sword":
+			return Color(1.0, 0.55, 0.75)
+		"fist":
+			return Color(1.0, 0.65, 0.3)
+		"spell":
+			return Color(0.5, 0.85, 1.0)
+	return Color(0.9, 0.9, 0.9)
 
 
 func alive_count() -> int:

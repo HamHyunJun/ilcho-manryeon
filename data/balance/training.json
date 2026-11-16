@@ -42,5 +42,7 @@
     "efficiency": 0.5,
     "max_hours": 8,
     "mode": "single"
-  }
+  },
+  "_comment": "수련 공통 수치. start_martial_art(매화검법)는 확정 사항 29, 나머지 수치는 docs/11 기준.",
+  "start_martial_art": "plum_blossom_sword"
 }

@@ -2,13 +2,16 @@
   "_comment": "전투 공통 수치. 모든 값은 가안이며 밸런스 단계에서 조정한다 (docs/11-balance.md).",
   "player_base": {
     "max_hp": 500,
-    "atk": 40,
+    "atk": 20,
     "def": 10,
     "crit_rate": 0.05,
     "crit_mult": 1.5,
     "basic_attack_interval": 1.0,
     "basic_attack_coef": 1.0,
-    "attack_range": 180
+    "attack_range": 180,
+    "max_mp": 100,
+    "mp_regen": 5,
+    "technique_interval": 1.0
   },
   "defense_constant": 100,
   "spawn": {
@@ -20,7 +23,8 @@
     "_comment": "720x1280 기준 화면 좌표(px)",
     "player_x": 140,
     "ground_y": 760,
-    "spawn_x": 780
+    "spawn_x": 780,
+    "screen_width": 720
   },
   "knockout": {
     "_comment": "캐릭터가 쓰러졌을 때의 임시 처리 (미확정 O-06). 잠시 멈춘 뒤 현재 스테이지를 처음(처치 0)부터 다시 시작하고 체력을 모두 회복한다.",
