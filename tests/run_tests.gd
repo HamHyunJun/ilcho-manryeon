@@ -25,6 +25,11 @@ const TESTS := [
 	&"_test_sub_passive_only",
 	&"_test_battle_training_single",
 	&"_test_battle_training_chain",
+	&"_test_save_round_trip",
+	&"_test_save_double_slots",
+	&"_test_save_corruption_recovery",
+	&"_test_save_version_and_migration",
+	&"_test_save_restores_stage_in_battle",
 ]
 
 var _failed := 0
@@ -38,6 +43,9 @@ func _process(_delta: float) -> bool:
 	if _started:
 		return false
 	_started = true
+	# 테스트 중에는 자동 저장을 끄고, 이전 실행의 저장과 상관없이 새 게임 상태에서 시작한다
+	root.get_node("SaveManager").manual_only = true
+	root.get_node("GameState").reset_to_new_game()
 	for t in TESTS:
 		var before := _finished
 		call(t)
@@ -429,5 +437,153 @@ func _test_battle_training_chain() -> void:
 	_check(absi(c1 - c3) <= 2, "1초식부터 순서대로 돌아가며 발동")
 	_check(arts.training_target() == "plum_blossom_sword.t3", "연속초식 중에도 수련 중인 초식은 3초식 유지")
 	battle.free()
+	_finish()
+
+
+## 테스트용 저장 관리자 (자동 저장 끔, 별도 폴더)
+func _make_save_manager(dir: String) -> Node:
+	var sm = load("res://scripts/autoload/SaveManager.gd").new()
+	sm.manual_only = true
+	sm.save_dir = dir
+	root.add_child(sm)
+	sm.delete_all()
+	return sm
+
+
+## 진행이 있는 테스트용 게임 상태
+func _sample_state() -> Dictionary:
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 8214)
+	arts.unlock("arhat_fist")
+	arts.equip_sub(0, "arhat_fist")
+	arts.debug_set_count("arhat_fist.t1", 1532)
+	arts.record_performed("plum_blossom_sword.t2", 0.5)
+	return {
+		"version": 1,
+		"martial_arts": arts.state,
+		"stage": {"region": "cheongpung_mountain", "stage_no": 3, "kill_count": 37, "highest_cleared": {"cheongpung_mountain": 2}},
+	}
+
+
+func _test_save_round_trip() -> void:
+	print("[저장/불러오기 왕복]")
+	var sm := _make_save_manager("user://test_save_rt")
+	_check(sm.load_game().get("empty", false), "저장이 없으면 빈 상태로 알림")
+	_check(sm.save_game(_sample_state()), "저장 성공")
+	var sm2 := _make_save_manager_keep("user://test_save_rt")
+	var r: Dictionary = sm2.load_game()
+	_check(r.get("ok", false), "불러오기 성공")
+	var arts := MartialArtManager.new(r["data"]["martial_arts"], _reg())
+	_check(arts.main_art() == "plum_blossom_sword" and arts.sub_arts()[0] == "arhat_fist", "장착 정보 복원")
+	_check(arts.is_mastered("plum_blossom_sword.t1") and arts.count_of("plum_blossom_sword.t2") == 8214, "무공별·초식별 진행도 복원")
+	_check(is_equal_approx(float(arts.progress_of("plum_blossom_sword.t2")["fraction"]), 0.5), "소수점 누적값 복원")
+	_check(arts.count_of("arhat_fist.t1") == 1532, "보조 무공 진행도 복원")
+	_check(arts.training_target() == "plum_blossom_sword.t2", "수련 중인 초식 다시 계산")
+	var st: Dictionary = r["data"]["stage"]
+	_check(int(st["stage_no"]) == 3 and int(st["kill_count"]) == 37, "스테이지와 처치 수 복원")
+	arts.record_performed("plum_blossom_sword.t2")
+	_check(arts.count_of("plum_blossom_sword.t2") == 8215, "불러온 뒤에도 수련 기록이 이어짐")
+	sm.queue_free()
+	sm2.queue_free()
+	_finish()
+
+
+## 폴더를 비우지 않고 만드는 저장 관리자 (다시 실행한 앱을 흉내)
+func _make_save_manager_keep(dir: String) -> Node:
+	var sm = load("res://scripts/autoload/SaveManager.gd").new()
+	sm.manual_only = true
+	sm.save_dir = dir
+	root.add_child(sm)
+	return sm
+
+
+func _test_save_double_slots() -> void:
+	print("[이중 저장]")
+	var sm := _make_save_manager("user://test_save_ds")
+	var state := _sample_state()
+	sm.save_game(state)
+	var first: String = sm.last_slot
+	state["stage"]["kill_count"] = 40
+	sm.save_game(state)
+	_check(sm.last_slot != first, "저장할 때마다 슬롯을 번갈아 씀")
+	_check(FileAccess.file_exists("user://test_save_ds/save_a.json") and FileAccess.file_exists("user://test_save_ds/save_b.json"), "슬롯 2개가 모두 있음")
+	_check(not FileAccess.file_exists("user://test_save_ds/save_a.json.tmp") and not FileAccess.file_exists("user://test_save_ds/save_b.json.tmp"), "임시 파일이 남지 않음")
+	var r: Dictionary = _make_save_manager_keep("user://test_save_ds").load_game()
+	_check(r["ok"] and int(r["data"]["stage"]["kill_count"]) == 40 and int(r["data"]["save_seq"]) == 2, "최신 저장(순번 2)을 불러옴")
+	_finish()
+
+
+func _test_save_corruption_recovery() -> void:
+	print("[저장 파일 손상 복구]")
+	var dir := "user://test_save_cr"
+	var sm := _make_save_manager(dir)
+	var state := _sample_state()
+	sm.save_game(state)
+	state["stage"]["kill_count"] = 45
+	sm.save_game(state)
+	var newest: String = dir.path_join(sm.last_slot)
+	# 최신 파일의 본문 한 글자를 바꾼다 (해시 불일치)
+	var text := FileAccess.get_file_as_string(newest)
+	var f := FileAccess.open(newest, FileAccess.WRITE)
+	f.store_string(text.replace("\\\"kill_count\\\":45", "\\\"kill_count\\\":46"))
+	f.close()
+	_check(FileAccess.get_file_as_string(newest) != text, "최신 저장 파일을 일부러 깨뜨림")
+	var r: Dictionary = _make_save_manager_keep(dir).load_game()
+	_check(r["ok"] and int(r["data"]["stage"]["kill_count"]) == 37, "깨진 파일 대신 다른 슬롯에서 복구")
+	# 다른 슬롯은 반쯤 잘린 파일로 만든다
+	var other := dir.path_join(sm.SLOT_A if sm.last_slot == sm.SLOT_B else sm.SLOT_B)
+	var t2 := FileAccess.get_file_as_string(other)
+	var f2 := FileAccess.open(other, FileAccess.WRITE)
+	f2.store_string(t2.substr(0, t2.length() / 2))
+	f2.close()
+	var r2: Dictionary = _make_save_manager_keep(dir).load_game()
+	_check(not r2["ok"] and not r2.get("empty", false) and r2.get("error", "") != "", "두 파일이 모두 깨지면 오류로 알림 (%s)" % r2.get("error", ""))
+	_finish()
+
+
+func _test_save_version_and_migration() -> void:
+	print("[버전 확인과 마이그레이션]")
+	var dir := "user://test_save_mg"
+	var sm := _make_save_manager(dir)
+	sm.save_game(_sample_state())
+	# v1 → v2 테스트용 변환: 새 필드를 기본값으로 채운다
+	var sm2 := _make_save_manager_keep(dir)
+	sm2.target_version = 2
+	sm2.migrations[1] = func(d: Dictionary) -> Dictionary:
+		d["test_new_field"] = {"filled": true}
+		return d
+	var r: Dictionary = sm2.load_game()
+	_check(r["ok"] and r["migrated"], "낮은 버전 저장을 마이그레이션해 불러옴")
+	_check(int(r["data"]["version"]) == 2 and r["data"]["test_new_field"]["filled"], "v1 → v2 변환 적용")
+	_check(int(r["data"]["stage"]["stage_no"]) == 3, "변환 후에도 기존 진행 유지")
+	var backups := Array(DirAccess.get_files_at(dir)).filter(func(n): return n.begins_with("backup_v1_"))
+	_check(backups.size() == 1, "변환 전 원본을 백업으로 보관")
+	var sm3 := _make_save_manager_keep(dir)
+	sm3.target_version = 3
+	_check(not sm3.load_game()["ok"], "중간 변환이 없으면 불러오지 않음")
+	# 앱보다 높은 버전
+	var sm4 := _make_save_manager(dir + "_hi")
+	var hi := _sample_state()
+	hi["version"] = 99
+	sm4.save_game(hi)
+	var r4: Dictionary = _make_save_manager_keep(dir + "_hi").load_game()
+	_check(not r4["ok"] and String(r4["error"]).contains("업데이트"), "앱보다 높은 버전은 불러오지 않고 업데이트 안내")
+	_finish()
+
+
+func _test_save_restores_stage_in_battle() -> void:
+	print("[불러온 진행을 전투에 적용]")
+	var gs := root.get_node("GameState")
+	var loaded := _sample_state()
+	gs.apply_loaded(loaded.duplicate(true))
+	_check(gs.arts.sub_arts()[0] == "arhat_fist" and gs.arts.count_of("plum_blossom_sword.t2") == 8214, "GameState에 무공 진행 적용")
+	var battle := _make_battle()
+	_check(battle.stage.stage_no == 3 and battle.stage.kill_count == 37, "전투가 저장된 스테이지 3, 처치 37에서 시작")
+	_check(battle.player.max_hp > int(battle.config["player_base"]["max_hp"]), "보조 무공 패시브도 적용됨")
+	battle.tick(0.05)
+	_check(int(gs.data["stage"]["stage_no"]) == 3, "전투 진행이 GameState 스테이지에 기록됨")
+	battle.free()
+	gs.reset_to_new_game()
 	_finish()
 

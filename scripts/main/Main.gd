@@ -18,6 +18,9 @@ func _ready() -> void:
 
 ## 화면에 보여 줄 데이터 요약 문자열을 만든다.
 func build_info_text() -> String:
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and sm.load_error != "":
+		return "저장 데이터를 불러오지 못했습니다. 새 게임으로 시작합니다.\n" + sm.load_error
 	if not DataRegistry.errors.is_empty():
 		var lines: PackedStringArray = ["데이터 오류 %d건" % DataRegistry.errors.size()]
 		for e in DataRegistry.errors:

@@ -14,6 +14,7 @@ class_name MartialArtManager
 signal technique_progressed(technique_id: String, count: int)
 signal technique_mastered(technique_id: String)
 signal equipment_changed()
+signal art_unlocked(art_id: String)
 
 const SUB_SLOTS := 2
 
@@ -60,11 +61,14 @@ func unlock(art_id: String) -> bool:
 	if prog.is_empty():
 		prog = {"unlocked": true, "unlocked_at_unix": int(Time.get_unix_time_from_system()), "techniques": {}}
 		state["progress"][art_id] = prog
+	var newly: bool = not bool(prog.get("unlocked", false)) or not prog.has("techniques") or prog["techniques"].is_empty()
 	prog["unlocked"] = true
 	var techs: Array = art["techniques"]
 	for t in techs:
 		_tech_progress(art_id, t["id"])
 	state["progress"][art_id]["techniques"][techs[0]["id"]]["unlocked"] = true
+	if newly:
+		art_unlocked.emit(art_id)
 	return true
 
 

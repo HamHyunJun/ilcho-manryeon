@@ -15,6 +15,7 @@ var _panel: PanelContainer
 var _art_rows: VBoxContainer
 var _tech_rows: VBoxContainer
 var _speed_label: Label
+var _save_label: Label
 ## 육성 화면에서 보고 있는 무공
 var _selected_art := ""
 ## 초식 ID → 표시 Label (매 프레임 갱신)
@@ -36,6 +37,7 @@ func _process(_delta: float) -> void:
 	_update_bottom_bar()
 	if _panel.visible:
 		_update_tech_labels()
+		_update_save_label()
 
 
 # ---- 아래쪽 막대 ----
@@ -153,6 +155,19 @@ func _build_panel() -> void:
 	var unlock_all := _button("무공 모두 개방 (비급 획득은 M9)", 20)
 	unlock_all.pressed.connect(_unlock_all)
 	root.add_child(unlock_all)
+	# 저장 확인용 (M4)
+	var save_row := HBoxContainer.new()
+	root.add_child(save_row)
+	var save_now := _button("지금 저장", 20)
+	save_now.pressed.connect(func(): get_node("/root/SaveManager").save_game())
+	save_row.add_child(save_now)
+	var reset := _button("저장 지우고 새 게임", 20)
+	reset.pressed.connect(_reset_game)
+	save_row.add_child(reset)
+	_save_label = Label.new()
+	_save_label.add_theme_font_size_override("font_size", 16)
+	_save_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(_save_label)
 
 
 func _open_panel(open: bool) -> void:
@@ -272,6 +287,29 @@ func _debug_count(tech_id: String, amount: int) -> void:
 		n += amount
 	arts.debug_set_count(tech_id, n)
 	_rebuild_panel()
+
+
+func _update_save_label() -> void:
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm == null:
+		return
+	var ago := "없음"
+	if sm.last_saved_ms >= 0:
+		ago = "%d초 전" % int((Time.get_ticks_msec() - sm.last_saved_ms) / 1000)
+	var text := "마지막 저장: %s · 저장 순번 %d · %s (30초마다, 대성·장착·스테이지 돌파·앱 전환 때 저장)" % [ago, sm.save_seq, sm.last_slot]
+	if sm.load_error != "":
+		text += "\n불러오기 오류: " + sm.load_error
+	_save_label.text = text
+
+
+## 저장 파일을 지우고 새 게임으로 다시 시작한다 (디버그)
+func _reset_game() -> void:
+	Engine.time_scale = 1.0
+	var sm = get_node("/root/SaveManager")
+	sm.delete_all()
+	get_node("/root/GameState").reset_to_new_game()
+	sm.save_game()
+	get_tree().reload_current_scene()
 
 
 func _set_speed(s: int) -> void:
