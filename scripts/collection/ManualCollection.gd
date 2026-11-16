@@ -4,6 +4,8 @@ class_name ManualCollection
 ## - 비급 조각은 무공별 아이템이다 (확정 사항 13). 필요 개수를 채우면 무공을 개방한다.
 ## - 이미 개방한 무공의 조각은 은냥으로 바꾼다 (가안, O-16).
 ## - 던전 입장 제한(하루 횟수), 천장 장치 자리(클리어 n회마다 추가 조각, 테스트용 수치, O-15).
+## - 모든 던전(비급/장비/재화)의 기록: 입장 횟수, 클리어 수, 최고 난이도, 난이도별 최고 처치 수, 소탕 가능 여부.
+##   저장 키는 M9 그대로 collection.dungeons.<던전 ID>를 쓴다 (새 칸은 없으면 0으로 읽어 마이그레이션 불필요).
 ## 상태는 저장 데이터의 collection 섹션을 직접 다룬다.
 
 signal fragments_changed(art_id: String, count: int)
@@ -80,13 +82,35 @@ func entries_left(dungeon: Dictionary, today: String = "") -> int:
 
 
 ## 입장 가능 여부. highest_cleared는 StageManager.highest_cleared {지역: 최고 돌파 스테이지}
-func can_enter(dungeon: Dictionary, highest_cleared: Dictionary, today: String = "") -> Dictionary:
-	var req: Dictionary = dungeon.get("entry", {}).get("required_cleared", {})
-	if not req.is_empty() and int(highest_cleared.get(req.get("region", ""), 0)) < int(req.get("stage", 0)):
-		return {"ok": false, "reason": "스테이지 %d 돌파 후 입장" % int(req.get("stage", 0))}
+## level은 난이도 단계: 그 난이도의 스테이지 조건과, 2단계부터는 바로 아래 난이도 클리어가 필요하다.
+func can_enter(dungeon: Dictionary, highest_cleared: Dictionary, today: String = "", level: int = 1) -> Dictionary:
+	var lock := level_lock_reason(dungeon, highest_cleared, level)
+	if lock != "":
+		return {"ok": false, "reason": lock}
 	if entries_left(dungeon, today) <= 0:
 		return {"ok": false, "reason": "오늘 입장 횟수를 모두 썼습니다"}
 	return {"ok": true, "reason": ""}
+
+
+## 난이도가 잠겨 있으면 이유, 열려 있으면 빈 문자열 (입장 횟수는 보지 않음)
+func level_lock_reason(dungeon: Dictionary, highest_cleared: Dictionary, level: int = 1) -> String:
+	if level < 1 or level > DungeonRules.max_level(dungeon):
+		return "없는 난이도"
+	var req: Dictionary = DungeonRules.resolve(dungeon, level).get("entry", {}).get("required_cleared", {})
+	if not req.is_empty() and int(highest_cleared.get(req.get("region", ""), 0)) < int(req.get("stage", 0)):
+		return "스테이지 %d 돌파 후 입장" % int(req.get("stage", 0))
+	if level > 1 and best_level_of(dungeon["id"]) < level - 1:
+		return "%s 클리어 후 입장" % String(DungeonRules.difficulty(dungeon, level - 1).get("name", "이전 난이도"))
+	return ""
+
+
+## 소탕(자동 클리어) 가능 여부: 데이터에서 허용하고, 그 난이도를 한 번 클리어했고, 입장 횟수가 남아 있어야 한다 (가안 O-31)
+func can_sweep(dungeon: Dictionary, highest_cleared: Dictionary, today: String = "", level: int = 1) -> Dictionary:
+	if not bool(dungeon.get("sweep", false)):
+		return {"ok": false, "reason": "소탕할 수 없는 던전"}
+	if best_level_of(dungeon["id"]) < level:
+		return {"ok": false, "reason": "한 번 클리어한 난이도만 소탕할 수 있습니다"}
+	return can_enter(dungeon, highest_cleared, today, level)
 
 
 ## 입장 횟수 기록 (입장할 때 차감, 실패해도 돌려주지 않음: 가안 O-31)
@@ -103,6 +127,33 @@ func pity_of(dungeon_id: String) -> int:
 
 func clears_of(dungeon_id: String) -> int:
 	return int(state["dungeons"].get(dungeon_id, {}).get("clears", 0))
+
+
+## 클리어한 가장 높은 난이도 (없으면 0)
+func best_level_of(dungeon_id: String) -> int:
+	return int(state["dungeons"].get(dungeon_id, {}).get("best_level", 0))
+
+
+## 난이도별 최고 처치 수 (시간 제한 처치 던전의 소탕 기준)
+func best_kills_of(dungeon_id: String, level: int) -> int:
+	return int(state["dungeons"].get(dungeon_id, {}).get("best_kills", {}).get(str(level), 0))
+
+
+## 클리어 횟수만 올린다 (비급 던전은 grant_clear가 직접 올림)
+func add_clear(dungeon_id: String, today: String = "") -> void:
+	if today == "":
+		today = today_key()
+	var r := _record(dungeon_id, today)
+	r["clears"] = int(r["clears"]) + 1
+
+
+## 클리어 결과 기록: 최고 난이도와 난이도별 최고 처치 수
+func note_result(dungeon_id: String, level: int, kills: int) -> void:
+	var r: Dictionary = state["dungeons"][dungeon_id] if state["dungeons"].has(dungeon_id) else _record(dungeon_id, today_key())
+	r["best_level"] = maxi(int(r.get("best_level", 0)), level)
+	if not (r.get("best_kills") is Dictionary):
+		r["best_kills"] = {}
+	r["best_kills"][str(level)] = maxi(int(r["best_kills"].get(str(level), 0)), kills)
 
 
 # ---- 보상 ----

@@ -444,28 +444,69 @@ func _on_monster_died(m: Node) -> void:
 	m.queue_free()
 
 
-# ---- 비급 던전 (M9) ----
+# ---- 던전 (M9 비급 던전, 장비/재화 던전과 난이도·소탕) ----
 
 ## 던전에 들어간다. 일반 스테이지 진행(처치 수, 스테이지)은 그대로 두고 돌아온다.
-## 반환값: {ok, reason}
-func start_dungeon(dungeon_id: String, today: String = "") -> Dictionary:
+## level은 난이도 단계 (DungeonRules). 반환값: {ok, reason}
+func start_dungeon(dungeon_id: String, today: String = "", level: int = 1) -> Dictionary:
 	var d: Dictionary = DataRegistry.get_dungeon(dungeon_id)
 	if d.is_empty():
 		return {"ok": false, "reason": "없는 던전"}
 	if dungeon != null:
 		return {"ok": false, "reason": "이미 던전 진행 중"}
-	var check: Dictionary = collection.can_enter(d, stage.highest_cleared, today)
+	var check: Dictionary = collection.can_enter(d, stage.highest_cleared, today, level)
 	if not check["ok"]:
 		return check
 	collection.record_entry(d, today)
+	_save_soon()
 	_clear_monsters()
 	boss = null
 	player.recover()
-	dungeon = DungeonRun.new(d)
+	dungeon = DungeonRun.new(DungeonRules.resolve(d, level), rng)
 	_dungeon_spawn_cd = 0.5
 	last_dungeon_result = {}
-	_set_banner("%s 입장" % d.get("name", ""), 1.5)
+	_set_banner("%s %s 입장" % [d.get("name", ""), dungeon.data.get("difficulty_name", "")], 1.5)
 	return {"ok": true, "reason": ""}
+
+
+## 소탕: 한 번 클리어한 난이도를 전투 없이 바로 클리어 처리한다. 입장 횟수 1회를 쓴다 (가안 O-31).
+## 시간 제한 처치 던전은 그 난이도의 최고 처치 수로 보상을 계산한다.
+## 반환값: {ok, reason, rewards, text}
+func sweep_dungeon(dungeon_id: String, level: int = 1, today: String = "") -> Dictionary:
+	var d: Dictionary = DataRegistry.get_dungeon(dungeon_id)
+	if d.is_empty():
+		return {"ok": false, "reason": "없는 던전"}
+	var check: Dictionary = collection.can_sweep(d, stage.highest_cleared, today, level)
+	if not check["ok"]:
+		return check
+	collection.record_entry(d, today)
+	var res: Dictionary = DungeonRules.grant(DungeonRules.resolve(d, level), collection.best_kills_of(dungeon_id, level),
+		collection, equipment, rng, today)
+	_save_soon()
+	var text := DungeonRules.result_text(res, equipment)
+	last_dungeon_result = {"cleared": true, "sweep": true, "dungeon": dungeon_id, "level": level, "rewards": res, "text": text}
+	_announce_unlock(res)
+	return {"ok": true, "reason": "", "rewards": res, "text": text}
+
+
+## 비급 조각으로 무공을 개방했으면 알림을 띄우고 true
+func _announce_unlock(res: Dictionary) -> bool:
+	var unlocked := ""
+	for f in res.get("fragments", []) + ([res["pity_bonus"]] if not res.get("pity_bonus", {}).is_empty() else []):
+		if f.get("unlocked", false):
+			unlocked = DataRegistry.get_martial_art(f["art"]).get("name", "")
+	if unlocked == "":
+		return false
+	_set_banner("%s 개방!" % unlocked, 2.5)
+	if effects:
+		effects.play_mastery("spell", player.position + Vector2(0, -40), "%s 개방" % unlocked)
+	return true
+
+
+## 던전 기록(입장 횟수 등)은 시그널이 없어 직접 저장을 요청한다
+func _save_soon() -> void:
+	if _persist and get_node("/root/GameState").has_method("_request_save"):
+		get_node("/root/GameState")._request_save()
 
 
 func _tick_dungeon(delta: float) -> void:
@@ -473,6 +514,11 @@ func _tick_dungeon(delta: float) -> void:
 	dungeon.tick(delta)
 	if was_running and dungeon.state == DungeonRun.State.FAILED:
 		_on_dungeon_failed()
+		return
+	if was_running and dungeon.state == DungeonRun.State.CLEARED:
+		# 시간 제한 처치 던전: 시간이 끝나면 남은 몬스터를 치우고 클리어
+		_clear_monsters()
+		_on_dungeon_cleared()
 		return
 	if dungeon.state == DungeonRun.State.RUNNING:
 		_dungeon_spawn_cd -= delta
@@ -490,24 +536,13 @@ func _tick_dungeon(delta: float) -> void:
 
 
 func _on_dungeon_cleared() -> void:
-	var rng2 := rng
-	var res: Dictionary = collection.grant_clear(dungeon.data, rng2)
-	last_dungeon_result = {"cleared": true, "rewards": res}
-	var parts: PackedStringArray = []
-	for f in res["fragments"]:
-		parts.append("%s 조각 %d" % [DataRegistry.get_martial_art(f["art"]).get("name", f["art"]), int(f["amount"])])
-	if not res["pity_bonus"].is_empty():
-		parts.append("천장 보너스 %d" % int(res["pity_bonus"]["amount"]))
-	var unlocked := ""
-	for f in res["fragments"] + ([res["pity_bonus"]] if not res["pity_bonus"].is_empty() else []):
-		if f.get("unlocked", false):
-			unlocked = DataRegistry.get_martial_art(f["art"]).get("name", "")
-	if unlocked != "":
-		_set_banner("%s 개방!" % unlocked, 2.5)
-		if effects:
-			effects.play_mastery("spell", player.position + Vector2(0, -40), "%s 개방" % unlocked)
-	else:
-		_set_banner("던전 클리어: " + ", ".join(parts), 2.5)
+	var res: Dictionary = DungeonRules.grant(dungeon.data, dungeon.kills, collection, equipment, rng)
+	_save_soon()
+	var text := DungeonRules.result_text(res, equipment)
+	last_dungeon_result = {"cleared": true, "dungeon": dungeon.data.get("id", ""), "level": dungeon.level(),
+		"kills": dungeon.kills, "rewards": res, "text": text}
+	if not _announce_unlock(res):
+		_set_banner("던전 클리어: " + text, 2.5)
 	_sound("clear")
 
 
@@ -517,7 +552,8 @@ func _sound(name: String) -> void:
 
 
 func _on_dungeon_failed() -> void:
-	last_dungeon_result = {"cleared": false, "reason": dungeon.fail_reason}
+	last_dungeon_result = {"cleared": false, "dungeon": dungeon.data.get("id", ""), "level": dungeon.level(),
+		"kills": dungeon.kills, "reason": dungeon.fail_reason}
 	_set_banner("던전 실패: %s" % dungeon.fail_reason, 2.0)
 
 

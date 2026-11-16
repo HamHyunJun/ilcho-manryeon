@@ -91,21 +91,13 @@ func load_all(root: String = DATA_ROOT) -> int:
 	return errors.size()
 
 
-## 던전 등록과 검증: 몬스터와 보상 무공 참조
+## 던전 등록과 검증: 종류, 클리어 조건, 난이도, 몬스터·보상 참조 (DungeonRules.validate)
 func _register_dungeon(data: Dictionary, path: String) -> void:
 	var id: String = data.get("id", "")
 	if id == "":
 		errors.append("%s: 던전 id 없음" % path)
 		return
-	for w in data.get("waves", []):
-		if w.has("boss") and not monsters.has(w["boss"]):
-			errors.append("%s: 없는 보스 %s" % [path, w["boss"]])
-		for e in w.get("monsters", []):
-			if not monsters.has(e.get("monster", "")):
-				errors.append("%s: 없는 몬스터 %s" % [path, e.get("monster", "")])
-	for e in data.get("rewards", {}).get("pool", []):
-		if not martial_arts.has(e.get("art", "")):
-			errors.append("%s: 보상 무공 없음 %s" % [path, e.get("art", "")])
+	errors.append_array(DungeonRules.validate(data, path, monsters, martial_arts, equipment))
 	dungeons[id] = data
 
 

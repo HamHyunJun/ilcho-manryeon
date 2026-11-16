@@ -1,0 +1,106 @@
+{
+  "_comment": "장비 던전 (docs/07 3-1, MVP 이후 1순위). 강화석과 장비를 준다. 입장 제한, 웨이브, 보상, 난이도 수치는 모두 가안이다 (O-31). 장비 능력치는 난이도 배율(item_scaling 없으면 battle.scaling)을 스테이지 배율처럼 곱한다.",
+  "id": "equipment_vault",
+  "name": "무기고 습격 (임시)",
+  "type": "equipment",
+  "order": 2,
+  "sweep": true,
+  "description": "산적들이 쌓아 둔 무기고를 털어 장비와 강화석을 얻는다.",
+  "entry": {
+    "daily_limit": 2,
+    "required_cleared": {
+      "region": "cheongpung_mountain",
+      "stage": 3
+    }
+  },
+  "clear": {
+    "type": "waves"
+  },
+  "battle": {
+    "scaling": 1.2,
+    "time_limit": 180,
+    "spawn_interval": 1.1,
+    "max_alive": 4,
+    "result_delay": 2.5
+  },
+  "waves": [
+    {
+      "monsters": [
+        {
+          "monster": "test_bandit",
+          "count": 5
+        },
+        {
+          "monster": "test_brute",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "monsters": [
+        {
+          "monster": "test_brute",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "boss": "test_boss"
+    }
+  ],
+  "rewards": {
+    "stone": [
+      4,
+      6
+    ],
+    "items": 1,
+    "min_grade": "uncommon",
+    "silver": 100
+  },
+  "difficulties": [
+    {
+      "level": 1,
+      "name": "초급",
+      "scaling": 1.2,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 3
+      }
+    },
+    {
+      "level": 2,
+      "name": "중급",
+      "scaling": 1.7,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 6
+      },
+      "rewards": {
+        "stone": [
+          7,
+          10
+        ],
+        "items": 2,
+        "silver": 200
+      }
+    },
+    {
+      "level": 3,
+      "name": "상급",
+      "scaling": 2.4,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 9
+      },
+      "rewards": {
+        "stone": [
+          11,
+          15
+        ],
+        "items": 2,
+        "min_grade": "rare",
+        "silver": 350
+      }
+    }
+  ]
+}

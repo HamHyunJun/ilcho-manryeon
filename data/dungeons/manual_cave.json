@@ -1,13 +1,16 @@
 {
-  "_comment": "비급 던전 1종 (docs/07 3-2 던전 공통 구조). 입장 제한, 클리어 조건, 보상, 천장 수치는 모두 테스트용 가안이다 (O-15, O-18, O-31).",
+  "_comment": "비급 던전 (docs/07 3-2, 3-3). 입장 제한, 클리어 조건, 보상, 천장, 난이도 수치는 모두 테스트용 가안이다 (O-15, O-18, O-31). 난이도의 rewards는 기본 rewards 위에 덮어쓴다.",
   "id": "manual_cave",
   "name": "비급 동굴 (임시)",
   "type": "manual",
+  "order": 1,
+  "sweep": true,
   "description": "도적들이 숨겨 둔 무공 비급의 조각을 되찾는다.",
   "entry": {
     "daily_limit": 3,
     "required_cleared": { "region": "cheongpung_mountain", "stage": 1 }
   },
+  "clear": { "type": "waves" },
   "battle": {
     "scaling": 1.0,
     "time_limit": 180,
@@ -34,5 +37,12 @@
     "_comment": "천장 장치 자리 (O-15). 클리어 n회마다 개방에 가장 가까운 미개방 무공 조각을 추가 지급. 수치는 테스트용",
     "clears": 5,
     "bonus_fragments": 10
-  }
+  },
+  "difficulties": [
+    { "level": 1, "name": "초급", "scaling": 1.0, "required_cleared": { "region": "cheongpung_mountain", "stage": 1 } },
+    { "level": 2, "name": "중급", "scaling": 1.5, "required_cleared": { "region": "cheongpung_mountain", "stage": 4 },
+      "rewards": { "fragment_rolls": 3, "silver": 400 } },
+    { "level": 3, "name": "상급", "scaling": 2.2, "required_cleared": { "region": "cheongpung_mountain", "stage": 8 },
+      "rewards": { "fragment_rolls": 4, "fragments_per_roll": [3, 5], "silver": 700 } }
+  ]
 }

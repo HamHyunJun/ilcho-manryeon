@@ -1,0 +1,110 @@
+{
+  "_comment": "재화 던전 (docs/07 3-1 요일제 검토). 제한 시간 동안 처치한 수에 비례해 재화를 준다. 요일표(weekday, 일~토 7칸)로 요일마다 재화 종류와 배율을 바꿀 수 있다. 지금은 은냥만, 주말 1.5배 (가안 O-31).",
+  "id": "silver_valley",
+  "name": "전장 털이 (임시)",
+  "type": "currency",
+  "order": 3,
+  "sweep": true,
+  "description": "도적 떼가 지키는 전장(錢莊)에서 제한 시간 안에 최대한 많이 쓰러뜨려 은냥을 되찾는다.",
+  "entry": {
+    "daily_limit": 2,
+    "required_cleared": {
+      "region": "cheongpung_mountain",
+      "stage": 2
+    }
+  },
+  "clear": {
+    "type": "time_attack",
+    "min_kills": 10
+  },
+  "battle": {
+    "scaling": 1.0,
+    "time_limit": 60,
+    "spawn_interval": 0.7,
+    "max_alive": 6,
+    "result_delay": 2.5
+  },
+  "spawn_pool": [
+    {
+      "monster": "test_bandit",
+      "weight": 70
+    },
+    {
+      "monster": "test_brute",
+      "weight": 30
+    }
+  ],
+  "rewards": {
+    "base": 300,
+    "per_kill": 25
+  },
+  "weekday": [
+    {
+      "currency": "silver",
+      "mult": 1.5,
+      "label": "주말 1.5배"
+    },
+    {
+      "currency": "silver",
+      "mult": 1.0
+    },
+    {
+      "currency": "silver",
+      "mult": 1.0
+    },
+    {
+      "currency": "silver",
+      "mult": 1.0
+    },
+    {
+      "currency": "silver",
+      "mult": 1.0
+    },
+    {
+      "currency": "silver",
+      "mult": 1.0
+    },
+    {
+      "currency": "silver",
+      "mult": 1.5,
+      "label": "주말 1.5배"
+    }
+  ],
+  "difficulties": [
+    {
+      "level": 1,
+      "name": "초급",
+      "scaling": 1.0,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 2
+      }
+    },
+    {
+      "level": 2,
+      "name": "중급",
+      "scaling": 1.6,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 5
+      },
+      "rewards": {
+        "base": 600,
+        "per_kill": 50
+      }
+    },
+    {
+      "level": 3,
+      "name": "상급",
+      "scaling": 2.3,
+      "required_cleared": {
+        "region": "cheongpung_mountain",
+        "stage": 8
+      },
+      "rewards": {
+        "base": 1000,
+        "per_kill": 90
+      }
+    }
+  ]
+}

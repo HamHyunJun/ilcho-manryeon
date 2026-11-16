@@ -24,7 +24,7 @@ func _draw() -> void:
 	var dg = battle.dungeon
 	var title := "%s · 스테이지 %d" % [stage.region_name(), stage.stage_no]
 	if dg != null:
-		title = dg.data.get("name", "던전")
+		title = "%s · %s" % [dg.data.get("name", "던전"), dg.data.get("difficulty_name", "")]
 	draw_string(font, Vector2(LEFT, TOP), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(0.95, 0.9, 0.75))
 	if battle.equipment != null:
 		draw_string(font, Vector2(LEFT, TOP), "은냥 %s" % MenuPanel.fmt(battle.equipment.silver()),
@@ -37,7 +37,7 @@ func _draw() -> void:
 	if dg != null and not (dg.is_boss_wave() and is_instance_valid(boss)):
 		var tl: float = float(dg.battle_cfg().get("time_limit", 180))
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * clampf(dg.time_left / tl, 0.0, 1.0), bar.size.y)), Color(0.5, 0.75, 1.0))
-		draw_string(font, Vector2(LEFT, TOP + 36), "웨이브 %d / %d · 남은 적 %d" % [mini(dg.wave_index + 1, dg.wave_count()), dg.wave_count(), dg.remaining_in_wave()],
+		draw_string(font, Vector2(LEFT, TOP + 36), dg.progress_text(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 20)
 		draw_string(font, Vector2(LEFT, TOP + 36), "남은 시간 %d초" % ceili(maxf(dg.time_left, 0.0)), HORIZONTAL_ALIGNMENT_RIGHT, WIDTH, 20)
 	elif (stage.phase == StageManager.Phase.BOSS or dg != null) and is_instance_valid(boss):

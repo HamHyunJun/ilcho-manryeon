@@ -46,6 +46,12 @@ const TESTS := [
 	&"_test_dungeon_entry_and_rewards",
 	&"_test_dungeon_run_in_battle",
 	&"_test_codex_and_dungeon_ui",
+	&"_test_dungeon_data_and_difficulty",
+	&"_test_dungeon_levels_and_sweep",
+	&"_test_equipment_dungeon_rewards",
+	&"_test_currency_dungeon_weekday",
+	&"_test_new_dungeons_in_battle",
+	&"_test_dungeon_panel_cards",
 	&"_test_offline_elapsed_and_clock",
 	&"_test_offline_training_apply",
 	&"_test_offline_game_flow",
@@ -1121,6 +1127,183 @@ func _test_codex_and_dungeon_ui() -> void:
 			texts += c.text + "\n"
 	_check(texts.contains("매화검법") and texts.contains("습득") and texts.contains("0 / 30"), "도감에 습득 여부와 조각 수 표시")
 	_check(texts.contains("화산파") and texts.contains("검법"), "도감에 문파와 계열 표시")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_dungeon_data_and_difficulty() -> void:
+	print("[던전 3종 데이터와 난이도]")
+	var reg := _reg()
+	_check(reg.get_dungeon("manual_cave").get("type", "") == "manual", "비급 던전 데이터")
+	_check(reg.get_dungeon("equipment_vault").get("type", "") == "equipment", "장비 던전 데이터")
+	_check(reg.get_dungeon("silver_valley").get("type", "") == "currency", "재화 던전 데이터")
+	var d: Dictionary = reg.get_dungeon("manual_cave")
+	_check(DungeonRules.max_level(d) == 3, "난이도 3단계 (가안)")
+	var r1 := DungeonRules.resolve(d, 1)
+	var r2 := DungeonRules.resolve(d, 2)
+	_check(int(r1["rewards"]["fragment_rolls"]) == 2 and int(r2["rewards"]["fragment_rolls"]) == 3, "난이도 보상 덮어쓰기")
+	_check(float(r2["battle"]["scaling"]) > float(r1["battle"]["scaling"]) and int(r2["battle"]["time_limit"]) == 180, "난이도 배율 반영, 나머지 전투 값은 유지")
+	_check(int(r2["entry"]["required_cleared"]["stage"]) == 4 and int(r2["entry"]["daily_limit"]) == 3, "난이도 입장 조건")
+	_check(int(d["rewards"]["fragment_rolls"]) == 2, "resolve는 원본을 바꾸지 않음")
+	_check(DungeonRules.max_level({"id": "x"}) == 1, "난이도가 없으면 1단계")
+	var bad := {"id": "bad", "type": "nope", "clear": {"type": "time_attack"}, "spawn_pool": [{"monster": "ghost"}],
+		"difficulties": [{"level": 2}], "weekday": [{}], "rewards": {"min_grade": "gold"}}
+	var errs := DungeonRules.validate(bad, "bad.json", reg.monsters, reg.martial_arts, reg.equipment)
+	var joined := "\n".join(errs)
+	_check(joined.contains("던전 종류") and joined.contains("ghost") and joined.contains("level") and joined.contains("요일표") and joined.contains("gold"),
+		"잘못된 던전 데이터 검출 (%d건)" % errs.size())
+	for id in reg.dungeons.keys():
+		_check(DungeonRules.validate(reg.get_dungeon(id), id, reg.monsters, reg.martial_arts, reg.equipment).is_empty(), "%s 데이터 검증 통과" % id)
+	_finish()
+
+
+func _test_dungeon_levels_and_sweep() -> void:
+	print("[던전 난이도 해금과 소탕]")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	var d: Dictionary = _reg().get_dungeon("manual_cave")
+	var hc := {"cheongpung_mountain": 9}
+	_check(col.can_enter(d, hc, "2026-03-01", 1)["ok"], "난이도 1 입장 가능")
+	var r2 := col.can_enter(d, hc, "2026-03-01", 2)
+	_check(not r2["ok"] and r2["reason"].contains("초급"), "난이도 2는 난이도 1 클리어 후 (%s)" % r2["reason"])
+	_check(col.level_lock_reason(d, {"cheongpung_mountain": 1}, 2).contains("돌파"), "난이도별 스테이지 조건")
+	_check(not col.can_sweep(d, hc, "2026-03-01", 1)["ok"], "클리어 전에는 소탕 불가")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	DungeonRules.grant(DungeonRules.resolve(d, 1), 0, col, eq, rng, "2026-03-01")
+	_check(col.best_level_of("manual_cave") == 1 and col.clears_of("manual_cave") == 1, "클리어하면 최고 난이도 기록")
+	_check(col.can_enter(d, hc, "2026-03-01", 2)["ok"], "난이도 1 클리어 후 난이도 2 개방")
+	_check(col.can_sweep(d, hc, "2026-03-01", 1)["ok"] and not col.can_sweep(d, hc, "2026-03-01", 2)["ok"], "클리어한 난이도만 소탕 가능")
+	var res := DungeonRules.grant(DungeonRules.resolve(d, 2), 0, col, eq, rng, "2026-03-01")
+	_check(res["fragments"].size() == 3, "난이도 2 보상: 조각 3회 (가안)")
+	_check(col.best_level_of("manual_cave") == 2, "최고 난이도 갱신")
+	_finish()
+
+
+func _test_equipment_dungeon_rewards() -> void:
+	print("[장비 던전 보상]")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	var d: Dictionary = _reg().get_dungeon("equipment_vault")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var res := DungeonRules.grant(DungeonRules.resolve(d, 1), 0, col, eq, rng, "2026-03-01")
+	_check(int(res["stone"]) >= 4 and int(res["stone"]) <= 6 and eq.stone() == int(res["stone"]), "강화석 4~6개 (가안)")
+	_check(res["items"].size() == 1 and eq.items().size() == 1, "장비 1개가 보관함에 들어감")
+	_check(eq.grade_index(res["items"][0]["grade"]) >= eq.grade_index("uncommon"), "최소 등급 고급 이상")
+	_check(col.clears_of("equipment_vault") == 1 and col.best_level_of("equipment_vault") == 1, "클리어 기록")
+	var low := DungeonRules.resolve(d, 1)
+	var high := DungeonRules.resolve(d, 3)
+	var res3 := DungeonRules.grant(high, 0, col, eq, rng, "2026-03-01")
+	var ok3: bool = res3["items"].size() == 2
+	for it in res3["items"]:
+		ok3 = ok3 and eq.grade_index(it["grade"]) >= eq.grade_index("rare")
+	_check(ok3 and int(res3["stone"]) >= 11, "난이도 3: 장비 2개 희귀 이상, 강화석 11~15")
+	var atk_low := float(eq.generate("weapon", "rare", float(low["battle"]["scaling"]), rng)["base"].get("atk", 0))
+	var atk_high := float(eq.generate("weapon", "rare", float(high["battle"]["scaling"]), rng)["base"].get("atk", 0))
+	_check(atk_high > atk_low, "높은 난이도 장비일수록 기본 능력치가 큼")
+	# 보관함이 가득 차면 장비는 버린다 (O-27 가안과 같은 처리)
+	while eq.items().size() < eq.capacity():
+		eq.add_item(eq.generate("weapon", "common", 1.0, rng))
+	var res_full := DungeonRules.grant(low, 0, col, eq, rng, "2026-03-01")
+	_check(int(res_full["discarded"]) == 1 and res_full["items"].is_empty() and int(res_full["stone"]) > 0, "보관함이 가득 차면 장비는 버리고 강화석은 지급")
+	_check(DungeonRules.result_text(res_full, eq).contains("버림"), "결과 문구에 버린 장비 안내")
+	_finish()
+
+
+func _test_currency_dungeon_weekday() -> void:
+	print("[재화 던전 요일제]")
+	_check(DungeonRules.weekday_of("2026-11-16") == 1 and DungeonRules.weekday_of("2026-11-15") == 0, "요일 계산 (2026-11-16 월요일)")
+	var d: Dictionary = _reg().get_dungeon("silver_valley")
+	_check(DungeonRules.weekday_bonus(d, "2026-11-16")["mult"] == 1.0, "평일 1배")
+	_check(DungeonRules.weekday_bonus(d, "2026-11-21")["mult"] == 1.5 and DungeonRules.weekday_bonus(d, "2026-11-22")["mult"] == 1.5, "토·일 1.5배 (가안)")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	var rng := RandomNumberGenerator.new()
+	var r := DungeonRules.resolve(d, 1)
+	var res := DungeonRules.grant(r, 20, col, eq, rng, "2026-11-16")
+	_check(int(res["silver"]) == 300 + 25 * 20 and eq.silver() == 800, "평일 은냥 = 300 + 처치 20 × 25")
+	var res2 := DungeonRules.grant(r, 20, col, eq, rng, "2026-11-22")
+	_check(int(res2["silver"]) == 1200, "일요일은 1.5배 (1200)")
+	_check(col.best_kills_of("silver_valley", 1) == 20, "난이도별 최고 처치 수 기록")
+	_check(DungeonRules.reward_preview(r, eq, "2026-11-22").contains("일요일"), "보상 안내에 오늘 요일 표시")
+	_finish()
+
+
+func _test_new_dungeons_in_battle() -> void:
+	print("[장비·재화 던전 전투와 소탕]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	battle.growth.state["level"] = 20
+	battle._refresh_stats()
+	battle.stage.highest_cleared["cheongpung_mountain"] = 3
+	var today := ManualCollection.today_key()
+	# 재화 던전: 제한 시간 동안 처치
+	var silver0: int = battle.equipment.silver()
+	_check(battle.start_dungeon("silver_valley", today, 1)["ok"], "재화 던전 입장")
+	_check(battle.dungeon.is_time_attack() and battle.dungeon.progress_text().contains("처치"), "시간 제한 처치 모드")
+	var t := 0.0
+	while t < 80.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		t += 0.05
+	var kills: int = int(battle.last_dungeon_result.get("kills", 0))
+	_check(battle.last_dungeon_result.get("cleared", false) and kills >= 10, "60초가 지나면 클리어 (처치 %d)" % kills)
+	_check(battle.equipment.silver() > silver0 + 300, "처치 수에 비례한 은냥 지급")
+	_check(battle.collection.best_kills_of("silver_valley", 1) == kills, "최고 처치 수 기록")
+	_check(battle.dungeon == null and battle.alive_count() >= 0, "끝나면 스테이지로 복귀")
+	# 처치 수 부족이면 실패
+	battle.start_dungeon("silver_valley", today, 1)
+	battle.dungeon.time_left = 0.05
+	battle.tick(0.1)
+	_check(not battle.last_dungeon_result.get("cleared", true) and String(battle.last_dungeon_result.get("reason", "")).contains("처치 수 부족"), "최소 처치 수를 못 채우면 실패")
+	while battle.dungeon != null:
+		battle.tick(0.1)
+	# 입장 2회를 다 썼으므로 소탕도 불가
+	_check(not battle.sweep_dungeon("silver_valley", 1, today)["ok"], "입장 횟수가 없으면 소탕 불가")
+	# 장비 던전: 웨이브 클리어 후 장비 획득
+	var n0: int = battle.equipment.items().size()
+	_check(not battle.start_dungeon("equipment_vault", today, 2)["ok"], "장비 던전 난이도 2는 잠김")
+	_check(battle.start_dungeon("equipment_vault", today, 1)["ok"], "장비 던전 입장")
+	t = 0.0
+	while t < 400.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		t += 0.05
+	_check(battle.last_dungeon_result.get("cleared", false), "장비 던전 클리어 (%.0f초)" % t)
+	_check(battle.equipment.items().size() == n0 + 1, "장비 던전 보상 장비 획득")
+	var sw: Dictionary = battle.sweep_dungeon("equipment_vault", 1, today)
+	_check(sw["ok"] and battle.equipment.items().size() == n0 + 2 and battle.collection.entries_left(_reg().get_dungeon("equipment_vault"), today) == 0, "소탕: 바로 보상, 입장 1회 사용")
+	_check(battle.last_dungeon_result.get("sweep", false), "소탕 결과 기록")
+	battle.free()
+	_finish()
+
+
+func _test_dungeon_panel_cards() -> void:
+	print("[던전 화면 3종]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	ui.open_menu("dungeon")
+	var panel = ui.panels["dungeon"]
+	_check(panel.dungeon_ids() == ["manual_cave", "equipment_vault", "silver_valley"], "비급 → 장비 → 재화 순서")
+	_check(panel._status.size() == 3, "던전 카드 3개")
+	var texts := ""
+	for c in panel.root.find_children("*", "Label", true, false):
+		texts += c.text + "\n"
+	_check(texts.contains("장비 던전") and texts.contains("재화 던전") and texts.contains("강화석") and texts.contains("요일"), "장비·재화 던전 보상 안내")
+	_check(not texts.contains("MVP 이후"), "MVP 이후 안내 문구 제거")
+	panel._change_level("manual_cave", 1)
+	_check(panel.level_of("manual_cave") == 2, "난이도 선택")
+	panel._sweep("manual_cave")
+	_check(panel.message.contains("소탕") or panel.message.contains("클리어"), "소탕 불가 안내 (%s)" % panel.message)
+	main.get_node("Battle").stage.highest_cleared["cheongpung_mountain"] = 3
+	panel._enter("equipment_vault")
+	_check(main.get_node("Battle").dungeon != null and not panel.visible, "입장하면 던전 시작, 화면 닫힘")
 	main.free()
 	gs.reset_to_new_game()
 	_finish()
