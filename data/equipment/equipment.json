@@ -1,11 +1,11 @@
 {
   "_comment": "장비 기본 데이터 (docs/06 A, docs/11 6장). 수치는 모두 가안. 장신구 슬롯 수 O-24, 최대 강화·실패 O-25, 보관함 O-27.",
   "slots": [
-    { "id": "weapon",    "name": "무기",   "base": { "atk": 6 } },
-    { "id": "helmet",    "name": "투구",   "base": { "def": 3, "max_hp": 30 } },
-    { "id": "armor",     "name": "갑옷",   "base": { "def": 6, "max_hp": 50 } },
-    { "id": "shoes",     "name": "신발",   "base": { "def": 2, "max_hp": 40 } },
-    { "id": "accessory", "name": "장신구", "base": { "atk": 2, "crit_rate": 0.02 } }
+    { "id": "weapon",    "name": "무기",   "base": { "atk": 4 } },
+    { "id": "helmet",    "name": "투구",   "base": { "def": 2, "max_hp": 20 } },
+    { "id": "armor",     "name": "갑옷",   "base": { "def": 4, "max_hp": 35 } },
+    { "id": "shoes",     "name": "신발",   "base": { "def": 1, "max_hp": 25 } },
+    { "id": "accessory", "name": "장신구", "base": { "atk": 1, "crit_rate": 0.02 } }
   ],
   "no_level_scaling_stats": ["crit_rate", "crit_mult"],
   "grades": [
@@ -42,7 +42,7 @@
     "silver_per_level": 50
   },
   "drop": {
-    "normal_chance": 0.05,
+    "normal_chance": 0.02,
     "boss_chance": 1.0,
     "stone_normal_chance": 0.05,
     "stone_normal_amount": 1,

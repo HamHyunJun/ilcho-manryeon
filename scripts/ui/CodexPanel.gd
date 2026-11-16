@@ -45,7 +45,7 @@ func _rebuild() -> void:
 				var st := "대성" if arts.is_mastered(tid) else MartialArtManager.stage_name_for(arts.count_of(tid), th)
 				lines.append("  %s · %s · %s회%s" % [t["name"], st, fmt(arts.count_of(tid)), "  ★" if arts.is_mastered(tid) else ""])
 			root.add_child(label("\n".join(lines), 16))
-		if collection and not unlocked:
+		if collection and not unlocked and OS.is_debug_build():
 			var dbg := button("디버그: 조각 +10", 16)
 			dbg.pressed.connect(func():
 				collection.add_fragments(id, 10)

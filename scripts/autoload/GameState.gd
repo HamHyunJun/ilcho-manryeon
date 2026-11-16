@@ -6,6 +6,7 @@ extends Node
 ## M7: 캐릭터 레벨/경지(character)와 성장 관리자(growth).
 ## M8: 장비(equipment)와 재화(currencies), 장비 관리자(equipment).
 ## M9: 비급 조각과 던전 기록(collection).
+## M10: 오프라인 판정 기록(offline). M11: 설정(settings), 튜토리얼 진행(tutorial).
 
 ## 저장 스키마 버전. 구조가 바뀔 때마다 올리고 SaveManager.migrations에 변환을 추가한다.
 const SAVE_VERSION := 1
@@ -46,6 +47,8 @@ func reset_to_new_game() -> void:
 		"currencies": EquipmentManager.new_currencies(),
 		"collection": ManualCollection.new_state(),
 		"offline": {"rollback_until_unix": 0},
+		"settings": default_settings(),
+		"tutorial": {},
 	}
 	_bind_arts()
 	_bind_growth()
@@ -53,6 +56,11 @@ func reset_to_new_game() -> void:
 	_bind_collection()
 	arts.unlock(start_art)
 	arts.refresh_training_target()
+
+
+## 설정 기본값 (M11, docs/09 5장). 언어는 한국어만 지원
+static func default_settings() -> Dictionary:
+	return {"sfx_volume": 0.8, "bgm_volume": 0.7, "vibration": true, "screen_shake": true}
 
 
 static func new_stage_state() -> Dictionary:
@@ -78,6 +86,13 @@ func apply_loaded(loaded: Dictionary) -> void:
 		data["collection"] = ManualCollection.new_state()
 	if not (data.get("offline") is Dictionary):
 		data["offline"] = {"rollback_until_unix": 0}
+	if not (data.get("settings") is Dictionary):
+		data["settings"] = default_settings()
+	for k in default_settings().keys():
+		if not data["settings"].has(k):
+			data["settings"][k] = default_settings()[k]
+	if not (data.get("tutorial") is Dictionary):
+		data["tutorial"] = {}
 	# 저장 메타 정보는 상태에 남기지 않는다 (저장할 때 다시 쓴다)
 	for key in ["save_seq", "saved_at_unix", "saved_at_monotonic_ms", "boot_session_id"]:
 		data.erase(key)
@@ -115,6 +130,7 @@ func apply_offline(saved_meta: Dictionary, now: Dictionary = {}) -> Dictionary:
 		"multiplier": float(reg.balance.get("training", {}).get("base_multiplier", 1.0)),
 		"technique_interval": float(pb.get("technique_interval", 1.0)),
 		"mp_regen": float(pb.get("mp_regen", 5.0)),
+		"online_uptime": float(ocfg.get("online_uptime", 1.0)),
 	}
 	var res := OfflineTraining.apply(arts, float(el["seconds"]), cfg)
 	res["raw_seconds"] = el["raw_seconds"]

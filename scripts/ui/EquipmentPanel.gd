@@ -47,7 +47,8 @@ func _rebuild() -> void:
 	root.add_child(HSeparator.new())
 	_build_inventory()
 	root.add_child(HSeparator.new())
-	_build_debug()
+	if OS.is_debug_build():
+		_build_debug()
 	_process(0.0)
 
 

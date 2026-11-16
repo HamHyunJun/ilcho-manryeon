@@ -43,6 +43,8 @@
     "max_hours": 8,
     "mode": "single",
     "min_seconds": 60,
+    "online_uptime": 0.55,
+    "_online_uptime": "온라인에서 대상이 사거리 안에 있어 초식이 실제로 발동하는 시간 비율 (M11 시뮬레이션 측정값, 가안 O-33)",
     "_min_seconds": "이보다 짧게 비운 시간은 요약 없이 무시 (가안)"
   },
   "_comment": "수련 공통 수치. start_martial_art(매화검법)는 확정 사항 29, 나머지 수치는 docs/11 기준.",

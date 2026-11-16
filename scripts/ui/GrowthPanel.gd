@@ -48,7 +48,14 @@ func _rebuild() -> void:
 	root.add_child(HSeparator.new())
 	_build_tech_rows()
 	root.add_child(HSeparator.new())
-	_build_debug()
+	var codex := button("무공 도감 보기", 20)
+	codex.pressed.connect(func():
+		var ui = get_parent()
+		if ui and ui.has_method("open_menu"):
+			ui.open_menu("codex"))
+	root.add_child(codex)
+	if OS.is_debug_build():
+		_build_debug()
 	_update_tech_labels()
 
 
@@ -65,6 +72,7 @@ func _build_character() -> void:
 	root.add_child(_char_label)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
+	row.visible = OS.is_debug_build()
 	root.add_child(row)
 	for d in [["경험치 +1000", 0], ["레벨 +10", 10]]:
 		var b := button(d[0], 16)
@@ -146,6 +154,8 @@ func _build_tech_rows() -> void:
 		lbl.custom_minimum_size = Vector2(330, 0)
 		row.add_child(lbl)
 		_tech_labels[t["id"]] = lbl
+		if not OS.is_debug_build():
+			continue
 		for d in [["+100", 100], ["+1000", 1000], ["9999", -9999], ["0", -1]]:
 			var b := button(d[0], 16)
 			b.pressed.connect(_debug_count.bind(t["id"], d[1]))
@@ -198,12 +208,6 @@ func _build_debug() -> void:
 		var b := button("x%d" % s, 20)
 		b.pressed.connect(_set_speed.bind(s))
 		speed_row.add_child(b)
-	var codex := button("무공 도감 보기", 20)
-	codex.pressed.connect(func():
-		var ui = get_parent()
-		if ui and ui.has_method("open_menu"):
-			ui.open_menu("codex"))
-	root.add_child(codex)
 	var unlock_all := button("무공 모두 개방 (비급 없이, 디버그)", 20)
 	unlock_all.pressed.connect(_unlock_all)
 	root.add_child(unlock_all)

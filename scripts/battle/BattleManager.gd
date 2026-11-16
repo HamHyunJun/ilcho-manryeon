@@ -233,6 +233,8 @@ func tick(delta: float) -> void:
 	if techniques:
 		techniques.tick(delta)
 	if effects:
+		if _persist:
+			effects.shake_enabled = bool(get_node("/root/GameState").data.get("settings", {}).get("screen_shake", true))
 		effects.tick(delta)
 		# 화면 흔들림: 전투 화면만 흔들고 HUD는 제자리에 둔다
 		position = effects.shake_offset
@@ -423,6 +425,7 @@ func _on_monster_died(m: Node) -> void:
 			_set_banner("보관함이 가득 차 장비를 버렸습니다", 1.5)
 		elif equipment.grade_index(drop["item"]["grade"]) >= 2:
 			_set_banner("%s 획득!" % equipment.item_name(drop["item"]), 1.5)
+			_sound("drop")
 	if has_node("/root/EventBus"):
 		get_node("/root/EventBus").monster_killed.emit(m.data.get("id", ""), m.data.get("rewards", {}))
 	if m == boss:
@@ -505,6 +508,12 @@ func _on_dungeon_cleared() -> void:
 			effects.play_mastery("spell", player.position + Vector2(0, -40), "%s 개방" % unlocked)
 	else:
 		_set_banner("던전 클리어: " + ", ".join(parts), 2.5)
+	_sound("clear")
+
+
+func _sound(name: String) -> void:
+	if has_node("/root/Sound"):
+		get_node("/root/Sound").play(name)
 
 
 func _on_dungeon_failed() -> void:

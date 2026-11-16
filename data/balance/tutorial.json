@@ -1,0 +1,9 @@
+{
+  "_comment": "첫 스테이지 튜토리얼 4단계 (docs/07 7장, 확정 기본안). 문구와 완료 조건은 가안. 완료한 단계는 저장 데이터 tutorial에 기록해 다시 띄우지 않는다.",
+  "steps": [
+    { "id": "auto_battle", "title": "자동 전투", "text": "몬스터가 다가오면 캐릭터가 알아서 공격합니다.\n몬스터 3마리를 처치해 보세요.", "complete": { "type": "kills", "value": 3 } },
+    { "id": "chain_button", "title": "연속초식", "text": "평소에는 수련 중인 초식 하나만 반복합니다(단일 수련).\n아래 [연속초식] 버튼으로 해금한 초식을 순서대로 발동할 수 있습니다. 한 번 눌러 보세요.", "complete": { "type": "chain_toggled" } },
+    { "id": "equip_martial_art", "title": "무공 장착", "text": "하단 [육성]에서 주력 무공과 보조 무공(패시브)을 장착합니다.\n[육성]을 열어 보세요.", "complete": { "type": "menu_opened", "value": "growth" } },
+    { "id": "first_training", "title": "초식 수련", "text": "초식을 발동할 때마다 수련 횟수가 오르고, 횟수에 따라 입문 → 초급 → … → 대성으로 단계가 오릅니다.\n1초식 수련 횟수 30회를 채워 보세요.", "complete": { "type": "tech_count", "value": 30 } }
+  ]
+}

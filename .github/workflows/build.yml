@@ -1,6 +1,6 @@
 # 일초만련 CI
 # - 모든 push / PR: Godot 헤드리스 테스트 실행
-# - 테스트 통과 후: Android 디버그 APK 빌드, 아티팩트로 업로드
+# - 테스트 통과 후: Android 디버그 APK 빌드, 서명 없는 릴리스 APK 빌드, 아티팩트로 업로드
 # 릴리스 서명 키와 비밀값은 사용하지 않는다. 디버그 키스토어는 실행할 때마다 새로 만든다.
 name: 테스트 및 Android 디버그 빌드
 
@@ -105,4 +105,19 @@ jobs:
         with:
           name: ilcho-manryeon-debug-apk
           path: build/ilcho-manryeon-debug.apk
+          retention-days: 14
+
+      # 릴리스 빌드 확인 (M11). 서명하지 않은 APK만 만든다.
+      # 릴리스 서명 키와 비밀값은 저장소와 워크플로에 넣지 않는다. 서명은 출시 단계에서 사용자 키로 따로 한다.
+      - name: 릴리스 APK 내보내기 (서명 없음)
+        run: |
+          ./godot --headless --path . --export-release "Android Release" build/ilcho-manryeon-release-unsigned.apk
+          ls -la build
+          test -s build/ilcho-manryeon-release-unsigned.apk
+
+      - name: 릴리스 APK 업로드 (서명 없음, 설치 불가)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ilcho-manryeon-release-unsigned-apk
+          path: build/ilcho-manryeon-release-unsigned.apk
           retention-days: 14

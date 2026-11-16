@@ -4,7 +4,8 @@ class_name OfflineTraining
 ## - 경과 시간: 같은 실행 세션이면 단조 시간 차이, 아니면 기기 시간 차이(음수면 0). 최대 인정 시간으로 자른다.
 ## - 시계 조작 완화: 기기 시간이 저장 시점보다 과거로 가면 보상 0, 그 시점을 지나기 전까지 계속 0.
 ##   돌아온 뒤에도 "되돌린 시점"이 아니라 원래 저장 시점부터 센다.
-## - 횟수: 항상 단일 수련 기준(확정 사항 23). 추정 발동 수 = 경과 초 × 초당 발동 수(가안 O-33) × 수련 배율 × 효율.
+## - 횟수: 항상 단일 수련 기준(확정 사항 23).
+##   추정 발동 수 = 경과 초 × 초당 발동 수 × 온라인 발동 비율(가안 O-33) × 수련 배율 × 효율.
 ## - 대성하면 다음 초식으로 남은 횟수를 이어서 반영한다.
 ## - 오프라인 중 경험치, 재화, 스테이지 진행은 주지 않는다(가안, O-32).
 
@@ -60,7 +61,7 @@ static func apply(arts: MartialArtManager, seconds: float, cfg: Dictionary) -> D
 	if seconds <= 0.0 or arts.main_art() == "":
 		return result
 	var efficiency := float(cfg.get("efficiency", 0.5))
-	var multiplier := float(cfg.get("multiplier", 1.0))
+	var multiplier := float(cfg.get("multiplier", 1.0)) * float(cfg.get("online_uptime", 1.0))
 	var interval := float(cfg.get("technique_interval", 1.0))
 	var mp_regen := float(cfg.get("mp_regen", 5.0))
 	var tid := arts.training_target()

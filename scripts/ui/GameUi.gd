@@ -20,6 +20,8 @@ var _style_off: StyleBoxFlat
 var panels: Dictionary = {}
 var _menu_buttons: Dictionary = {}
 var _open_name := ""
+## 튜토리얼 안내 (M11)
+var tutorial: TutorialGuide
 
 
 func _ready() -> void:
@@ -30,6 +32,8 @@ func _ready() -> void:
 	_build_combat_controls()
 	_build_panels()
 	_build_app_bar()
+	_build_top_buttons()
+	_build_tutorial()
 
 
 func _process(_delta: float) -> void:
@@ -101,6 +105,8 @@ func _update_combat_controls() -> void:
 
 func _on_chain_toggled(on: bool) -> void:
 	arts.set_chain_mode(on)
+	if tutorial:
+		tutorial.chain_toggled = true
 	var battle = get_parent().get_node_or_null("Battle")
 	if battle and battle.techniques:
 		battle.techniques.reset_chain()
@@ -120,6 +126,8 @@ func _build_panels() -> void:
 		_add_panel("dungeon", dp)
 		dp.codex_requested.connect(func(): open_menu("codex"))
 		_add_panel("codex", CodexPanel.new(arts, battle))
+	if gs != null:
+		_add_panel("settings", SettingsPanel.new())
 	# 복귀 요약 (M10): 시작할 때 이미 계산된 결과가 있으면 바로, 이후(모바일 복귀)에는 신호로 띄운다
 	if gs != null:
 		var op := OfflineSummaryPanel.new(gs.get_node("/root/DataRegistry"))
@@ -134,6 +142,31 @@ func _add_panel(menu: String, panel: MenuPanel) -> void:
 	panels[menu] = panel
 	panel.close_requested.connect(func(): open_menu(""))
 	add_child(panel)
+
+
+## 화면 위 보조 버튼: 설정 (docs/09 3장 가안)
+func _build_top_buttons() -> void:
+	if not panels.has("settings"):
+		return
+	var b := MenuPanel.button("설정", 20)
+	b.position = Vector2(608, 16)
+	b.custom_minimum_size = Vector2(96, 52)
+	b.pressed.connect(func(): open_menu("" if _open_name == "settings" else "settings"))
+	add_child(b)
+
+
+func _build_tutorial() -> void:
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return
+	var steps: Array = gs.get_node("/root/DataRegistry").balance.get("tutorial", {}).get("steps", [])
+	if steps.is_empty():
+		return
+	tutorial = TutorialGuide.new(steps, gs.data["tutorial"], arts)
+	var battle = get_parent().get_node_or_null("Battle") if get_parent() else null
+	if battle:
+		tutorial.kill_count = func(): return battle.kill_count
+	add_child(tutorial)
 
 
 func _show_offline(summary: Dictionary) -> void:
@@ -174,6 +207,8 @@ func _on_menu_pressed(menu: String) -> void:
 ## 메뉴 화면을 연다. 빈 문자열이면 모두 닫는다. 아직 없는 메뉴는 안내만 띄운다.
 func open_menu(menu: String) -> void:
 	_open_name = menu if panels.has(menu) or menu == "" else ""
+	if tutorial and menu != "":
+		tutorial.opened_menus[menu] = true
 	for k in panels.keys():
 		var p: MenuPanel = panels[k]
 		p.visible = k == _open_name

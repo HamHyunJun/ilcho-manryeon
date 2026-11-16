@@ -49,6 +49,9 @@ const TESTS := [
 	&"_test_offline_elapsed_and_clock",
 	&"_test_offline_training_apply",
 	&"_test_offline_game_flow",
+	&"_test_save_export_import",
+	&"_test_settings_and_sound",
+	&"_test_tutorial_steps",
 ]
 
 var _failed := 0
@@ -1188,7 +1191,7 @@ func _test_offline_game_flow() -> void:
 	gs.apply_loaded(r["data"])
 	var now := {"unix": int(meta["unix"]) + 2 * 3600, "mono_ms": 0, "session": "다른 실행"}
 	var res: Dictionary = gs.apply_offline(meta, now)
-	_check(gs.arts.count_of("plum_blossom_sword.t1") == 3600 and int(res["gains"]["plum_blossom_sword.t1"]) == 3600, "2시간 뒤 재실행: 1초식 +3,600회 (효율 50%)")
+	_check(gs.arts.count_of("plum_blossom_sword.t1") == 1980 and int(res["gains"]["plum_blossom_sword.t1"]) == 1980, "2시간 뒤 재실행: 1초식 +1,980회 (7,200초 × 발동 비율 55% × 효율 50%)")
 	_check(not gs.offline_summary.is_empty(), "복귀 요약이 만들어짐")
 	var short: Dictionary = gs.apply_offline(meta, {"unix": int(meta["unix"]) + 30, "mono_ms": 0, "session": "다른 실행"})
 	_check(short.is_empty(), "60초 미만은 무시 (가안)")
@@ -1203,9 +1206,119 @@ func _test_offline_game_flow() -> void:
 	for c in ui.panels["offline"].root.get_children():
 		if c is Label:
 			texts += c.text
-	_check(texts.contains("효율 50%") and texts.contains("+6,400회") and texts.contains("대성"), "요약에 효율, 오른 횟수, 대성 표시")
+	_check(texts.contains("효율 50%") and texts.contains("+3,960회"), "요약에 효율과 오른 횟수 표시")
 	ui.free()
 	sm.delete_all()
 	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_save_export_import() -> void:
+	print("[M11 저장 내보내기/가져오기]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	gs.arts.debug_set_count("plum_blossom_sword.t1", 4321)
+	gs.growth.add_exp(3000)
+	gs.equipment.add_currency("silver", 777)
+	var sm = _make_save_manager("user://test_m11_save")
+	var code: String = sm.export_code()
+	_check(code.begins_with("ILCHO1:") and code.length() > 100, "텍스트 코드로 내보내기")
+	var lv: int = gs.growth.level()
+	gs.reset_to_new_game()
+	var parsed: Dictionary = sm.parse_code(code)
+	_check(parsed["ok"] and String(parsed["summary"]).contains("Lv %d" % lv), "코드 검사와 가져오기 전 요약 (%s)" % parsed.get("summary", ""))
+	var r: Dictionary = sm.import_code(code)
+	_check(r["ok"] and gs.arts.count_of("plum_blossom_sword.t1") == 4321 and gs.growth.level() == lv and gs.equipment.silver() == 777, "가져오면 수련, 레벨, 재화가 그대로 옮겨짐")
+	var again: Dictionary = sm.load_game()
+	_check(again["ok"] and int(again["data"]["martial_arts"]["progress"]["plum_blossom_sword"]["techniques"]["plum_blossom_sword.t1"]["count"]) == 4321, "가져온 진행이 바로 저장됨")
+	var broken := code.substr(0, code.length() - 12) + "AAAAAAAAAAAA"
+	_check(not sm.parse_code(broken)["ok"], "깨진 코드는 거부")
+	_check(not sm.parse_code("아무 글자")["ok"], "다른 글자는 거부")
+	_check(sm.parse_code("  " + code.substr(0, 50) + "\n" + code.substr(50) + "  ")["ok"], "앞뒤 공백, 줄바꿈이 섞여도 읽음")
+	var newer: Dictionary = gs.data.duplicate(true)
+	newer["version"] = 99
+	_check(not sm.parse_code(sm.export_code(newer))["ok"], "더 새 버전 앱의 코드는 거부")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_settings_and_sound() -> void:
+	print("[M11 설정과 임시 효과음]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var st: Dictionary = gs.data["settings"]
+	_check(st.has("sfx_volume") and st.has("bgm_volume") and st.has("vibration") and st.has("screen_shake"), "설정 기본값 (효과음, 배경음, 진동, 화면 흔들림)")
+	var old: Dictionary = gs.data.duplicate(true)
+	old.erase("settings")
+	gs.apply_loaded(old)
+	_check(gs.data["settings"]["sfx_volume"] == 0.8, "예전 저장에는 설정 기본값을 채움")
+	var snd = root.get_node("Sound")
+	var n0: int = snd.play_count
+	snd.play("mastery")
+	_check(snd.play_count == n0 + 1, "임시 효과음 재생 (코드로 만든 파형)")
+	snd._last_play_ms.erase("technique")
+	snd.play("technique", 1000)
+	snd.play("technique", 1000)
+	_check(snd.play_count == n0 + 2, "짧은 간격의 같은 소리는 건너뜀")
+	gs.data["settings"]["sfx_volume"] = 0.0
+	snd.play("levelup")
+	_check(snd.play_count == n0 + 2, "효과음 음량 0이면 재생하지 않음")
+	gs.data["settings"]["sfx_volume"] = 0.8
+	var panel := SettingsPanel.new()
+	root.add_child(panel)
+	panel.visible = true
+	panel.on_open()
+	panel._export()
+	_check(panel._code_edit.text.begins_with("ILCHO1:"), "설정 화면 내보내기 버튼이 코드를 보여 줌")
+	panel._check_import()
+	_check(panel._status.text.contains("가져올 진행"), "설정 화면 가져오기는 먼저 요약을 보여 줌")
+	panel.free()
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	_check(battle.effects.shake_enabled, "화면 흔들림 기본 켜짐")
+	battle.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_tutorial_steps() -> void:
+	print("[M11 튜토리얼 4단계]")
+	var steps: Array = _reg().balance.get("tutorial", {}).get("steps", [])
+	_check(steps.size() == 4, "튜토리얼 4단계 데이터")
+	var progress := {}
+	var arts := _new_arts()
+	var kills := [0]
+	var guide := TutorialGuide.new(steps, progress, arts)
+	guide.kill_count = func(): return kills[0]
+	guide._advance()
+	root.add_child(guide)
+	_check(guide.visible and guide.current_id() == "auto_battle", "1단계 자동 전투 안내")
+	kills[0] = 3
+	guide._process(0.0)
+	_check(guide.current_id() == "chain_button" and progress.get("auto_battle", false), "몬스터 3마리 처치로 2단계")
+	guide.chain_toggled = true
+	guide._process(0.0)
+	_check(guide.current_id() == "equip_martial_art", "연속초식 버튼을 누르면 3단계")
+	guide.opened_menus["growth"] = true
+	guide._process(0.0)
+	_check(guide.current_id() == "first_training", "육성을 열면 4단계")
+	guide.complete_current()
+	_check(guide.is_done() and not guide.visible, "확인을 누르면 마침")
+	guide.free()
+	var guide2 := TutorialGuide.new(steps, progress, arts)
+	_check(guide2.is_done() and not guide2.visible, "끝낸 튜토리얼은 다시 뜨지 않음")
+	guide2.free()
+	# 전체 화면 연결
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	_check(ui.tutorial != null and ui.tutorial.visible, "새 게임 첫 화면에 튜토리얼이 뜸")
+	_check(ui.panels.has("settings"), "설정 화면 등록 (화면 위 설정 버튼)")
+	main.free()
 	gs.reset_to_new_game()
 	_finish()
