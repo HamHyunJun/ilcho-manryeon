@@ -18,6 +18,7 @@ TimeService="*res://scripts/autoload/TimeService.gd"
 DataRegistry="*res://scripts/autoload/DataRegistry.gd"
 GameState="*res://scripts/autoload/GameState.gd"
 SaveManager="*res://scripts/autoload/SaveManager.gd"
+Sound="*res://scripts/audio/SoundManager.gd"
 
 [display]
 

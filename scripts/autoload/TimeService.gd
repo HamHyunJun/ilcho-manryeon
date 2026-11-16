@@ -2,6 +2,14 @@ extends Node
 ## 시간 판정을 한곳에 모은 서비스.
 ## 기기 시간(조작 가능)과 단조 시간(부팅 후 경과, 조작 불가)을 함께 제공한다.
 ## 오프라인 수련 계산(M10)과 일일 초기화에서 사용한다.
+## 앱을 다시 켜면 단조 시간이 0부터 시작하므로, 실행마다 다른 세션 ID로 같은 실행인지 구분한다 (docs/10 5장).
+
+## 이번 실행의 세션 ID
+var session_id := ""
+
+
+func _ready() -> void:
+	session_id = "%x%x" % [randi(), Time.get_ticks_usec()]
 
 
 ## 기기 시간 (유닉스 초)
@@ -13,3 +21,8 @@ func now_unix() -> int:
 ## 주의: 앱 재시작 시 0부터 다시 시작한다. 재부팅 판별은 M10에서 별도 처리한다.
 func now_monotonic_ms() -> int:
 	return Time.get_ticks_msec()
+
+
+## 오프라인 판정용 현재 시각 묶음 {unix, mono_ms, session}
+func snapshot() -> Dictionary:
+	return {"unix": now_unix(), "mono_ms": now_monotonic_ms(), "session": session_id}

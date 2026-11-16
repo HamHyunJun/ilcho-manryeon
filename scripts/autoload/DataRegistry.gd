@@ -15,6 +15,12 @@ var monsters: Dictionary = {}
 var regions: Dictionary = {}
 ## 공통 수치 파일 이름(확장자 제외) → 내용. 예: "training"
 var balance: Dictionary = {}
+## 이펙트 데이터 파일 이름(확장자 제외) → 내용. 예: "effect_presets" (M6)
+var effects: Dictionary = {}
+## 장비 데이터 (data/equipment/equipment.json, M8). 부위, 등급, 옵션, 강화, 드롭
+var equipment: Dictionary = {}
+## 던전 ID → 던전 데이터 (data/dungeons/*.json, M9)
+var dungeons: Dictionary = {}
 ## 로드/검증 중 발견한 오류 메시지 목록
 var errors: PackedStringArray = []
 
@@ -30,6 +36,9 @@ func load_all(root: String = DATA_ROOT) -> int:
 	monsters.clear()
 	regions.clear()
 	balance.clear()
+	effects.clear()
+	equipment.clear()
+	dungeons.clear()
 	errors.clear()
 
 	for path in _list_json(root.path_join("martial_arts")):
@@ -53,6 +62,26 @@ func load_all(root: String = DATA_ROOT) -> int:
 		if data is Dictionary:
 			balance[path.get_file().get_basename()] = data
 
+	for path in _list_json(root.path_join("effects")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			effects[path.get_file().get_basename()] = data
+	# 이펙트 프리셋이 있으면 검증한다 (없으면 연출 없이 동작)
+	if effects.has("effect_presets"):
+		for e in EffectPresets.validate(effects["effect_presets"]):
+			errors.append("effects: " + e)
+
+	for path in _list_json(root.path_join("equipment")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			equipment = data
+			_validate_equipment(path)
+
+	for path in _list_json(root.path_join("dungeons")):
+		var data = _read_json(path)
+		if data is Dictionary:
+			_register_dungeon(data, path)
+
 	for e in errors:
 		push_error("[DataRegistry] " + e)
 
@@ -60,6 +89,44 @@ func load_all(root: String = DATA_ROOT) -> int:
 	if is_inside_tree() and has_node("/root/EventBus"):
 		get_node("/root/EventBus").data_loaded.emit(errors.size())
 	return errors.size()
+
+
+## 던전 등록과 검증: 몬스터와 보상 무공 참조
+func _register_dungeon(data: Dictionary, path: String) -> void:
+	var id: String = data.get("id", "")
+	if id == "":
+		errors.append("%s: 던전 id 없음" % path)
+		return
+	for w in data.get("waves", []):
+		if w.has("boss") and not monsters.has(w["boss"]):
+			errors.append("%s: 없는 보스 %s" % [path, w["boss"]])
+		for e in w.get("monsters", []):
+			if not monsters.has(e.get("monster", "")):
+				errors.append("%s: 없는 몬스터 %s" % [path, e.get("monster", "")])
+	for e in data.get("rewards", {}).get("pool", []):
+		if not martial_arts.has(e.get("art", "")):
+			errors.append("%s: 보상 무공 없음 %s" % [path, e.get("art", "")])
+	dungeons[id] = data
+
+
+func get_dungeon(id: String) -> Dictionary:
+	return dungeons.get(id, {})
+
+
+## 장비 데이터 검증: 5부위, 6등급, 옵션 항목
+func _validate_equipment(path: String) -> void:
+	var slots: Array = equipment.get("slots", [])
+	if slots.size() != 5:
+		errors.append("%s: 장비 부위는 5개여야 함 (현재 %d)" % [path, slots.size()])
+	var grades: Array = equipment.get("grades", [])
+	if grades.size() != 6:
+		errors.append("%s: 장비 등급은 6개여야 함 (현재 %d)" % [path, grades.size()])
+	for o in equipment.get("options", []):
+		if not o.has("id") or not (o.has("stat") or o.has("effect")):
+			errors.append("%s: 옵션에 id와 stat/effect가 필요함" % path)
+		var tg: Dictionary = o.get("target", {})
+		if tg.get("type", "all") == "art" and not martial_arts.has(tg.get("id", "")):
+			errors.append("%s: 옵션 %s의 대상 무공 없음: %s" % [path, o.get("id", ""), tg.get("id", "")])
 
 
 func get_martial_art(id: String) -> Dictionary:

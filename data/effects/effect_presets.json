@@ -1,0 +1,38 @@
+{
+  "_comment": "수련 단계 이펙트 프리셋 (docs/03 4장). 계열별 색과 모양 + 단계별 파라미터. 수치는 가안이며 코드로 그리는 파티클/도형 연출이다 (docs/03 4-2). 단계 1~7 = 입문/초급/중급/고급/숙련/절정/대성.",
+  "categories": {
+    "sword": {
+      "name": "검법",
+      "color_primary": "#ff9ec4",
+      "color_secondary": "#fff0f6",
+      "particle_shape": "petal",
+      "motif": "slash"
+    },
+    "fist": {
+      "name": "권법",
+      "color_primary": "#ffa64d",
+      "color_secondary": "#fff1d6",
+      "particle_shape": "spark",
+      "motif": "burst"
+    },
+    "spell": {
+      "name": "술법",
+      "color_primary": "#7fd8ff",
+      "color_secondary": "#e8f8ff",
+      "particle_shape": "talisman",
+      "motif": "talisman",
+      "element_colors": ["#ff6a3d", "#8fe3ff", "#ffe84d"]
+    }
+  },
+  "default_category": "sword",
+  "stages": [
+    { "stage": 1, "duration": 0.30, "scale": 1.0, "particles": 0,  "intensity": 0.6, "shockwave": 0,   "wave_projectile": false, "dust": false, "afterimage": false, "cracks": 0, "shake": 0.0 },
+    { "stage": 2, "duration": 0.40, "scale": 1.1, "particles": 6,  "intensity": 0.7, "shockwave": 50,  "wave_projectile": false, "dust": false, "afterimage": false, "cracks": 0, "shake": 0.0 },
+    { "stage": 3, "duration": 0.50, "scale": 1.25, "particles": 12, "intensity": 0.8, "shockwave": 60,  "wave_projectile": true,  "dust": true,  "afterimage": false, "cracks": 0, "shake": 0.0 },
+    { "stage": 4, "duration": 0.60, "scale": 1.45, "particles": 18, "intensity": 0.85, "shockwave": 110, "wave_projectile": true,  "dust": true,  "afterimage": true,  "cracks": 0, "shake": 2.0 },
+    { "stage": 5, "duration": 0.70, "scale": 1.7, "particles": 26, "intensity": 0.9, "shockwave": 130, "wave_projectile": true,  "dust": true,  "afterimage": true,  "cracks": 5, "shake": 4.0 },
+    { "stage": 6, "duration": 0.85, "scale": 2.1, "particles": 36, "intensity": 1.0, "shockwave": 170, "wave_projectile": true,  "dust": true,  "afterimage": true,  "cracks": 8, "shake": 7.0 },
+    { "stage": 7, "duration": 1.10, "scale": 2.5, "particles": 48, "intensity": 1.0, "shockwave": 220, "wave_projectile": true,  "dust": true,  "afterimage": true,  "cracks": 10, "shake": 9.0, "mastery_burst": true }
+  ],
+  "max_active_effects": 6
+}

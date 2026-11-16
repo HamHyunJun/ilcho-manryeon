@@ -15,6 +15,7 @@ signal technique_progressed(technique_id: String, count: int)
 signal technique_mastered(technique_id: String)
 signal equipment_changed()
 signal art_unlocked(art_id: String)
+signal chain_mode_changed(on: bool)
 
 const SUB_SLOTS := 2
 
@@ -70,6 +71,17 @@ func unlock(art_id: String) -> bool:
 	if newly:
 		art_unlocked.emit(art_id)
 	return true
+
+
+## 모든 무공의 대성 초식 합계 (경지 승급 조건, docs/05 3-1)
+func total_mastered() -> int:
+	var n := 0
+	for art_id in state["progress"].keys():
+		var techs: Dictionary = state["progress"][art_id].get("techniques", {})
+		for tid in techs.keys():
+			if bool(techs[tid].get("mastered", false)):
+				n += 1
+	return n
 
 
 func unlocked_arts() -> Array:
@@ -260,7 +272,10 @@ func is_chain_mode() -> bool:
 
 
 func set_chain_mode(on: bool) -> void:
+	if is_chain_mode() == on:
+		return
 	state["chain_mode"] = on
+	chain_mode_changed.emit(on)
 
 
 ## 수련 단계 이름 (입문~대성). 단계는 count에서 계산하고 따로 저장하지 않는다 (docs/10).

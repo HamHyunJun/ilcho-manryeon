@@ -1,0 +1,6 @@
+{
+  "_comment": "무공 도감 표시용 이름 (docs/04 3장). 문파·계열 이름은 표시용이며 확정 문파 목록은 docs/03 6장.",
+  "sects": { "hwasan": "화산파", "shaolin": "소림사", "yinyang": "음양사" },
+  "categories": { "sword": "검법", "fist": "권법", "spell": "술법" },
+  "acquire_paths": { "start": "시작 무공", "fragments": "비급 던전 (비급 조각)" }
+}

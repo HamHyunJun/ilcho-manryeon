@@ -30,6 +30,28 @@ const TESTS := [
 	&"_test_save_corruption_recovery",
 	&"_test_save_version_and_migration",
 	&"_test_save_restores_stage_in_battle",
+	&"_test_chain_toggle_off_returns_to_single",
+	&"_test_game_ui_chain_button",
+	&"_test_effect_presets",
+	&"_test_effect_director_in_battle",
+	&"_test_effect_performance_cap",
+	&"_test_growth_level_and_exp",
+	&"_test_growth_realm_promotion",
+	&"_test_growth_in_battle_and_save",
+	&"_test_equipment_generate_and_equip",
+	&"_test_equipment_enhance",
+	&"_test_equipment_synergy",
+	&"_test_equipment_in_battle_and_save",
+	&"_test_manual_fragments_unlock",
+	&"_test_dungeon_entry_and_rewards",
+	&"_test_dungeon_run_in_battle",
+	&"_test_codex_and_dungeon_ui",
+	&"_test_offline_elapsed_and_clock",
+	&"_test_offline_training_apply",
+	&"_test_offline_game_flow",
+	&"_test_save_export_import",
+	&"_test_settings_and_sound",
+	&"_test_tutorial_steps",
 ]
 
 var _failed := 0
@@ -587,3 +609,716 @@ func _test_save_restores_stage_in_battle() -> void:
 	gs.reset_to_new_game()
 	_finish()
 
+
+
+
+func _test_chain_toggle_off_returns_to_single() -> void:
+	print("[M5 연속초식 켜고 끄기]")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 10000)
+	var battle := _make_battle(arts)
+	arts.set_chain_mode(true)
+	var t := 0.0
+	while t < 30.0:
+		battle.tick(0.05)
+		t += 0.05
+	var on_c1 := arts.count_of("plum_blossom_sword.t1")
+	_check(on_c1 > 10000, "켜면 대성한 1초식도 순서대로 발동")
+	arts.set_chain_mode(false)
+	battle.techniques.reset_chain()
+	var c1 := arts.count_of("plum_blossom_sword.t1")
+	var c2 := arts.count_of("plum_blossom_sword.t2")
+	var c3 := arts.count_of("plum_blossom_sword.t3")
+	t = 0.0
+	while t < 30.0:
+		battle.tick(0.05)
+		t += 0.05
+	_check(arts.count_of("plum_blossom_sword.t1") == c1 and arts.count_of("plum_blossom_sword.t2") == c2, "끄면 대성한 초식은 발동하지 않음")
+	_check(arts.count_of("plum_blossom_sword.t3") > c3, "끄면 수련 중인 3초식만 다시 반복")
+	battle.free()
+	_finish()
+
+
+func _test_game_ui_chain_button() -> void:
+	print("[M5 연속초식 버튼과 앱바]")
+	var arts := _new_arts()
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = arts
+	root.add_child(ui)
+	ui._process(0.0)
+	_check(not ui._chain_button.button_pressed and ui._chain_button.text.contains("OFF"), "처음에는 단일 수련(OFF)")
+	ui._chain_button.button_pressed = true
+	ui._process(0.0)
+	_check(arts.is_chain_mode() and ui._chain_button.text.contains("ON"), "버튼을 누르면 연속초식 ON")
+	_check(ui._chain_label.text.contains("1"), "켜짐 상태에 발동 순서 표시")
+	ui._chain_button.button_pressed = false
+	_check(not arts.is_chain_mode(), "다시 누르면 단일 수련으로 돌아감")
+	ui.open_menu("growth")
+	_check(ui.panels["growth"].visible, "앱바 육성 메뉴가 육성 화면을 엶")
+	ui.open_menu("")
+	_check(not ui.panels["growth"].visible, "닫기")
+	ui.free()
+	_finish()
+
+
+func _test_effect_presets() -> void:
+	print("[M6 이펙트 프리셋]")
+	var presets: Dictionary = _reg().effects.get("effect_presets", {})
+	_check(EffectPresets.validate(presets).is_empty(), "프리셋 데이터 검증 통과 (3계열, 7단계, 단계마다 커짐)")
+	var th: Array = _reg().balance["training"]["stage_thresholds"]
+	_check(EffectPresets.stage_index_for(0, th) == 1, "0회는 입문(1단계)")
+	_check(EffectPresets.stage_index_for(100, th) == 2, "100회는 초급(2단계)")
+	_check(EffectPresets.stage_index_for(7500, th) == 6, "7,500회는 절정(6단계)")
+	_check(EffectPresets.stage_index_for(10000, th) == 6, "대성 플래그가 없으면 7단계로 올리지 않음")
+	_check(EffectPresets.stage_index_for(10000, th, true) == 7, "대성하면 7단계")
+	var cats_ok := true
+	var grows := true
+	for cat in ["sword", "fist", "spell"]:
+		var prev: Dictionary = {}
+		for st in range(1, 8):
+			var p := EffectPresets.resolve(presets, cat, st)
+			if p["category"] != cat:
+				cats_ok = false
+			if not prev.is_empty() and (int(p["particles"]) < int(prev["particles"]) or float(p["scale"]) < float(prev["scale"]) or float(p["duration"]) < float(prev["duration"])):
+				grows = false
+			prev = p
+	_check(cats_ok, "3계열 × 7단계 프리셋이 모두 해석됨")
+	_check(grows, "단계가 오를수록 파티클 수, 크기, 지속 시간이 줄지 않음")
+	var sw := EffectPresets.resolve(presets, "sword", 1)
+	var fi := EffectPresets.resolve(presets, "fist", 1)
+	_check(sw["color_primary"] != fi["color_primary"] and sw["particle_shape"] != fi["particle_shape"], "계열마다 색과 파티클 모양이 다름")
+	_check(EffectPresets.resolve(presets, "unknown", 3)["category"] == "sword", "모르는 계열은 기본 계열 사용")
+	var m := EffectPresets.resolve(presets, "sword", 7, {"mastery_effect": "plum_special"})
+	_check(m["mastery_effect"] == "plum_special" and bool(m.get("mastery_burst", false)), "대성 단계는 초식 전용 연출 지정을 받음 (없으면 계열 대성 프리셋)")
+	_finish()
+
+
+func _test_effect_director_in_battle() -> void:
+	print("[M6 전투 중 이펙트]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var fx: EffectDirector = battle.effects
+	_check(fx != null and fx.max_active > 0, "전투에 이펙트 관리자가 붙음")
+	arts.debug_set_count("plum_blossom_sword.t1", 95)
+	var t := 0.0
+	var played_before := fx.played_count
+	var stage_up_seen := false
+	while t < 40.0 and arts.count_of("plum_blossom_sword.t1") < 102:
+		battle.tick(0.05)
+		for c in fx.get_children():
+			if c.kind == "stage_up":
+				stage_up_seen = true
+		t += 0.05
+	_check(fx.played_count > played_before, "초식 발동 때 연출이 재생됨")
+	_check(fx.last_params.get("category", "") == "sword", "매화검법은 검법 계열 연출")
+	_check(stage_up_seen, "입문 → 초급으로 오를 때 단계 상승 알림 연출")
+	_check(int(fx.last_params.get("stage", 0)) == 2, "초급이 되면 2단계 프리셋으로 바뀜")
+	arts.debug_set_count("plum_blossom_sword.t1", 9998)
+	var mastery_seen := false
+	t = 0.0
+	while t < 30.0 and not arts.is_mastered("plum_blossom_sword.t1"):
+		battle.tick(0.05)
+		t += 0.05
+	for c in fx.get_children():
+		if c.kind == "mastery":
+			mastery_seen = true
+	_check(mastery_seen and battle.banner_text.contains("대성"), "대성 순간 대성 알림 연출과 안내")
+	battle.free()
+	_finish()
+
+
+func _test_effect_performance_cap() -> void:
+	print("[M6 이펙트 성능 상한]")
+	var fx := EffectDirector.new()
+	root.add_child(fx)
+	fx.setup(_reg().effects.get("effect_presets", {}), 760.0)
+	fx.rng.seed = 1
+	var started := Time.get_ticks_usec()
+	for i in 200:
+		fx.play_technique("fist", 7, Vector2(160, 760), [Vector2(400, 760), Vector2(460, 760)])
+		fx.tick(1.0 / 60.0)
+	var per_frame_ms := float(Time.get_ticks_usec() - started) / 200.0 / 1000.0
+	print("    (참고) 최대 단계 연출 연속 재생 시 프레임당 갱신 %.3f ms" % per_frame_ms)
+	_check(fx.active_count() <= fx.max_active, "동시에 살아 있는 연출 수가 상한(%d) 이하" % fx.max_active)
+	fx.play_mastery("sword", Vector2(140, 700), "테스트 대성!")
+	for i in 20:
+		fx.play_technique("sword", 7, Vector2(160, 760), [Vector2(400, 760)])
+	var kept := false
+	for c in fx.get_children():
+		if c.kind == "mastery":
+			kept = true
+	_check(kept, "상한을 넘겨도 대성 알림은 초식 연출보다 늦게 지움")
+	_check(per_frame_ms < 4.0, "연출 갱신 비용이 프레임 예산 안 (4ms 미만, 헤드리스 기준)")
+	for i in 200:
+		fx.tick(0.05)
+	_check(fx.active_count() == 0 and fx.shake_offset == Vector2.ZERO, "연출이 끝나면 모두 정리되고 흔들림도 멈춤")
+	fx.free()
+	_finish()
+
+
+func _growth_cfg() -> Dictionary:
+	return _reg().balance.get("growth", {})
+
+
+func _test_growth_level_and_exp() -> void:
+	print("[M7 경험치와 레벨]")
+	var g := CharacterGrowth.new(CharacterGrowth.new_state(), _growth_cfg())
+	_check(g.level() == 1 and g.current_exp() == 0 and g.realm_tier() == 1, "새 캐릭터: Lv 1, 경험치 0, 삼류 무인")
+	_check(g.exp_to_next() == 100, "Lv 1 → 2 필요 경험치 100 (100 × 1^1.6)")
+	g.state["level"] = 10
+	_check(g.exp_to_next() == int(round(100.0 * pow(10.0, 1.6))), "Lv 10 필요 경험치 = 100 × 10^1.6")
+	g.state["level"] = 1
+	var ups := g.add_exp(99)
+	_check(ups == 0 and g.current_exp() == 99, "모자라면 레벨이 오르지 않음")
+	ups = g.add_exp(1)
+	_check(ups == 1 and g.level() == 2 and g.current_exp() == 0, "채우면 레벨 업, 남는 경험치 이월")
+	ups = g.add_exp(100000)
+	_check(ups > 1, "많이 얻으면 여러 레벨이 한 번에 오름")
+	var b := g.stat_bonuses()
+	_check(is_equal_approx(float(b["atk"]["percent"]), pow(1.03, g.level() - 1) - 1.0), "레벨당 공격력 +3% 복리")
+	g.state["level"] = g.level_cap() - 1
+	g.add_exp(99999999)
+	_check(g.level() == g.level_cap() and g.current_exp() == 0 and g.add_exp(100) == 0, "레벨 상한에서 멈춤 (가안 %d)" % g.level_cap())
+	_finish()
+
+
+func _test_growth_realm_promotion() -> void:
+	print("[M7 경지 승급]")
+	var g := CharacterGrowth.new(CharacterGrowth.new_state(), _growth_cfg())
+	_check(g.realms().size() == 9 and g.realm()["name"] == "삼류 무인" and g.realms()[8]["name"] == "무극", "경지 9단계 데이터 (삼류 무인 ~ 무극)")
+	g.state["level"] = 10
+	_check(not g.can_promote(0), "레벨만 채우고 대성 초식이 없으면 승급 불가")
+	g.state["level"] = 9
+	_check(not g.can_promote(1), "대성만 채우고 레벨이 모자라면 승급 불가")
+	g.state["level"] = 10
+	var promoted := [0]
+	g.realm_promoted.connect(func(_t): promoted[0] += 1)
+	_check(g.try_promote(1) == 1 and g.realm()["name"] == "이류 무인", "Lv 10 + 대성 1개 → 이류 무인")
+	g.state["level"] = 35
+	_check(g.try_promote(6) == 2 and g.realm()["name"] == "절정 고수", "조건을 넘게 채우면 여러 단계 한 번에 승급")
+	_check(promoted[0] == 2, "승급 알림 신호")
+	var b := g.stat_bonuses()
+	_check(float(b["def"]["percent"]) > 0.3, "경지 보너스가 능력치에 반영 (가안)")
+	g.state["level"] = 150
+	g.try_promote(100)
+	_check(g.realm_tier() == 9 and not g.can_promote(999), "무극이 최고 경지")
+	var arts := _new_arts()
+	arts.debug_set_count("plum_blossom_sword.t1", 10000)
+	arts.debug_set_count("plum_blossom_sword.t2", 10000)
+	arts.unlock("arhat_fist")
+	arts.debug_set_count("arhat_fist.t1", 10000)
+	_check(arts.total_mastered() == 3, "대성 초식 수는 모든 무공 합산")
+	_finish()
+
+
+func _test_growth_in_battle_and_save() -> void:
+	print("[M7 전투 경험치, HUD, 저장]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var g: CharacterGrowth = battle.growth
+	var cp0: int = battle.combat_power()
+	var atk0: float = battle.player.atk
+	var t := 0.0
+	while t < 120.0 and g.level() < 2:
+		battle.tick(0.05)
+		t += 0.05
+	_check(g.level() >= 2, "몬스터를 처치하면 경험치가 쌓여 레벨 업")
+	_check(battle.player.atk > atk0 and battle.combat_power() > cp0, "레벨 업하면 공격력과 전투력이 오름")
+	_check(battle.banner_text.contains("레벨") or battle.banner_text != "", "레벨 업 안내")
+	g.state["level"] = 10
+	arts.debug_set_count("plum_blossom_sword.t1", 9999)
+	t = 0.0
+	while t < 30.0 and g.realm_tier() == 1:
+		battle.tick(0.05)
+		t += 0.05
+	_check(g.realm()["name"] == "이류 무인", "Lv 10에서 첫 초식을 대성하면 이류 무인으로 자동 승급")
+	_check(battle.banner_text.contains("이류"), "승급 안내가 HUD에 뜸")
+	battle.free()
+	# 저장/불러오기
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	gs.growth.add_exp(5000)
+	gs.growth.state["realm_tier"] = 2
+	var lv: int = gs.growth.level()
+	var sm = _make_save_manager("user://test_m7_save")
+	sm.save_game()
+	gs.reset_to_new_game()
+	var r: Dictionary = sm.load_game()
+	gs.apply_loaded(r["data"])
+	_check(gs.growth.level() == lv and gs.growth.realm_tier() == 2, "레벨과 경지가 저장/불러오기로 유지")
+	var old: Dictionary = r["data"].duplicate(true)
+	old.erase("character")
+	gs.apply_loaded(old)
+	_check(gs.growth.level() == 1, "예전 저장(캐릭터 항목 없음)도 기본값으로 불러옴")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _new_equipment() -> EquipmentManager:
+	return EquipmentManager.new(EquipmentManager.new_state(), EquipmentManager.new_currencies(), _reg().equipment)
+
+
+func _test_equipment_generate_and_equip() -> void:
+	print("[M8 장비 생성, 드롭, 장착]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	_check(eq.slot_ids().size() == 5 and eq.cfg["grades"].size() == 6, "5부위, 6등급 데이터")
+	var common := eq.generate("weapon", "common", 1.0, rng)
+	var mythic := eq.generate("weapon", "mythic", 1.0, rng)
+	_check(float(mythic["base"]["atk"]) > float(common["base"]["atk"]) * 3.5, "등급이 높을수록 기본 능력치 배율이 큼 (신화 x4.0)")
+	_check(common["options"].size() == 0 and mythic["options"].size() == 4, "추가 옵션 수: 일반 0, 신화 3 + 고정 시너지 1")
+	var fixed := false
+	for o in mythic["options"]:
+		if o.get("fixed", false) and eq.option_data(o["id"]).get("synergy", false):
+			fixed = true
+	_check(fixed, "신화는 무공 시너지 옵션 1개 고정")
+	var far := eq.generate("weapon", "common", 2.0, rng)
+	_check(is_equal_approx(float(far["base"]["atk"]), float(common["base"]["atk"]) * 2.0), "스테이지 배율이 기본 능력치에 곱해짐")
+	var acc := eq.generate("accessory", "common", 2.0, rng)
+	_check(is_equal_approx(float(acc["base"]["crit_rate"]), 0.02), "치명타 확률은 스테이지 배율을 받지 않음")
+	var counts := {}
+	for i in 5000:
+		var g := eq.roll_grade(rng)
+		counts[g] = int(counts.get(g, 0)) + 1
+	_check(int(counts.get("common", 0)) > int(counts.get("rare", 0)) and int(counts.get("rare", 0)) > int(counts.get("legendary", 0)), "드롭 등급 가중치 (일반 > 희귀 > 전설)")
+	var boss_drop := eq.roll_drop(true, 1.0, rng)
+	_check(not boss_drop["item"].is_empty() and boss_drop["added"] and eq.stone() == 3, "보스는 장비 1개와 강화석 3개 확정 (가안)")
+	eq.add_item(common)
+	_check(eq.equip(int(common["uid"])) and eq.equipped_uid("weapon") == int(common["uid"]), "장착")
+	_check(not eq.discard(int(common["uid"])), "장착 중인 장비는 버릴 수 없음")
+	eq.add_item(far)
+	eq.equip(int(far["uid"]))
+	_check(eq.equipped_uid("weapon") == int(far["uid"]), "같은 부위에 장착하면 교체")
+	_check(is_equal_approx(float(eq.stat_bonuses()["atk"]["flat"]), float(far["base"]["atk"])), "장착 장비 기본 능력치가 보너스로 들어감")
+	eq.unequip("weapon")
+	_check(eq.equipped_item("weapon").is_empty() and eq.discard(int(common["uid"])), "해제 후 버리기")
+	eq.state["inventory"].clear()
+	for i in eq.capacity():
+		eq.add_item(eq.generate("shoes", "common", 1.0, rng))
+	_check(not eq.add_item(eq.generate("shoes", "common", 1.0, rng)) and eq.items().size() == eq.capacity(), "보관함이 가득 차면 더 넣지 않음 (가안 %d칸)" % eq.capacity())
+	_finish()
+
+
+func _test_equipment_enhance() -> void:
+	print("[M8 강화]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	var it := eq.generate("armor", "rare", 1.0, rng)
+	eq.add_item(it)
+	var uid := int(it["uid"])
+	_check(eq.enhance(uid) == EquipmentManager.EnhanceResult.NOT_ENOUGH and int(it["enh"]) == 0, "재화가 없으면 강화 불가")
+	eq.add_currency("stone", 1000)
+	eq.add_currency("silver", 1000000)
+	var c0 := eq.enhance_cost(it)
+	var def0 := float(eq.item_base_stats(it)["def"])
+	_check(eq.enhance(uid) == EquipmentManager.EnhanceResult.OK and int(it["enh"]) == 1, "강화석과 은냥으로 강화 (가안: 항상 성공)")
+	_check(eq.stone() == 1000 - int(c0["stone"]) and eq.silver() == 1000000 - int(c0["silver"]), "강화 비용 차감")
+	_check(is_equal_approx(float(eq.item_base_stats(it)["def"]), def0 * 1.05), "강화 1단계당 기본 능력치 +5%")
+	_check(int(eq.enhance_cost(it)["silver"]) > int(c0["silver"]), "강화 단계가 오를수록 비용 증가")
+	for i in 30:
+		eq.enhance(uid)
+	_check(int(it["enh"]) == eq.max_enhance() and eq.enhance(uid) == EquipmentManager.EnhanceResult.MAX_LEVEL, "최대 강화 단계에서 멈춤 (가안 +%d)" % eq.max_enhance())
+	_check(eq.item_name(it).ends_with("+%d" % eq.max_enhance()), "이름에 강화 단계 표시")
+	_finish()
+
+
+func _test_equipment_synergy() -> void:
+	print("[M8 무공 시너지 옵션]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	var it := eq.generate("weapon", "common", 1.0, rng)
+	it["options"] = [{"id": "plum_damage", "value": 0.2}, {"id": "sword_damage", "value": 0.1}, {"id": "plum_t1_damage", "value": 0.3}, {"id": "boss_damage", "value": 0.1}, {"id": "crit_rate", "value": 0.02}]
+	eq.add_item(it)
+	eq.equip(int(it["uid"]))
+	_check(is_equal_approx(eq.technique_bonus("plum_blossom_sword.t1", "plum_blossom_sword", "sword"), 0.6), "매화검법 1초식: 무공 + 계열 + 초식 시너지 합산")
+	_check(is_equal_approx(eq.technique_bonus("plum_blossom_sword.t2", "plum_blossom_sword", "sword"), 0.3), "매화검법 2초식: 초식 전용 옵션은 빠짐")
+	_check(is_equal_approx(eq.technique_bonus("arhat_fist.t1", "arhat_fist", "fist"), 0.0), "매화검법 시너지는 나한권 초식에 적용되지 않음")
+	_check(is_equal_approx(eq.effect_total("boss_damage"), 0.1), "보스 피해 옵션")
+	_check(is_equal_approx(float(eq.stat_bonuses()["crit_rate"]["flat"]), 0.02), "능력치 옵션은 능력치 보너스로")
+	_check(eq.option_text({"id": "plum_damage", "value": 0.2}).contains("20.0%"), "옵션 설명 문구")
+	# 실제 피해 비교
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	battle.equipment.add_item(it.duplicate(true))
+	var dummy = battle.spawn_monster("test_brute")
+	dummy.position.x = battle.player.position.x + 60
+	var tech: Dictionary = _reg().get_technique("plum_blossom_sword.t1")
+	var rng2 := RandomNumberGenerator.new()
+	battle.player.crit_rate = 0.0
+	var plain: int = battle.player.cast_technique(tech, [dummy], rng2, 100.0, Color.WHITE, 0.0)[0]["damage"]
+	var boosted: int = battle.player.cast_technique(tech, [dummy], rng2, 100.0, Color.WHITE, 0.6)[0]["damage"]
+	_check(boosted > plain, "시너지 보너스가 초식 피해를 올림 (%d → %d)" % [plain, boosted])
+	battle.player.damage_reduction = 0.5
+	var hp0: int = battle.player.hp
+	var taken: int = battle.player.take_damage(100)
+	_check(taken == 50 and battle.player.hp == hp0 - 50, "피해 감소 옵션이 받는 피해를 줄임")
+	battle.free()
+	_finish()
+
+
+func _test_equipment_in_battle_and_save() -> void:
+	print("[M8 전투 드롭, 장착 반영, 저장]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var eq: EquipmentManager = battle.equipment
+	var t := 0.0
+	while t < 900.0 and eq.items().is_empty():
+		battle.tick(0.05)
+		t += 0.05
+	_check(eq.silver() > 0, "몬스터 처치로 은냥 획득")
+	_check(not eq.items().is_empty(), "스테이지 진행 중 장비 드롭")
+	var atk0: float = battle.player.atk
+	var cp0: int = battle.combat_power()
+	var w := eq.generate("weapon", "legendary", 1.0, battle.rng)
+	eq.add_item(w)
+	eq.equip(int(w["uid"]))
+	_check(battle.player.atk > atk0 and battle.combat_power() > cp0, "장착하면 캐릭터 공격력과 전투력이 바로 오름")
+	battle.free()
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = arts
+	ui.equipment = eq
+	root.add_child(ui)
+	ui.open_menu("equipment")
+	_check(ui.panels.has("equipment") and ui.panels["equipment"].visible, "앱바 장비 메뉴가 장비 화면을 엶")
+	ui.free()
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var it: Dictionary = gs.equipment.generate("helmet", "epic", 1.5, RandomNumberGenerator.new())
+	gs.equipment.add_item(it)
+	gs.equipment.equip(int(it["uid"]))
+	gs.equipment.add_currency("silver", 1234)
+	gs.equipment.add_currency("stone", 7)
+	var sm = _make_save_manager("user://test_m8_save")
+	sm.save_game()
+	gs.reset_to_new_game()
+	gs.apply_loaded(sm.load_game()["data"])
+	var back: Dictionary = gs.equipment.equipped_item("helmet")
+	_check(not back.is_empty() and back["grade"] == "epic" and back["options"].size() == it["options"].size(), "장착 장비와 옵션이 저장/불러오기로 유지")
+	_check(gs.equipment.silver() == 1234 and gs.equipment.stone() == 7, "은냥과 강화석 유지")
+	var nx: Dictionary = gs.equipment.generate("shoes", "common", 1.0, RandomNumberGenerator.new())
+	_check(int(nx["uid"]) > int(it["uid"]), "불러온 뒤에도 장비 고유 번호가 겹치지 않음")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_manual_fragments_unlock() -> void:
+	print("[M9 비급 조각과 무공 개방]")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	_check(col.required_of("arhat_fist") == 30, "나한권 필요 조각 30개 (테스트 수치)")
+	_check(not col.add_fragments("arhat_fist", 29) and not arts.is_unlocked("arhat_fist"), "필요 개수 전에는 개방되지 않음")
+	_check(col.add_fragments("arhat_fist", 3) and arts.is_unlocked("arhat_fist"), "필요 개수를 채우면 무공 개방")
+	_check(col.fragments_of("arhat_fist") == 2, "남는 조각은 보관")
+	_check(arts.is_tech_unlocked("arhat_fist.t1") and not arts.is_tech_unlocked("arhat_fist.t2"), "개방하면 1초식만 해금")
+	_check(arts.equip_main("arhat_fist") and arts.main_art() == "arhat_fist", "개방한 무공을 주력으로 장착 가능")
+	var silver0 := eq.silver()
+	col.add_fragments("plum_blossom_sword", 4)
+	_check(eq.silver() == silver0 + 200 and col.fragments_of("plum_blossom_sword") == 0, "이미 개방한 무공의 조각은 은냥으로 전환 (가안 조각당 50)")
+	_finish()
+
+
+func _test_dungeon_entry_and_rewards() -> void:
+	print("[M9 비급 던전 입장과 보상]")
+	var d: Dictionary = _reg().get_dungeon("manual_cave")
+	_check(not d.is_empty() and d["waves"].size() == 3, "비급 던전 데이터 (웨이브 3개, 마지막 보스)")
+	var arts := _new_arts()
+	var eq := _new_equipment()
+	var col := ManualCollection.new(ManualCollection.new_state(), arts, eq)
+	_check(not col.can_enter(d, {}, "2026-01-01")["ok"], "스테이지 1 돌파 전에는 입장 불가")
+	var hc := {"cheongpung_mountain": 1}
+	_check(col.can_enter(d, hc, "2026-01-01")["ok"], "스테이지 1 돌파 후 입장 가능")
+	for i in 3:
+		col.record_entry(d, "2026-01-01")
+	_check(not col.can_enter(d, hc, "2026-01-01")["ok"] and col.entries_left(d, "2026-01-01") == 0, "하루 입장 3회 제한 (가안)")
+	_check(col.entries_left(d, "2026-01-02") == 3, "날짜가 바뀌면 입장 횟수 초기화")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var res := col.grant_clear(d, rng, "2026-01-02")
+	var total := 0
+	for f in res["fragments"]:
+		total += int(f["amount"])
+		_check(f["art"] == "arhat_fist" or f["art"] == "yin_yang_five_elements", "보상 테이블의 무공 조각만 나옴 (%s)" % f["art"])
+	_check(res["fragments"].size() == 2 and total >= 4 and total <= 8, "클리어당 2회 × 2~4개 (테스트 수치)")
+	_check(eq.silver() >= 200, "클리어 은냥 보상")
+	for i in 3:
+		col.grant_clear(d, rng, "2026-01-02")
+	_check(col.pity_of("manual_cave") == 4, "천장 카운트 누적")
+	var r5 := col.grant_clear(d, rng, "2026-01-02")
+	_check(not r5["pity_bonus"].is_empty() and col.pity_of("manual_cave") == 0, "클리어 5회째 천장 보너스 지급 후 초기화 (테스트 수치)")
+	var guard := 0
+	while not (arts.is_unlocked("arhat_fist") and arts.is_unlocked("yin_yang_five_elements")) and guard < 100:
+		col.grant_clear(d, rng, "2026-01-02")
+		guard += 1
+	_check(arts.is_unlocked("arhat_fist") and arts.is_unlocked("yin_yang_five_elements"), "던전을 반복하면 두 무공 모두 개방 (%d회 추가)" % guard)
+	_finish()
+
+
+func _test_dungeon_run_in_battle() -> void:
+	print("[M9 던전 전투]")
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	battle.growth.state["level"] = 20
+	battle._refresh_stats()
+	_check(not battle.start_dungeon("manual_cave", "2026-02-01")["ok"], "스테이지 돌파 전 입장 거부")
+	battle.stage.highest_cleared["cheongpung_mountain"] = 1
+	battle.stage.kill_count = 17
+	var kc0: int = battle.stage.kill_count
+	var r: Dictionary = battle.start_dungeon("manual_cave", "2026-02-01")
+	_check(r["ok"] and battle.dungeon != null, "입장하면 던전 진행")
+	var t := 0.0
+	var saw_boss := false
+	while t < 400.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		if is_instance_valid(battle.boss):
+			saw_boss = true
+		t += 0.05
+	_check(saw_boss, "마지막 웨이브에 던전 보스 등장")
+	_check(battle.last_dungeon_result.get("cleared", false), "모든 웨이브를 처치해 클리어 (%.0f초)" % t)
+	_check(battle.collection.clears_of("manual_cave") == 1, "클리어 기록")
+	_check(battle.dungeon == null and battle.stage.kill_count == kc0, "끝나면 스테이지로 돌아가고 스테이지 처치 수는 그대로")
+	# 실패: 제한 시간
+	var r2: Dictionary = battle.start_dungeon("manual_cave", "2026-02-01")
+	battle.dungeon.time_left = 0.1
+	t = 0.0
+	while t < 10.0 and battle.dungeon != null:
+		battle.tick(0.05)
+		t += 0.05
+	_check(r2["ok"] and not battle.last_dungeon_result.get("cleared", true) and battle.last_dungeon_result.get("reason", "") == "시간 초과", "제한 시간이 지나면 실패")
+	# 수련은 던전에서도 오른다
+	var c0 := arts.count_of("plum_blossom_sword.t1")
+	battle.start_dungeon("manual_cave", "2026-02-01")
+	for i in 400:
+		battle.tick(0.05)
+	_check(arts.count_of("plum_blossom_sword.t1") > c0, "던전에서도 초식 수련 횟수가 오름")
+	battle.free()
+	_finish()
+
+
+func _test_codex_and_dungeon_ui() -> void:
+	print("[M9 도감과 던전 화면]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	ui.open_menu("dungeon")
+	_check(ui.panels.has("dungeon") and ui.panels["dungeon"].visible, "앱바 던전 메뉴가 던전 화면을 엶")
+	ui.panels["dungeon"]._enter("manual_cave")
+	_check(ui.panels["dungeon"].message.contains("돌파"), "입장 조건 미달 안내")
+	ui.open_menu("codex")
+	var codex = ui.panels["codex"]
+	_check(codex.visible and codex.root.get_child_count() > 0, "무공 도감 화면")
+	var texts := ""
+	for c in codex.root.get_children():
+		if c is Label:
+			texts += c.text + "\n"
+	_check(texts.contains("매화검법") and texts.contains("습득") and texts.contains("0 / 30"), "도감에 습득 여부와 조각 수 표시")
+	_check(texts.contains("화산파") and texts.contains("검법"), "도감에 문파와 계열 표시")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_offline_elapsed_and_clock() -> void:
+	print("[M10 경과 시간과 시계 조작 완화]")
+	var max_sec := 8.0 * 3600.0
+	var saved := {"unix": 1000000, "mono_ms": 5000, "session": "A"}
+	var e := OfflineTraining.elapsed(saved, {"unix": 1003600, "mono_ms": 999999999, "session": "B"}, max_sec)
+	_check(e["method"] == "device" and is_equal_approx(float(e["seconds"]), 3600.0), "다른 실행(재시작)이면 기기 시간 차이 사용")
+	e = OfflineTraining.elapsed(saved, {"unix": 9999999, "mono_ms": 5000 + 600000, "session": "A"}, max_sec)
+	_check(e["method"] == "monotonic" and is_equal_approx(float(e["seconds"]), 600.0), "같은 실행이면 단조 시간 차이 사용 (기기 시간을 앞당겨도 영향 없음)")
+	e = OfflineTraining.elapsed(saved, {"unix": 1000000 + 20 * 3600, "mono_ms": 0, "session": "B"}, max_sec)
+	_check(is_equal_approx(float(e["seconds"]), max_sec) and e["capped"], "최대 8시간까지만 인정")
+	e = OfflineTraining.elapsed(saved, {"unix": 1000000 - 3600, "mono_ms": 0, "session": "B"}, max_sec)
+	_check(e["rollback"] and float(e["seconds"]) == 0.0 and int(e["rollback_until"]) == 1000000, "기기 시간이 과거로 가면 보상 0, 되돌림 기준 시각 기록")
+	# 되돌린 시각으로 저장된 뒤 시간을 원래대로 돌려도, 원래 저장 시점부터 센다
+	var saved_back := {"unix": 1000000 - 3600, "mono_ms": 0, "session": "C"}
+	e = OfflineTraining.elapsed(saved_back, {"unix": 1000000 - 1800, "mono_ms": 0, "session": "D"}, max_sec, 1000000)
+	_check(e["rollback"] and float(e["seconds"]) == 0.0, "되돌림 기준 시각을 지나기 전까지 계속 0")
+	e = OfflineTraining.elapsed(saved_back, {"unix": 1000000 + 600, "mono_ms": 0, "session": "D"}, max_sec, 1000000)
+	_check(not e["rollback"] and is_equal_approx(float(e["seconds"]), 600.0) and int(e["rollback_until"]) == 0, "기준 시각을 지나면 그 시각부터 정상 계산 (되돌린 만큼 이득 없음)")
+	e = OfflineTraining.elapsed({}, {"unix": 1000000, "mono_ms": 0, "session": "A"}, max_sec)
+	_check(float(e["seconds"]) == 0.0, "저장 기록이 없으면 0")
+	_check(OfflineTraining.format_duration(3 * 3600 + 12 * 60) == "3시간 12분", "경과 시간 표시 형식")
+	_finish()
+
+
+func _test_offline_training_apply() -> void:
+	print("[M10 오프라인 수련 계산]")
+	var cfg := {"efficiency": 0.5, "multiplier": 1.0, "technique_interval": 1.0, "mp_regen": 5.0}
+	var arts := _new_arts()
+	var tech: Dictionary = _reg().get_technique("plum_blossom_sword.t1")
+	_check(is_equal_approx(OfflineTraining.casts_per_second(tech, 1.0, 5.0), 1.0), "초당 발동 수 1회 (초식 간격 1초, 내공 5/초, 소모 5, 가안)")
+	var r := OfflineTraining.apply(arts, 3600.0, cfg)
+	_check(arts.count_of("plum_blossom_sword.t1") == 1800 and int(r["gains"]["plum_blossom_sword.t1"]) == 1800, "1시간 → 3,600회 × 효율 50% = 1,800회")
+	arts.set_chain_mode(true)
+	arts.debug_set_count("plum_blossom_sword.t1", 9000)
+	r = OfflineTraining.apply(arts, 8.0 * 3600.0, cfg)
+	_check(arts.is_mastered("plum_blossom_sword.t1"), "오프라인 중 대성")
+	_check(arts.is_mastered("plum_blossom_sword.t2") and arts.count_of("plum_blossom_sword.t3") == 14400 - 1000 - 10000, "남은 횟수는 다음 초식으로 이월 (2초식 대성 후 3초식까지)")
+	_check(int(r["gains"]["plum_blossom_sword.t1"]) == 1000 and r["mastered"].has("plum_blossom_sword.t1"), "대성까지 필요한 만큼만 1초식에 반영")
+	_check(arts.count_of("plum_blossom_sword.t4") == 0 and arts.count_of("plum_blossom_sword.t1") == 10000, "연속초식을 켜 두었어도 단일 수련 기준 (대성한 초식은 더 쌓지 않음)")
+	# 모두 대성한 경우: 마지막 초식 반복
+	var arts2 := _new_arts()
+	for t in arts2.techniques_of("plum_blossom_sword"):
+		arts2.debug_set_count(t["id"], 10000)
+	var last: String = arts2.techniques_of("plum_blossom_sword").back()["id"]
+	var c0 := arts2.count_of(last)
+	OfflineTraining.apply(arts2, 600.0, cfg)
+	_check(arts2.count_of(last) == c0 + 300, "모두 대성했으면 마지막 초식에 계속 쌓임")
+	var arts3 := _new_arts()
+	r = OfflineTraining.apply(arts3, 0.0, cfg)
+	_check(r["gains"].is_empty(), "경과 0이면 변화 없음")
+	_finish()
+
+
+func _test_offline_game_flow() -> void:
+	print("[M10 저장 → 복귀 흐름과 요약 화면]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var sm = _make_save_manager("user://test_m10_save")
+	sm.save_game()
+	var r: Dictionary = sm.load_game()
+	var meta: Dictionary = sm.saved_time_of(r["data"])
+	_check(int(meta["unix"]) > 0 and String(meta["session"]) != "", "저장 파일에 기기 시간, 단조 시간, 세션 기록")
+	gs.apply_loaded(r["data"])
+	var now := {"unix": int(meta["unix"]) + 2 * 3600, "mono_ms": 0, "session": "다른 실행"}
+	var res: Dictionary = gs.apply_offline(meta, now)
+	_check(gs.arts.count_of("plum_blossom_sword.t1") == 1980 and int(res["gains"]["plum_blossom_sword.t1"]) == 1980, "2시간 뒤 재실행: 1초식 +1,980회 (7,200초 × 발동 비율 55% × 효율 50%)")
+	_check(not gs.offline_summary.is_empty(), "복귀 요약이 만들어짐")
+	var short: Dictionary = gs.apply_offline(meta, {"unix": int(meta["unix"]) + 30, "mono_ms": 0, "session": "다른 실행"})
+	_check(short.is_empty(), "60초 미만은 무시 (가안)")
+	var back: Dictionary = gs.apply_offline(meta, {"unix": int(meta["unix"]) - 100, "mono_ms": 0, "session": "다른 실행"})
+	_check(back.get("rollback", false) and int(gs.data["offline"]["rollback_until_unix"]) == int(meta["unix"]), "시계를 되돌리면 보상 없이 기준 시각 저장")
+	var ui = load("res://scripts/ui/GameUi.gd").new()
+	ui.arts = gs.arts
+	root.add_child(ui)
+	gs.apply_offline({"unix": int(meta["unix"]), "mono_ms": 0, "session": "x"}, {"unix": int(meta["unix"]) + 4 * 3600, "mono_ms": 0, "session": "y"})
+	_check(ui.panels.has("offline") and ui.panels["offline"].visible, "복귀 요약 화면이 뜸")
+	var texts := ""
+	for c in ui.panels["offline"].root.get_children():
+		if c is Label:
+			texts += c.text
+	_check(texts.contains("효율 50%") and texts.contains("+3,960회"), "요약에 효율과 오른 횟수 표시")
+	ui.free()
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_save_export_import() -> void:
+	print("[M11 저장 내보내기/가져오기]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	gs.arts.debug_set_count("plum_blossom_sword.t1", 4321)
+	gs.growth.add_exp(3000)
+	gs.equipment.add_currency("silver", 777)
+	var sm = _make_save_manager("user://test_m11_save")
+	var code: String = sm.export_code()
+	_check(code.begins_with("ILCHO1:") and code.length() > 100, "텍스트 코드로 내보내기")
+	var lv: int = gs.growth.level()
+	gs.reset_to_new_game()
+	var parsed: Dictionary = sm.parse_code(code)
+	_check(parsed["ok"] and String(parsed["summary"]).contains("Lv %d" % lv), "코드 검사와 가져오기 전 요약 (%s)" % parsed.get("summary", ""))
+	var r: Dictionary = sm.import_code(code)
+	_check(r["ok"] and gs.arts.count_of("plum_blossom_sword.t1") == 4321 and gs.growth.level() == lv and gs.equipment.silver() == 777, "가져오면 수련, 레벨, 재화가 그대로 옮겨짐")
+	var again: Dictionary = sm.load_game()
+	_check(again["ok"] and int(again["data"]["martial_arts"]["progress"]["plum_blossom_sword"]["techniques"]["plum_blossom_sword.t1"]["count"]) == 4321, "가져온 진행이 바로 저장됨")
+	var broken := code.substr(0, code.length() - 12) + "AAAAAAAAAAAA"
+	_check(not sm.parse_code(broken)["ok"], "깨진 코드는 거부")
+	_check(not sm.parse_code("아무 글자")["ok"], "다른 글자는 거부")
+	_check(sm.parse_code("  " + code.substr(0, 50) + "\n" + code.substr(50) + "  ")["ok"], "앞뒤 공백, 줄바꿈이 섞여도 읽음")
+	var newer: Dictionary = gs.data.duplicate(true)
+	newer["version"] = 99
+	_check(not sm.parse_code(sm.export_code(newer))["ok"], "더 새 버전 앱의 코드는 거부")
+	sm.delete_all()
+	sm.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_settings_and_sound() -> void:
+	print("[M11 설정과 임시 효과음]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var st: Dictionary = gs.data["settings"]
+	_check(st.has("sfx_volume") and st.has("bgm_volume") and st.has("vibration") and st.has("screen_shake"), "설정 기본값 (효과음, 배경음, 진동, 화면 흔들림)")
+	var old: Dictionary = gs.data.duplicate(true)
+	old.erase("settings")
+	gs.apply_loaded(old)
+	_check(gs.data["settings"]["sfx_volume"] == 0.8, "예전 저장에는 설정 기본값을 채움")
+	var snd = root.get_node("Sound")
+	var n0: int = snd.play_count
+	snd.play("mastery")
+	_check(snd.play_count == n0 + 1, "임시 효과음 재생 (코드로 만든 파형)")
+	snd._last_play_ms.erase("technique")
+	snd.play("technique", 1000)
+	snd.play("technique", 1000)
+	_check(snd.play_count == n0 + 2, "짧은 간격의 같은 소리는 건너뜀")
+	gs.data["settings"]["sfx_volume"] = 0.0
+	snd.play("levelup")
+	_check(snd.play_count == n0 + 2, "효과음 음량 0이면 재생하지 않음")
+	gs.data["settings"]["sfx_volume"] = 0.8
+	var panel := SettingsPanel.new()
+	root.add_child(panel)
+	panel.visible = true
+	panel.on_open()
+	panel._export()
+	_check(panel._code_edit.text.begins_with("ILCHO1:"), "설정 화면 내보내기 버튼이 코드를 보여 줌")
+	panel._check_import()
+	_check(panel._status.text.contains("가져올 진행"), "설정 화면 가져오기는 먼저 요약을 보여 줌")
+	panel.free()
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	_check(battle.effects.shake_enabled, "화면 흔들림 기본 켜짐")
+	battle.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_tutorial_steps() -> void:
+	print("[M11 튜토리얼 4단계]")
+	var steps: Array = _reg().balance.get("tutorial", {}).get("steps", [])
+	_check(steps.size() == 4, "튜토리얼 4단계 데이터")
+	var progress := {}
+	var arts := _new_arts()
+	var kills := [0]
+	var guide := TutorialGuide.new(steps, progress, arts)
+	guide.kill_count = func(): return kills[0]
+	guide._advance()
+	root.add_child(guide)
+	_check(guide.visible and guide.current_id() == "auto_battle", "1단계 자동 전투 안내")
+	kills[0] = 3
+	guide._process(0.0)
+	_check(guide.current_id() == "chain_button" and progress.get("auto_battle", false), "몬스터 3마리 처치로 2단계")
+	guide.chain_toggled = true
+	guide._process(0.0)
+	_check(guide.current_id() == "equip_martial_art", "연속초식 버튼을 누르면 3단계")
+	guide.opened_menus["growth"] = true
+	guide._process(0.0)
+	_check(guide.current_id() == "first_training", "육성을 열면 4단계")
+	guide.complete_current()
+	_check(guide.is_done() and not guide.visible, "확인을 누르면 마침")
+	guide.free()
+	var guide2 := TutorialGuide.new(steps, progress, arts)
+	_check(guide2.is_done() and not guide2.visible, "끝낸 튜토리얼은 다시 뜨지 않음")
+	guide2.free()
+	# 전체 화면 연결
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	_check(ui.tutorial != null and ui.tutorial.visible, "새 게임 첫 화면에 튜토리얼이 뜸")
+	_check(ui.panels.has("settings"), "설정 화면 등록 (화면 위 설정 버튼)")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()

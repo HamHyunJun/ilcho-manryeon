@@ -14,3 +14,15 @@ static func apply(base: Dictionary, bonuses: Dictionary) -> Dictionary:
 		var v := (float(out[stat]) + float(b.get("flat", 0.0))) * (1.0 + float(b.get("percent", 0.0)))
 		out[stat] = v
 	return out
+
+
+## 보너스 묶음 여러 개를 하나로 합친다 (flat끼리, percent끼리 더함)
+static func merge(list: Array) -> Dictionary:
+	var out := {}
+	for bonuses in list:
+		for stat in bonuses.keys():
+			if not out.has(stat):
+				out[stat] = {"flat": 0.0, "percent": 0.0}
+			out[stat]["flat"] = float(out[stat]["flat"]) + float(bonuses[stat].get("flat", 0.0))
+			out[stat]["percent"] = float(out[stat]["percent"]) + float(bonuses[stat].get("percent", 0.0))
+	return out

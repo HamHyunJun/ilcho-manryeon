@@ -1,0 +1,52 @@
+{
+  "_comment": "장비 기본 데이터 (docs/06 A, docs/11 6장). 수치는 모두 가안. 장신구 슬롯 수 O-24, 최대 강화·실패 O-25, 보관함 O-27.",
+  "slots": [
+    { "id": "weapon",    "name": "무기",   "base": { "atk": 4 } },
+    { "id": "helmet",    "name": "투구",   "base": { "def": 2, "max_hp": 20 } },
+    { "id": "armor",     "name": "갑옷",   "base": { "def": 4, "max_hp": 35 } },
+    { "id": "shoes",     "name": "신발",   "base": { "def": 1, "max_hp": 25 } },
+    { "id": "accessory", "name": "장신구", "base": { "atk": 1, "crit_rate": 0.02 } }
+  ],
+  "no_level_scaling_stats": ["crit_rate", "crit_mult"],
+  "grades": [
+    { "id": "common",    "name": "일반", "color": "#c8c8c8", "mult": 1.0, "options": 0, "fixed_synergy": false, "drop_weight": 60 },
+    { "id": "uncommon",  "name": "고급", "color": "#6fd36f", "mult": 1.3, "options": 1, "fixed_synergy": false, "drop_weight": 25 },
+    { "id": "rare",      "name": "희귀", "color": "#5aa8ff", "mult": 1.7, "options": 1, "fixed_synergy": false, "drop_weight": 10 },
+    { "id": "epic",      "name": "영웅", "color": "#c070ff", "mult": 2.2, "options": 2, "fixed_synergy": false, "drop_weight": 4 },
+    { "id": "legendary", "name": "전설", "color": "#ffb030", "mult": 3.0, "options": 3, "fixed_synergy": false, "drop_weight": 0.9 },
+    { "id": "mythic",    "name": "신화", "color": "#ff5050", "mult": 4.0, "options": 3, "fixed_synergy": true,  "drop_weight": 0.1 }
+  ],
+  "options": [
+    { "id": "atk_pct",        "name": "공격력",        "stat": "atk",        "kind": "percent", "min": 0.03, "max": 0.08, "target": { "type": "all" } },
+    { "id": "hp_pct",         "name": "체력",          "stat": "max_hp",     "kind": "percent", "min": 0.03, "max": 0.08, "target": { "type": "all" } },
+    { "id": "def_pct",        "name": "방어력",        "stat": "def",        "kind": "percent", "min": 0.03, "max": 0.08, "target": { "type": "all" } },
+    { "id": "crit_rate",      "name": "치명타 확률",   "stat": "crit_rate",  "kind": "flat",    "min": 0.01, "max": 0.03, "target": { "type": "all" } },
+    { "id": "mp_regen",       "name": "내공 회복",     "stat": "mp_regen",   "kind": "flat",    "min": 0.5,  "max": 1.5,  "target": { "type": "all" } },
+    { "id": "damage_reduction", "name": "피해 감소",   "effect": "damage_reduction", "min": 0.02, "max": 0.05, "target": { "type": "all" } },
+    { "id": "boss_damage",    "name": "보스 피해",     "effect": "boss_damage",      "min": 0.05, "max": 0.12, "target": { "type": "all" } },
+    { "id": "sword_damage",   "name": "검법 초식 피해", "effect": "technique_damage", "min": 0.05, "max": 0.10, "target": { "type": "category", "id": "sword" } },
+    { "id": "fist_damage",    "name": "권법 초식 피해", "effect": "technique_damage", "min": 0.05, "max": 0.10, "target": { "type": "category", "id": "fist" } },
+    { "id": "spell_damage",   "name": "술법 초식 피해", "effect": "technique_damage", "min": 0.05, "max": 0.10, "target": { "type": "category", "id": "spell" } },
+    { "id": "plum_damage",    "name": "매화검법 초식 피해", "effect": "technique_damage", "min": 0.08, "max": 0.20, "target": { "type": "art", "id": "plum_blossom_sword" }, "synergy": true },
+    { "id": "arhat_damage",   "name": "나한권 초식 피해",   "effect": "technique_damage", "min": 0.08, "max": 0.20, "target": { "type": "art", "id": "arhat_fist" }, "synergy": true },
+    { "id": "yinyang_damage", "name": "음양오행술 초식 피해", "effect": "technique_damage", "min": 0.08, "max": 0.20, "target": { "type": "art", "id": "yin_yang_five_elements" }, "synergy": true },
+    { "id": "plum_t1_damage", "name": "매화검법 1초식 강화", "effect": "technique_damage", "min": 0.15, "max": 0.30, "target": { "type": "technique", "id": "plum_blossom_sword.t1" }, "synergy": true }
+  ],
+  "enhance": {
+    "max_level": 15,
+    "stat_per_level": 0.05,
+    "success_rate": 1.0,
+    "stone_base": 1,
+    "stone_per_level": 1,
+    "silver_base": 50,
+    "silver_per_level": 50
+  },
+  "drop": {
+    "normal_chance": 0.02,
+    "boss_chance": 1.0,
+    "stone_normal_chance": 0.05,
+    "stone_normal_amount": 1,
+    "stone_boss_amount": 3
+  },
+  "inventory_capacity": 100
+}
