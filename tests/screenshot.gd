@@ -2,6 +2,7 @@ extends SceneTree
 ## 화면 확인용 스크린샷 도구 (개발용).
 ## 실행: xvfb-run godot --path . -s res://tests/screenshot.gd -- <출력 경로> [초] [메뉴]
 ## 메뉴: 패널 이름, summon10, growdetail, heropick(캐릭터 선택), hero:<id>(그 캐릭터로 육성 화면), pose:<id>(초식 포즈 순간)
+##       stage:<번호>(그 스테이지 일반 몬스터), boss:<번호>(그 스테이지 보스전)
 ## 메인 화면을 띄우고 지정한 시간만큼 진행한 뒤 화면을 PNG로 저장한다.
 
 func _initialize() -> void:
@@ -47,6 +48,34 @@ func _initialize() -> void:
 		b.player._pose = b.player.POSE_TIME * 0.7
 		b.player._tech_flash = 0.2
 		sec = 0.0
+	elif ui and menu.begins_with("skill:"):
+		# 보스 스킬 순간 (skill:<번호>[:진행 초])
+		var b = main.get_node("Battle")
+		b._clear_monsters()
+		b.stage.start(int(menu.get_slice(":", 1)))
+		b._sync_stage()
+		b._spawn_boss()
+		var boss = b.boss
+		boss.position.x = b.player.position.x + 260.0
+		boss.tick(0.01, b.player, 100.0)
+		boss._on_pattern_hit()
+		var at := float(menu.get_slice(":", 2)) if menu.get_slice_count(":") > 2 else 0.35
+		boss.patterns = []
+		for i in int(at / 0.05):
+			boss.tick(0.05, b.player, 100.0)
+		b.set_process(false)
+		sec = 0.05
+	elif ui and (menu.begins_with("stage:") or menu.begins_with("boss:")):
+		# 몬스터 확인용: 지정 스테이지로 옮겨 일반 몬스터 또는 보스를 띄운다
+		var b = main.get_node("Battle")
+		b._clear_monsters()
+		b.stage.start(int(menu.get_slice(":", 1)))
+		b._sync_stage()
+		b.player.recover()
+		if menu.begins_with("boss:"):
+			b._spawn_boss()
+		else:
+			b._spawn_group()
 	elif ui and menu != "":
 		ui.open_menu(menu)
 	await create_timer(sec).timeout

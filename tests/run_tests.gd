@@ -388,18 +388,23 @@ func _test_twenty_stages_and_monsters() -> void:
 		if first_ids.has(e["monster"]):
 			last_new = false
 	_check(last_new, "스테이지 20에는 스테이지 1의 몬스터가 나오지 않음")
-	# 보스: 2스테이지마다 바뀌고, 5·10·15·20은 구역 대장
+	# 보스: 시안대로 2스테이지마다 바뀐다 (10명). 10·16·20스테이지 보스는 패턴 3개
 	var boss_ids := {}
 	for s in stages:
 		boss_ids[s["boss"]] = true
-	_check(boss_ids.size() == 12, "보스 12종 (%d)" % boss_ids.size())
+	_check(boss_ids.size() == 10, "보스 10종 (%d)" % boss_ids.size())
+	var pair_ok := true
+	for i in range(0, 20, 2):
+		if stages[i]["boss"] != stages[i + 1]["boss"] or JSON.stringify(stages[i]["spawn_pool"].map(func(e): return e["monster"])) != JSON.stringify(stages[i + 1]["spawn_pool"].map(func(e): return e["monster"])):
+			pair_ok = false
+	_check(pair_ok, "2스테이지 구간마다 같은 보스와 같은 몬스터 2종")
 	var chapter_ok := true
-	for no in [10, 15, 20]:
+	for no in [10, 16, 20]:
 		var b: Dictionary = reg.get_monster(stages[no - 1]["boss"])
 		if b.get("patterns", []).size() != 3:
 			chapter_ok = false
-	_check(chapter_ok, "10·15·20스테이지 구역 대장 보스는 패턴 3개")
-	_check(stages[4]["boss"] == "test_boss", "5스테이지 보스는 산채 두목")
+	_check(chapter_ok, "10·16·20스테이지 보스는 패턴 3개")
+	_check(reg.get_monster(stages[0]["boss"])["name"] == "산적 두목" and reg.get_monster(stages[19]["boss"])["name"] == "무림천존", "1스테이지 보스는 산적 두목, 20스테이지 보스는 무림천존")
 	# 난이도: 배율, 일반 몬스터 평균 체력, 보스 체력, 보상이 스테이지마다 오른다
 	var prev_hp := 0.0
 	var prev_boss := 0.0
@@ -436,14 +441,28 @@ func _test_twenty_stages_and_monsters() -> void:
 	_check(boss_up, "보스 체력이 스테이지마다 오름 (20스테이지 %.0f)" % prev_boss)
 	_check(reward_up, "일반 몬스터 평균 은냥 보상이 스테이지마다 오름")
 	_check(ratio_ok, "보스 체력은 같은 스테이지 일반 몬스터 평균의 15~50배")
-	# 모든 몬스터 그림이 만들어진다
+	# 모든 몬스터가 시안 도트 스프라이트를 가진다 (대기 칸, 시트·실루엣 텍스처)
 	var art_ok := true
+	var missing := []
 	for id in reg.monsters:
 		var m: Dictionary = reg.monsters[id]
-		var art := ChibiArt.monster(String(m.get("sprite", "bandit")))
-		if not (art.get("body") is Texture2D) or not (art.get("weapon") is Texture2D):
+		var sid := String(m.get("sheet", ""))
+		if not MonsterSprites.has(sid) or MonsterSprites.frames(sid, "idle").is_empty() or MonsterSprites.texture(sid) == null or MonsterSprites.texture(sid, true) == null:
 			art_ok = false
-	_check(art_ok, "모든 몬스터의 2등신 스프라이트 생성 (%d종)" % reg.monsters.size())
+			missing.append(id)
+	_check(art_ok, "모든 몬스터의 시안 도트 스프라이트 (%d종, 없음: %s)" % [reg.monsters.size(), ", ".join(missing)])
+	var boss_skill_ok := true
+	for s in stages:
+		var bs := String(reg.get_monster(s["boss"])["sheet"])
+		if not (MonsterSprites.has_anim(bs, "skill") or MonsterSprites.has_anim(bs, "skill_fx")):
+			boss_skill_ok = false
+	_check(boss_skill_ok, "보스마다 스킬 자세나 스킬 이펙트가 있음")
+	var ranged_fx_ok := true
+	for id in reg.monsters:
+		var m: Dictionary = reg.monsters[id]
+		if m.get("type", "") == "ranged" and not MonsterSprites.has_anim(String(m["sheet"]), "fx"):
+			ranged_fx_ok = false
+	_check(ranged_fx_ok, "원거리형 몬스터는 투사체 이펙트가 있음")
 	# 스테이지 관리자와 실제 생성
 	var sm := StageManager.new(reg.get_region("cheongpung_mountain"), 12)
 	_check(sm.area_name() == "철문관", "스테이지 12 구역 이름: 철문관")
@@ -464,21 +483,22 @@ func _test_twenty_stages_and_monsters() -> void:
 	_finish()
 
 
-## 원거리형(삿갓 궁수)은 멀리서 멈춰 공격한다
+## 원거리형(암객)은 멀리서 멈춰 공격한다
 func _test_ranged_monster() -> void:
 	print("[원거리형 몬스터]")
 	var battle := _make_battle()
 	for m in battle.monsters:
 		m.queue_free()
 	battle.monsters.clear()
-	var archer: Node2D = battle.spawn_monster("archer")
+	var archer: Node2D = battle.spawn_monster("shadow_blade")
 	var hp0: int = battle.player.hp
 	var t := 0.0
 	while t < 12.0 and battle.player.hp == hp0:
 		archer.tick(0.05, battle.player, 100.0)
 		t += 0.05
 	var gap := TargetSelector.edge_gap(battle.player.position.x, battle.player.half_width(), archer.position.x, archer.half_width())
-	_check(archer.is_ranged() and battle.player.hp < hp0, "삿갓 궁수가 공격함 (%.1f초)" % t)
+	_check(archer.is_ranged() and battle.player.hp < hp0, "암객이 공격함 (%.1f초)" % t)
+	_check(archer._fx.size() == 1 and archer._fx[0]["fly"], "원거리형 공격은 투사체 이펙트를 날림")
 	_check(gap > 100.0 and gap <= float(archer.attack_range) + 1.0, "근접형보다 멀리서 멈춤 (거리 %.0f)" % gap)
 	battle.free()
 	_finish()
@@ -1681,6 +1701,13 @@ func _test_design_visuals() -> void:
 	var m: Node2D = battle.spawn_monster("test_bandit")
 	m.take_damage(99999)
 	_check(not battle.monsters.has(m) and battle._death_layer.get_child_count() == 1, "처치 시 쓰러짐 연출 생성")
+	var sd = battle._death_layer.get_child(0)
+	_check(sd.sheet == "mob_bandit", "시안 스프라이트 몬스터는 시안 쓰러짐 칸으로 연출")
+	for i in 90:
+		if sd.is_done():
+			break
+		sd.advance(1.0 / 60.0)
+	_check(sd.is_done(), "시안 쓰러짐 연출도 끝나면 사라짐")
 	# 주력 무공을 바꾸면 복장이 바뀜
 	arts.unlock("arhat_fist")
 	arts.equip_main("arhat_fist")

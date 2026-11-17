@@ -4,6 +4,9 @@ extends Node2D
 ##          → 7 기절(X눈, 머리 위 별) → 8 소멸.
 ## 무기는 2프레임에 손에서 빠져 포물선을 그리며 날아가 바닥에 떨어진다.
 ## 전투 판정과는 무관한 장식 노드다. 몬스터 노드는 처치 즉시 지우고, 이 노드가 그 자리에서 연출만 한다.
+## 시안 도트 스프라이트(MonsterSprites) 몬스터는 따로 처리한다 (_sheet_*):
+##   시안에 쓰러짐(death) 칸이 있으면 그 칸을 차례로 보여 주고 깜빡이며 사라진다.
+##   없으면 피격 칸(없으면 대기 칸)을 하얗게 번쩍인 뒤 뒤로 밀리며 쓰러지고 사라진다.
 
 ## 프레임별 시작 시각(초). 마지막 값은 전체 길이
 const FRAME_TIMES := [0.0, 0.08, 0.18, 0.30, 0.42, 0.52, 0.66, 1.00, 1.30]
@@ -22,14 +25,24 @@ var _weapon_landed := false
 var _weapon_released := false
 var _dust: Array = []
 var _rng := RandomNumberGenerator.new()
+## 시안 스프라이트 쓰러짐 (sheet가 ""이면 예전 ChibiArt 연출)
+var sheet := ""
+var tint := Color.WHITE
+var height := 100.0
+const SHEET_TIME := 1.0
 
 
 func setup(visual: Dictionary) -> void:
-	art = visual["art"]
 	sc = float(visual["scale"])
 	position = visual["position"]
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_rng.randomize()
+	if visual.has("sheet"):
+		sheet = String(visual["sheet"])
+		tint = visual.get("tint", Color.WHITE)
+		height = float(visual.get("height", 100.0))
+		return
+	art = visual["art"]
 	var size: Vector2 = art["size"]
 	_weapon_pos = (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
 	_weapon_ang = -0.45
@@ -44,6 +57,8 @@ func frame() -> int:
 
 
 func is_done() -> bool:
+	if sheet != "":
+		return age >= SHEET_TIME
 	return age >= FRAME_TIMES[FRAME_TIMES.size() - 1]
 
 
@@ -52,6 +67,13 @@ func _process(delta: float) -> void:
 
 
 func advance(delta: float) -> void:
+	if sheet != "":
+		age += delta
+		_sheet_advance(delta)
+		queue_redraw()
+		if is_done():
+			queue_free()
+		return
 	var before := frame()
 	age += delta
 	var f := frame()
@@ -96,6 +118,9 @@ func _puff(at: Vector2, n: int, strength: float) -> void:
 
 
 func _draw() -> void:
+	if sheet != "":
+		_sheet_draw()
+		return
 	if art.is_empty():
 		return
 	var f := frame()
@@ -174,3 +199,47 @@ func _star(p: Vector2, r: float, c: Color) -> void:
 		var rr := r if i % 2 == 0 else r * 0.38
 		pts.append(p + Vector2(cos(a), sin(a)) * rr)
 	draw_colored_polygon(pts, c)
+
+
+# ---- 시안 도트 스프라이트 쓰러짐 ----
+
+func _sheet_advance(delta: float) -> void:
+	if age - delta < 0.3 and age >= 0.3:
+		_puff(Vector2(dir * height * 0.3, -6), 6, 0.9)
+	for d in _dust:
+		d["age"] += delta
+		d["pos"] += d["vel"] * delta
+		d["vel"] *= 0.9
+	_dust = _dust.filter(func(d): return d["age"] < d["life"])
+
+
+func _sheet_draw() -> void:
+	var k := clampf(age / SHEET_TIME, 0.0, 1.0)
+	# 마지막 30%는 깜빡이며 흐려진다
+	var alpha := 1.0
+	if k > 0.7:
+		alpha = (1.0 - (k - 0.7) / 0.3) * (0.55 if int(age * 30.0) % 2 == 0 else 1.0)
+	var col := Color(tint.r, tint.g, tint.b, alpha)
+	draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.28))
+	draw_circle(Vector2.ZERO, height * 0.3, Color(0, 0, 0, 0.3 * alpha))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if MonsterSprites.has_anim(sheet, "death"):
+		var deaths := MonsterSprites.frames(sheet, "death")
+		# 처음 0.08초는 피격 칸(없으면 첫 쓰러짐 칸)을 하얗게
+		if age < 0.08:
+			var f0 := MonsterSprites.frame_at(sheet, "hit", 0.0, 0.0) if MonsterSprites.has_anim(sheet, "hit") else int(deaths[0])
+			MonsterSprites.draw_frame(self, sheet, f0, Vector2.ZERO, sc, col, true)
+		else:
+			var p := clampf((age - 0.08) / 0.5, 0.0, 1.0)
+			var f := MonsterSprites.frame_at(sheet, "death", 0.0, p)
+			MonsterSprites.draw_frame(self, sheet, f, Vector2(dir * 6.0 * p, 0), sc, col)
+	else:
+		# 쓰러짐 칸이 없으면: 번쩍 → 뒤로 밀리며 발 기준으로 넘어감
+		var anim := "hit" if MonsterSprites.has_anim(sheet, "hit") else "idle"
+		var f := MonsterSprites.frame_at(sheet, anim, 0.0, 0.0)
+		var p := clampf((age - 0.06) / 0.4, 0.0, 1.0)
+		var e := p * p * (3.0 - 2.0 * p)
+		MonsterSprites.draw_frame(self, sheet, f, Vector2(dir * 30.0 * e, 0), sc, col, age < 0.06, false, dir * PI * 0.45 * e)
+	for d in _dust:
+		var t: float = d["age"] / d["life"]
+		draw_circle(d["pos"], d["r"] * (0.6 + t * 0.8), Color(0.78, 0.72, 0.62, 0.55 * (1.0 - t) * alpha))

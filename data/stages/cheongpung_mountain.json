@@ -1,5 +1,5 @@
 {
-  "_comment": "청풍산 스테이지 데이터 (20스테이지, O-10 가안). 5스테이지씩 구역(area)으로 나누고 구역마다 등장 몬스터가 바뀐다. 배율은 스테이지마다 x1.10(M11 1차 조정 유지). 보스는 2스테이지마다 바뀌고 5·10·15·20스테이지는 구역 대장 보스(패턴 3개, 5스테이지는 기존 산채 두목).",
+  "_comment": "청풍산 스테이지 데이터 (20스테이지, O-10 가안). 5스테이지씩 구역(area)으로 나눈다. 몬스터는 시안대로 2스테이지 구간마다 바뀐다(기본형+정예/원거리형, 짝수 스테이지는 정예 비율이 높다). 배율은 스테이지마다 x1.10(M11 1차 조정 유지). 보스도 2스테이지마다 바뀌고 10·16·20스테이지 보스(빙궁공주, 천마마왕, 무림천존)는 패턴 3개.",
   "region_id": "cheongpung_mountain",
   "name": "청풍산",
   "stages": [
@@ -9,16 +9,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 85
+          "monster": "bandit_thief",
+          "weight": 72
         },
         {
-          "monster": "test_brute",
-          "weight": 15
+          "monster": "mountain_bandit",
+          "weight": 28
         }
       ],
       "scaling": 1.0,
-      "boss": "vice_bandit"
+      "boss": "bandit_chief"
     },
     {
       "stage_no": 2,
@@ -26,16 +26,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 75
+          "monster": "bandit_thief",
+          "weight": 68
         },
         {
-          "monster": "test_brute",
-          "weight": 25
+          "monster": "mountain_bandit",
+          "weight": 32
         }
       ],
       "scaling": 1.1,
-      "boss": "vice_bandit"
+      "boss": "bandit_chief"
     },
     {
       "stage_no": 3,
@@ -43,20 +43,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 65
+          "monster": "killer",
+          "weight": 72
         },
         {
-          "monster": "test_brute",
-          "weight": 25
-        },
-        {
-          "monster": "assassin",
-          "weight": 10
+          "monster": "shadow_blade",
+          "weight": 28
         }
       ],
       "scaling": 1.21,
-      "boss": "bandit_captain"
+      "boss": "blood_slayer_chief"
     },
     {
       "stage_no": 4,
@@ -64,20 +60,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 55
+          "monster": "killer",
+          "weight": 68
         },
         {
-          "monster": "test_brute",
-          "weight": 30
-        },
-        {
-          "monster": "assassin",
-          "weight": 15
+          "monster": "shadow_blade",
+          "weight": 32
         }
       ],
       "scaling": 1.331,
-      "boss": "bandit_captain"
+      "boss": "blood_slayer_chief"
     },
     {
       "stage_no": 5,
@@ -85,20 +77,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 50
+          "monster": "monk",
+          "weight": 72
         },
         {
-          "monster": "test_brute",
-          "weight": 30
-        },
-        {
-          "monster": "assassin",
-          "weight": 20
+          "monster": "temple_warrior",
+          "weight": 28
         }
       ],
       "scaling": 1.464,
-      "boss": "test_boss"
+      "boss": "temple_abbot"
     },
     {
       "stage_no": 6,
@@ -106,24 +94,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 30
+          "monster": "monk",
+          "weight": 68
         },
         {
-          "monster": "test_brute",
-          "weight": 15
-        },
-        {
-          "monster": "assassin",
-          "weight": 30
-        },
-        {
-          "monster": "archer",
-          "weight": 25
+          "monster": "temple_warrior",
+          "weight": 32
         }
       ],
       "scaling": 1.611,
-      "boss": "assassin_leader"
+      "boss": "temple_abbot"
     },
     {
       "stage_no": 7,
@@ -131,24 +111,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 20
+          "monster": "cultist",
+          "weight": 72
         },
         {
-          "monster": "test_brute",
-          "weight": 15
-        },
-        {
-          "monster": "assassin",
-          "weight": 35
-        },
-        {
-          "monster": "archer",
-          "weight": 30
+          "monster": "blood_ghoul",
+          "weight": 28
         }
       ],
       "scaling": 1.772,
-      "boss": "assassin_leader"
+      "boss": "blood_cult_lord"
     },
     {
       "stage_no": 8,
@@ -156,20 +128,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_brute",
-          "weight": 20
+          "monster": "cultist",
+          "weight": 68
         },
         {
-          "monster": "assassin",
-          "weight": 40
-        },
-        {
-          "monster": "archer",
-          "weight": 40
+          "monster": "blood_ghoul",
+          "weight": 32
         }
       ],
       "scaling": 1.949,
-      "boss": "archer_captain"
+      "boss": "blood_cult_lord"
     },
     {
       "stage_no": 9,
@@ -177,20 +145,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_brute",
-          "weight": 25
+          "monster": "ice_warrior",
+          "weight": 72
         },
         {
-          "monster": "assassin",
-          "weight": 35
-        },
-        {
-          "monster": "archer",
-          "weight": 40
+          "monster": "yeti",
+          "weight": 28
         }
       ],
       "scaling": 2.144,
-      "boss": "archer_captain"
+      "boss": "ice_princess"
     },
     {
       "stage_no": 10,
@@ -198,20 +162,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_brute",
-          "weight": 20
+          "monster": "ice_warrior",
+          "weight": 68
         },
         {
-          "monster": "assassin",
-          "weight": 45
-        },
-        {
-          "monster": "archer",
-          "weight": 35
+          "monster": "yeti",
+          "weight": 32
         }
       ],
       "scaling": 2.358,
-      "boss": "shadow_lord"
+      "boss": "ice_princess"
     },
     {
       "stage_no": 11,
@@ -219,24 +179,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_brute",
-          "weight": 15
+          "monster": "demon_disciple",
+          "weight": 72
         },
         {
-          "monster": "assassin",
-          "weight": 30
-        },
-        {
-          "monster": "archer",
-          "weight": 25
-        },
-        {
-          "monster": "gate_guard",
-          "weight": 30
+          "monster": "demon_mage",
+          "weight": 28
         }
       ],
       "scaling": 2.594,
-      "boss": "guard_captain"
+      "boss": "demon_cult_leader"
     },
     {
       "stage_no": 12,
@@ -244,20 +196,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "assassin",
-          "weight": 30
+          "monster": "demon_disciple",
+          "weight": 68
         },
         {
-          "monster": "archer",
-          "weight": 30
-        },
-        {
-          "monster": "gate_guard",
-          "weight": 40
+          "monster": "demon_mage",
+          "weight": 32
         }
       ],
       "scaling": 2.853,
-      "boss": "guard_captain"
+      "boss": "demon_cult_leader"
     },
     {
       "stage_no": 13,
@@ -265,20 +213,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "archer",
-          "weight": 30
+          "monster": "swordsman",
+          "weight": 72
         },
         {
-          "monster": "gate_guard",
-          "weight": 45
-        },
-        {
-          "monster": "blood_soldier",
-          "weight": 25
+          "monster": "martial_expert",
+          "weight": 28
         }
       ],
       "scaling": 3.138,
-      "boss": "blood_scout"
+      "boss": "alliance_leader"
     },
     {
       "stage_no": 14,
@@ -286,20 +230,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "archer",
-          "weight": 25
+          "monster": "swordsman",
+          "weight": 68
         },
         {
-          "monster": "gate_guard",
-          "weight": 45
-        },
-        {
-          "monster": "blood_soldier",
-          "weight": 30
+          "monster": "martial_expert",
+          "weight": 32
         }
       ],
       "scaling": 3.452,
-      "boss": "blood_scout"
+      "boss": "alliance_leader"
     },
     {
       "stage_no": 15,
@@ -307,20 +247,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "archer",
-          "weight": 20
+          "monster": "wolf",
+          "weight": 72
         },
         {
-          "monster": "gate_guard",
-          "weight": 50
-        },
-        {
-          "monster": "blood_soldier",
-          "weight": 30
+          "monster": "shadow_beast",
+          "weight": 28
         }
       ],
       "scaling": 3.797,
-      "boss": "iron_general"
+      "boss": "heavenly_demon_king"
     },
     {
       "stage_no": 16,
@@ -328,24 +264,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "gate_guard",
-          "weight": 15
+          "monster": "wolf",
+          "weight": 68
         },
         {
-          "monster": "archer",
-          "weight": 20
-        },
-        {
-          "monster": "blood_soldier",
-          "weight": 45
-        },
-        {
-          "monster": "blood_elite",
-          "weight": 20
+          "monster": "shadow_beast",
+          "weight": 32
         }
       ],
       "scaling": 4.177,
-      "boss": "blood_vice"
+      "boss": "heavenly_demon_king"
     },
     {
       "stage_no": 17,
@@ -353,20 +281,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "archer",
-          "weight": 20
+          "monster": "heavenly_soldier",
+          "weight": 72
         },
         {
-          "monster": "blood_soldier",
-          "weight": 55
-        },
-        {
-          "monster": "blood_elite",
-          "weight": 25
+          "monster": "heavenly_assassin",
+          "weight": 28
         }
       ],
       "scaling": 4.595,
-      "boss": "blood_vice"
+      "boss": "heavenly_demon_saint"
     },
     {
       "stage_no": 18,
@@ -374,20 +298,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "gate_guard",
-          "weight": 15
+          "monster": "heavenly_soldier",
+          "weight": 68
         },
         {
-          "monster": "blood_soldier",
-          "weight": 55
-        },
-        {
-          "monster": "blood_elite",
-          "weight": 30
+          "monster": "heavenly_assassin",
+          "weight": 32
         }
       ],
       "scaling": 5.054,
-      "boss": "blood_guard_captain"
+      "boss": "heavenly_demon_saint"
     },
     {
       "stage_no": 19,
@@ -395,20 +315,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "gate_guard",
-          "weight": 15
+          "monster": "peerless_master",
+          "weight": 72
         },
         {
-          "monster": "blood_soldier",
-          "weight": 50
-        },
-        {
-          "monster": "blood_elite",
-          "weight": 35
+          "monster": "flag_general",
+          "weight": 28
         }
       ],
       "scaling": 5.56,
-      "boss": "blood_guard_captain"
+      "boss": "martial_supreme"
     },
     {
       "stage_no": 20,
@@ -416,20 +332,16 @@
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "archer",
-          "weight": 10
+          "monster": "peerless_master",
+          "weight": 68
         },
         {
-          "monster": "blood_soldier",
-          "weight": 45
-        },
-        {
-          "monster": "blood_elite",
-          "weight": 45
+          "monster": "flag_general",
+          "weight": 32
         }
       ],
       "scaling": 6.116,
-      "boss": "blood_lord"
+      "boss": "martial_supreme"
     }
   ]
 }
