@@ -3,7 +3,8 @@ extends Node2D
 ## 오른쪽에서 생성되어 왼쪽(캐릭터)으로 접근하고, 사거리에 들어오면 멈춰서 공격한다.
 ## 보스(type "boss")는 기본 공격 사이사이에 패턴을 쓴다. 패턴은 예고 시간이 지나면 반드시 맞는다.
 ## 공격 예고는 플레이어가 피하는 장치가 아니라 연출이다 (docs/02 7장, 가안).
-## 유형별 동작(돌진, 원거리, 방어형 등)은 이후 type 값에 따라 추가한다.
+## 유형별 동작(돌진, 방어형 등)은 이후 type 값에 따라 추가한다.
+## type "ranged"(원거리형, 삿갓 궁수)는 근접형과 같이 움직이되 사거리가 길고, 공격할 때 화살이 날아가는 연출만 더한다.
 ## 그래픽: ChibiArt 2등신 픽셀 스프라이트 (data의 sprite: bandit/masked/chief). body_size는 판정 크기다.
 ## 처치되면 BattleManager가 MonsterDeath 연출(8프레임 쓰러짐)을 따로 띄우고 이 노드는 바로 지운다.
 
@@ -16,6 +17,8 @@ var atk: float = 0.0
 var def: float = 0.0
 var move_speed: float = 0.0
 var attack_range: float = 0.0
+## 다가오다 멈추는 거리 (사거리 이하). 무리로 생성될 때 BattleManager가 조금씩 다르게 정한다
+var stop_range: float = 0.0
 var attack_interval: float = 1.0
 var body_size := Vector2(44, 60)
 var body_color := Color.INDIAN_RED
@@ -35,6 +38,8 @@ var _pattern_cd: Dictionary = {}
 var _t := 0.0
 var _moving := false
 var _attack_anim := 0.0
+## 마지막으로 잰 캐릭터와의 거리 (원거리형 화살 연출용)
+var _gap := 0.0
 
 
 ## scaling: 스테이지 배율. 체력과 공격력에 곱한다 (docs/11 4장, 가안).
@@ -46,6 +51,7 @@ func setup(d: Dictionary, scaling: float = 1.0) -> void:
 	def = float(d["def"])
 	move_speed = float(d["move_speed"])
 	attack_range = float(d["attack_range"])
+	stop_range = attack_range
 	attack_interval = float(d["attack_interval"])
 	if d.has("size"):
 		body_size = Vector2(d["size"][0], d["size"][1])
@@ -72,6 +78,20 @@ func sprite_kind() -> String:
 ## 그림 배율. 보스는 1.5배, 데이터의 sprite_scale로 조정할 수 있다
 func sprite_scale() -> float:
 	return ChibiArt.ART_SCALE * float(data.get("sprite_scale", 1.5 if is_boss() else 1.0))
+
+
+func is_ranged() -> bool:
+	return data.get("type", "") == "ranged" or bool(data.get("ranged", false))
+
+
+## 화살 연출: 손에서 캐릭터 쪽(왼쪽)으로 날아간다. t: 0~1
+func _draw_arrow(from: Vector2, t: float) -> void:
+	var x := from.x - (_gap + half_width()) * t
+	var p := Vector2(x, from.y - 4.0)
+	draw_line(p, p + Vector2(22, 0), Color("#6b4426"), 3.0)
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-7, 0), p + Vector2(1, -4), p + Vector2(1, 4)]), Color("#dfe7f7"))
+	draw_line(p + Vector2(18, -4), p + Vector2(24, 0), Color("#f4f1ff"), 2.0)
+	draw_line(p + Vector2(18, 4), p + Vector2(24, 0), Color("#f4f1ff"), 2.0)
 
 
 func is_boss() -> bool:
@@ -108,10 +128,11 @@ func tick(delta: float, player, defense_constant: float) -> int:
 	_t += delta
 	var gap := TargetSelector.edge_gap(player.position.x, player.half_width(), position.x, half_width())
 	var dealt := 0
-	_moving = gap > attack_range
-	if gap > attack_range:
-		# 사거리까지 남은 거리만큼만 이동 (지나치지 않게)
-		position.x -= minf(move_speed * delta, gap - attack_range)
+	_gap = gap
+	_moving = gap > stop_range
+	if gap > stop_range:
+		# 멈출 거리까지 남은 만큼만 이동 (지나치지 않게)
+		position.x -= minf(move_speed * delta, gap - stop_range)
 	elif not player.is_down():
 		if not patterns.is_empty():
 			dealt = _tick_patterns(delta, player, defense_constant)
@@ -119,6 +140,7 @@ func tick(delta: float, player, defense_constant: float) -> int:
 			_attack_cd -= delta
 			if _attack_cd <= 0.0:
 				_attack_cd = attack_interval
+				_attack_anim = 0.25
 				dealt = player.take_damage(DamageCalculator.compute(atk, 1.0, player.def, defense_constant))
 	queue_redraw()
 	return dealt
@@ -185,6 +207,8 @@ func _draw() -> void:
 	if _attack_anim > 0.0:
 		ang = lerpf(0.5, -1.9, 1.0 - _attack_anim / 0.25)
 	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand, ang, sc, tint)
+	if is_ranged() and _attack_anim > 0.0:
+		_draw_arrow(hand, 1.0 - _attack_anim / 0.25)
 	if is_boss():
 		return  # 보스 체력은 상단 바의 보스 체력 바로 표시한다
 	# 체력 바 (머리 위)

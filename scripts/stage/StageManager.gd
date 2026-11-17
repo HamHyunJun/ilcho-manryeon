@@ -30,6 +30,11 @@ func region_name() -> String:
 	return region.get("name", "")
 
 
+## 현재 스테이지의 구역 이름 (data의 area, 없으면 빈 문자열). 예: 산 어귀, 철문관
+func area_name() -> String:
+	return String(current().get("area", ""))
+
+
 func stage_count() -> int:
 	return region.get("stages", []).size()
 
@@ -100,7 +105,7 @@ func record_boss_kill() -> void:
 
 
 ## 다음에 진행할 스테이지 번호.
-## 마지막 스테이지 이후의 처리(다음 지역 개방 등)는 미확정(O-10)이라, 가안으로 마지막 스테이지를 반복한다.
+## 마지막 스테이지(현재 20) 이후의 처리(다음 지역 개방 등)는 미확정(O-10)이라, 가안으로 마지막 스테이지를 반복한다.
 func next_stage_no() -> int:
 	return mini(stage_no + 1, maxi(1, stage_count()))
 

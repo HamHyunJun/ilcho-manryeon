@@ -1,90 +1,66 @@
 {
-  "_comment": "청풍산 스테이지 데이터. 스테이지 수(10), 배율(스테이지마다 x1.10, M11 1차 조정), 생성 구성, 보스는 모두 가안이며 미확정 O-10이다. 몬스터는 M1 임시 몬스터를 그대로 쓴다.",
+  "_comment": "청풍산 스테이지 데이터 (20스테이지, O-10 가안). 5스테이지씩 구역(area)으로 나누고 구역마다 등장 몬스터가 바뀐다. 배율은 스테이지마다 x1.10(M11 1차 조정 유지). 보스는 2스테이지마다 바뀌고 5·10·15·20스테이지는 구역 대장 보스(패턴 3개, 5스테이지는 기존 산채 두목).",
   "region_id": "cheongpung_mountain",
   "name": "청풍산",
   "stages": [
     {
       "stage_no": 1,
+      "area": "산 어귀",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
           "monster": "test_bandit",
-          "weight": 70
+          "weight": 85
         },
         {
           "monster": "test_brute",
-          "weight": 30
+          "weight": 15
         }
       ],
       "scaling": 1.0,
-      "boss": "test_boss"
+      "boss": "vice_bandit"
     },
     {
       "stage_no": 2,
+      "area": "산 어귀",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
           "monster": "test_bandit",
-          "weight": 67
+          "weight": 75
         },
         {
           "monster": "test_brute",
-          "weight": 33
+          "weight": 25
         }
       ],
       "scaling": 1.1,
-      "boss": "test_boss"
+      "boss": "vice_bandit"
     },
     {
       "stage_no": 3,
+      "area": "산 어귀",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
           "monster": "test_bandit",
-          "weight": 64
+          "weight": 65
         },
         {
           "monster": "test_brute",
-          "weight": 36
+          "weight": 25
+        },
+        {
+          "monster": "assassin",
+          "weight": 10
         }
       ],
       "scaling": 1.21,
-      "boss": "test_boss"
+      "boss": "bandit_captain"
     },
     {
       "stage_no": 4,
-      "kills_to_boss": 50,
-      "spawn_pool": [
-        {
-          "monster": "test_bandit",
-          "weight": 61
-        },
-        {
-          "monster": "test_brute",
-          "weight": 39
-        }
-      ],
-      "scaling": 1.331,
-      "boss": "test_boss"
-    },
-    {
-      "stage_no": 5,
-      "kills_to_boss": 50,
-      "spawn_pool": [
-        {
-          "monster": "test_bandit",
-          "weight": 58
-        },
-        {
-          "monster": "test_brute",
-          "weight": 42
-        }
-      ],
-      "scaling": 1.464,
-      "boss": "test_boss"
-    },
-    {
-      "stage_no": 6,
+      "area": "산 어귀",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
@@ -93,75 +69,367 @@
         },
         {
           "monster": "test_brute",
-          "weight": 45
+          "weight": 30
+        },
+        {
+          "monster": "assassin",
+          "weight": 15
+        }
+      ],
+      "scaling": 1.331,
+      "boss": "bandit_captain"
+    },
+    {
+      "stage_no": 5,
+      "area": "산 어귀",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "test_bandit",
+          "weight": 50
+        },
+        {
+          "monster": "test_brute",
+          "weight": 30
+        },
+        {
+          "monster": "assassin",
+          "weight": 20
+        }
+      ],
+      "scaling": 1.464,
+      "boss": "test_boss"
+    },
+    {
+      "stage_no": 6,
+      "area": "안개 골짜기",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "test_bandit",
+          "weight": 30
+        },
+        {
+          "monster": "test_brute",
+          "weight": 15
+        },
+        {
+          "monster": "assassin",
+          "weight": 30
+        },
+        {
+          "monster": "archer",
+          "weight": 25
         }
       ],
       "scaling": 1.611,
-      "boss": "test_boss"
+      "boss": "assassin_leader"
     },
     {
       "stage_no": 7,
+      "area": "안개 골짜기",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
           "monster": "test_bandit",
-          "weight": 52
+          "weight": 20
         },
         {
           "monster": "test_brute",
-          "weight": 48
+          "weight": 15
+        },
+        {
+          "monster": "assassin",
+          "weight": 35
+        },
+        {
+          "monster": "archer",
+          "weight": 30
         }
       ],
       "scaling": 1.772,
-      "boss": "test_boss"
+      "boss": "assassin_leader"
     },
     {
       "stage_no": 8,
+      "area": "안개 골짜기",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 50
+          "monster": "test_brute",
+          "weight": 20
         },
         {
-          "monster": "test_brute",
-          "weight": 50
+          "monster": "assassin",
+          "weight": 40
+        },
+        {
+          "monster": "archer",
+          "weight": 40
         }
       ],
       "scaling": 1.949,
-      "boss": "test_boss"
+      "boss": "archer_captain"
     },
     {
       "stage_no": 9,
+      "area": "안개 골짜기",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 50
+          "monster": "test_brute",
+          "weight": 25
         },
         {
-          "monster": "test_brute",
-          "weight": 50
+          "monster": "assassin",
+          "weight": 35
+        },
+        {
+          "monster": "archer",
+          "weight": 40
         }
       ],
       "scaling": 2.144,
-      "boss": "test_boss"
+      "boss": "archer_captain"
     },
     {
       "stage_no": 10,
+      "area": "안개 골짜기",
       "kills_to_boss": 50,
       "spawn_pool": [
         {
-          "monster": "test_bandit",
-          "weight": 50
+          "monster": "test_brute",
+          "weight": 20
         },
         {
-          "monster": "test_brute",
-          "weight": 50
+          "monster": "assassin",
+          "weight": 45
+        },
+        {
+          "monster": "archer",
+          "weight": 35
         }
       ],
       "scaling": 2.358,
-      "boss": "test_boss"
+      "boss": "shadow_lord"
+    },
+    {
+      "stage_no": 11,
+      "area": "철문관",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "test_brute",
+          "weight": 15
+        },
+        {
+          "monster": "assassin",
+          "weight": 30
+        },
+        {
+          "monster": "archer",
+          "weight": 25
+        },
+        {
+          "monster": "gate_guard",
+          "weight": 30
+        }
+      ],
+      "scaling": 2.594,
+      "boss": "guard_captain"
+    },
+    {
+      "stage_no": 12,
+      "area": "철문관",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "assassin",
+          "weight": 30
+        },
+        {
+          "monster": "archer",
+          "weight": 30
+        },
+        {
+          "monster": "gate_guard",
+          "weight": 40
+        }
+      ],
+      "scaling": 2.853,
+      "boss": "guard_captain"
+    },
+    {
+      "stage_no": 13,
+      "area": "철문관",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "archer",
+          "weight": 30
+        },
+        {
+          "monster": "gate_guard",
+          "weight": 45
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 25
+        }
+      ],
+      "scaling": 3.138,
+      "boss": "blood_scout"
+    },
+    {
+      "stage_no": 14,
+      "area": "철문관",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "archer",
+          "weight": 25
+        },
+        {
+          "monster": "gate_guard",
+          "weight": 45
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 30
+        }
+      ],
+      "scaling": 3.452,
+      "boss": "blood_scout"
+    },
+    {
+      "stage_no": 15,
+      "area": "철문관",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "archer",
+          "weight": 20
+        },
+        {
+          "monster": "gate_guard",
+          "weight": 50
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 30
+        }
+      ],
+      "scaling": 3.797,
+      "boss": "iron_general"
+    },
+    {
+      "stage_no": 16,
+      "area": "흑혈채",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "gate_guard",
+          "weight": 15
+        },
+        {
+          "monster": "archer",
+          "weight": 20
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 45
+        },
+        {
+          "monster": "blood_elite",
+          "weight": 20
+        }
+      ],
+      "scaling": 4.177,
+      "boss": "blood_vice"
+    },
+    {
+      "stage_no": 17,
+      "area": "흑혈채",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "archer",
+          "weight": 20
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 55
+        },
+        {
+          "monster": "blood_elite",
+          "weight": 25
+        }
+      ],
+      "scaling": 4.595,
+      "boss": "blood_vice"
+    },
+    {
+      "stage_no": 18,
+      "area": "흑혈채",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "gate_guard",
+          "weight": 15
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 55
+        },
+        {
+          "monster": "blood_elite",
+          "weight": 30
+        }
+      ],
+      "scaling": 5.054,
+      "boss": "blood_guard_captain"
+    },
+    {
+      "stage_no": 19,
+      "area": "흑혈채",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "gate_guard",
+          "weight": 15
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 50
+        },
+        {
+          "monster": "blood_elite",
+          "weight": 35
+        }
+      ],
+      "scaling": 5.56,
+      "boss": "blood_guard_captain"
+    },
+    {
+      "stage_no": 20,
+      "area": "흑혈채",
+      "kills_to_boss": 50,
+      "spawn_pool": [
+        {
+          "monster": "archer",
+          "weight": 10
+        },
+        {
+          "monster": "blood_soldier",
+          "weight": 45
+        },
+        {
+          "monster": "blood_elite",
+          "weight": 45
+        }
+      ],
+      "scaling": 6.116,
+      "boss": "blood_lord"
     }
   ]
 }
