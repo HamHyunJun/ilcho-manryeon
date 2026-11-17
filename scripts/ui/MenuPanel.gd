@@ -6,8 +6,9 @@ class_name MenuPanel
 
 signal close_requested()
 
-## 화면 배치 (720×1280 기준): 전투 영역 아래부터 앱바 위까지
-const AREA := Rect2(0, 780, 720, 400)
+## 화면 배치 (720×1280 기준): 상단 바 아래부터 하단 앱바(높이 134) 위까지.
+## 배경과 전투는 뒤에서 계속 진행되며, 상단 바는 가리지 않는다.
+const AREA := Rect2(0, 172, 720, 974)
 
 var title_text := ""
 var root: VBoxContainer
@@ -20,9 +21,11 @@ func _init(title: String = "") -> void:
 	custom_minimum_size = AREA.size
 	visible = false
 	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.09, 0.08, 0.14, 1.0)
-	bg.border_color = Color(0.35, 0.32, 0.45)
+	bg.bg_color = Color(0.07, 0.06, 0.12, 0.96)
+	bg.border_color = Color(0.85, 0.66, 0.3, 0.8)
 	bg.border_width_top = 2
+	bg.corner_radius_top_left = 16
+	bg.corner_radius_top_right = 16
 	add_theme_stylebox_override("panel", bg)
 
 	var scroll := ScrollContainer.new()

@@ -4,7 +4,8 @@ extends Node2D
 ## 보스(type "boss")는 기본 공격 사이사이에 패턴을 쓴다. 패턴은 예고 시간이 지나면 반드시 맞는다.
 ## 공격 예고는 플레이어가 피하는 장치가 아니라 연출이다 (docs/02 7장, 가안).
 ## 유형별 동작(돌진, 원거리, 방어형 등)은 이후 type 값에 따라 추가한다.
-## 임시 그래픽: 사각형과 체력 바를 직접 그린다 (임시 에셋은 이후 스프라이트로 교체).
+## 그래픽: ChibiArt 2등신 픽셀 스프라이트 (data의 sprite: bandit/masked/chief). body_size는 판정 크기다.
+## 처치되면 BattleManager가 MonsterDeath 연출(8프레임 쓰러짐)을 따로 띄우고 이 노드는 바로 지운다.
 
 signal died(monster: Node)
 
@@ -31,6 +32,9 @@ var _attack_cd := 0.0
 var _hit_flash := 0.0
 var _dead := false
 var _pattern_cd: Dictionary = {}
+var _t := 0.0
+var _moving := false
+var _attack_anim := 0.0
 
 
 ## scaling: 스테이지 배율. 체력과 공격력에 곱한다 (docs/11 4장, 가안).
@@ -52,6 +56,22 @@ func setup(d: Dictionary, scaling: float = 1.0) -> void:
 		_pattern_cd[p["id"]] = float(p.get("first_delay", p.get("cooldown", 8.0)))
 	_attack_cd = attack_interval * 0.5
 	queue_redraw()
+
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+
+
+## 스프라이트 종류. 데이터에 sprite가 없으면 유형으로 고른다
+func sprite_kind() -> String:
+	if data.has("sprite"):
+		return String(data["sprite"])
+	return "chief" if is_boss() else "bandit"
+
+
+## 그림 배율. 보스는 1.5배, 데이터의 sprite_scale로 조정할 수 있다
+func sprite_scale() -> float:
+	return ChibiArt.ART_SCALE * float(data.get("sprite_scale", 1.5 if is_boss() else 1.0))
 
 
 func is_boss() -> bool:
@@ -84,8 +104,11 @@ func tick(delta: float, player, defense_constant: float) -> int:
 	if _dead:
 		return 0
 	_hit_flash = maxf(0.0, _hit_flash - delta)
+	_attack_anim = maxf(0.0, _attack_anim - delta)
+	_t += delta
 	var gap := TargetSelector.edge_gap(player.position.x, player.half_width(), position.x, half_width())
 	var dealt := 0
+	_moving = gap > attack_range
 	if gap > attack_range:
 		# 사거리까지 남은 거리만큼만 이동 (지나치지 않게)
 		position.x -= minf(move_speed * delta, gap - attack_range)
@@ -136,16 +159,42 @@ func take_damage(amount: int) -> void:
 
 
 func _draw() -> void:
-	var rect := Rect2(Vector2(-body_size.x * 0.5, -body_size.y), body_size)
-	draw_rect(rect, Color.WHITE if _hit_flash > 0.0 else body_color)
+	var art := ChibiArt.monster(sprite_kind())
+	var sc := sprite_scale()
+	var size: Vector2 = art["size"]
+	draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.28))
+	draw_circle(Vector2.ZERO, size.x * sc * 0.36, Color(0, 0, 0, 0.35))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# 걸을 때는 통통 튀고, 공격할 때는 앞으로 내민다
+	var hop := -absf(sin(_t * 9.0)) * 3.0 if _moving else roundf(sin(_t * 4.0))
+	var lunge := 0.0
+	if _attack_anim > 0.0:
+		lunge = -8.0 * sin((1.0 - _attack_anim / 0.25) * PI)
+	var feet := Vector2(lunge, hop)
+	var tint := Color.WHITE
 	if is_telegraphing():
-		# 패턴 준비 중: 몸 테두리를 깜빡인다
-		var a := 0.4 + 0.6 * absf(sin(telegraph_progress() * PI * 4.0))
-		draw_rect(rect.grow(4), Color(1.0, 0.3, 0.2, a), false, 3.0)
+		# 패턴 준비 중: 붉게 깜빡인다
+		var a := 0.5 + 0.5 * absf(sin(telegraph_progress() * PI * 4.0))
+		tint = Color(1.0, 1.0 - 0.6 * a, 1.0 - 0.6 * a)
+		draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.3))
+		draw_arc(Vector2.ZERO, size.x * sc * 0.5, 0.0, TAU, 32, Color(1, 0.3, 0.2, a), 4.0)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	ChibiArt.draw_sprite(self, art["flash"] if _hit_flash > 0.0 else art["body"], size, feet, sc, tint)
+	var hand: Vector2 = feet + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
+	var ang := -0.45
+	if _attack_anim > 0.0:
+		ang = lerpf(0.5, -1.9, 1.0 - _attack_anim / 0.25)
+	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand, ang, sc, tint)
 	if is_boss():
-		return  # 보스 체력은 상단 HUD의 보스 체력 바로 표시한다
-	# 체력 바
-	var bar_w := body_size.x + 8.0
-	var bar_pos := Vector2(-bar_w * 0.5, -body_size.y - 14.0)
-	draw_rect(Rect2(bar_pos, Vector2(bar_w, 6)), Color(0.15, 0.15, 0.15))
-	draw_rect(Rect2(bar_pos, Vector2(bar_w * float(hp) / float(max_hp), 6)), Color(0.85, 0.2, 0.2))
+		return  # 보스 체력은 상단 바의 보스 체력 바로 표시한다
+	# 체력 바 (머리 위)
+	var top := -size.y * sc + 2.0
+	var bar_w := 44.0
+	var bar_pos := Vector2(-bar_w * 0.5, top - 10.0)
+	draw_rect(Rect2(bar_pos - Vector2(1, 1), Vector2(bar_w + 2, 7)), Color(0.05, 0.03, 0.06, 0.9))
+	draw_rect(Rect2(bar_pos, Vector2(bar_w * float(hp) / float(max_hp), 5)), Color(0.9, 0.22, 0.22))
+
+
+## 쓰러짐 연출에 넘길 정보 (MonsterDeath)
+func death_visual() -> Dictionary:
+	return {"art": ChibiArt.monster(sprite_kind()), "scale": sprite_scale(), "position": position}

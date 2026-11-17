@@ -10,6 +10,7 @@ const PlayerScript := preload("res://scripts/player/PlayerCharacter.gd")
 const MonsterScript := preload("res://scripts/battle/Monster.gd")
 const DamageNumberScript := preload("res://scripts/battle/DamageNumber.gd")
 const HudScript := preload("res://scripts/ui/BattleHud.gd")
+const DeathScript := preload("res://scripts/battle/MonsterDeath.gd")
 
 ## true면 _process에서 자동으로 진행하지 않는다 (테스트에서 tick을 직접 호출)
 @export var manual_tick := false
@@ -43,6 +44,8 @@ var _intro_cd := 0.0
 var _clear_cd := 0.0
 var _defense_constant := 100.0
 var _effects_layer: Node2D
+## 몬스터 쓰러짐 연출 레이어 (장식 전용)
+var _death_layer: Node2D
 ## GameState에 스테이지 진행을 기록하는지
 var _persist := false
 var _hud: Node2D
@@ -117,8 +120,14 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		player.knocked_out.connect(_on_player_knocked_out)
 	player.setup(_effective_stats())
 	_apply_equipment_effects()
+	_apply_player_style()
 	player.position = Vector2(config["layout"]["player_x"], config["layout"]["ground_y"])
 
+	if _death_layer == null:
+		_death_layer = Node2D.new()
+		_death_layer.name = "Deaths"
+		_death_layer.z_index = 5
+		add_child(_death_layer)
 	if _effects_layer == null:
 		_effects_layer = Node2D.new()
 		_effects_layer.name = "Effects"
@@ -177,6 +186,13 @@ func _effective_stats() -> Dictionary:
 	return PlayerStats.apply(config["player_base"], PlayerStats.merge(list))
 
 
+## 주력 무공 계열에 맞춰 캐릭터 복장과 무기를 바꾼다 (검: 푸른 도복, 권: 주황 승복, 술: 보라 도복)
+func _apply_player_style() -> void:
+	if player == null or arts == null or not player.has_method("set_style"):
+		return
+	player.set_style(String(DataRegistry.get_martial_art(arts.main_art()).get("category", "sword")))
+
+
 ## 장비 특수 효과(보스 피해, 피해 감소)를 캐릭터에 넣는다
 func _apply_equipment_effects() -> void:
 	if equipment == null or player == null:
@@ -217,6 +233,7 @@ func _check_promotion() -> void:
 func _refresh_stats() -> void:
 	player.apply_stats(_effective_stats())
 	_apply_equipment_effects()
+	_apply_player_style()
 	if techniques:
 		techniques.reset_chain()
 
@@ -400,6 +417,7 @@ func _spawn_boss() -> void:
 
 func _on_monster_died(m: Node) -> void:
 	kill_count += 1
+	_spawn_death(m)
 	monsters.erase(m)
 	var rewards: Dictionary = m.data.get("rewards", {})
 	var sc: float = dungeon.scaling() if dungeon != null else stage.scaling()
@@ -511,6 +529,15 @@ func _on_dungeon_cleared() -> void:
 	_sound("clear")
 
 
+## 처치된 몬스터 자리에 쓰러짐 연출을 띄운다 (전투 진행과 무관한 장식)
+func _spawn_death(m: Node) -> void:
+	if _death_layer == null or not m.has_method("death_visual"):
+		return
+	var d: Node2D = DeathScript.new()
+	d.setup(m.death_visual())
+	_death_layer.add_child(d)
+
+
 func _sound(name: String) -> void:
 	if has_node("/root/Sound"):
 		get_node("/root/Sound").play(name)
@@ -572,6 +599,9 @@ func _restart_after_knockout() -> void:
 
 
 func _clear_monsters() -> void:
+	if _death_layer != null:
+		for d in _death_layer.get_children():
+			d.queue_free()
 	for m in monsters:
 		if is_instance_valid(m):
 			m.queue_free()
@@ -605,9 +635,8 @@ func _redraw_all() -> void:
 
 
 func _draw() -> void:
-	# 바닥선
+	# 바닥은 배경(BattleBackground)의 원근 돌바닥으로 그린다
 	var ground_y: float = config["layout"]["ground_y"]
-	draw_line(Vector2(0, ground_y), Vector2(720, ground_y), Color(0.35, 0.32, 0.45), 2.0)
 	# 보스 공격 예고 (연출). area "line"은 보스에서 캐릭터까지 띠, 그 밖은 캐릭터 발밑 원형 표시
 	if is_instance_valid(boss) and boss.is_telegraphing():
 		var t: float = boss.telegraph_progress()

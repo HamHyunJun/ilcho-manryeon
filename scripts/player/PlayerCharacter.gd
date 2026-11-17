@@ -2,7 +2,8 @@ extends Node2D
 ## 플레이어 캐릭터 (왼쪽 고정, 이동 없음).
 ## 기본 공격은 사거리 안 대상에게 자동 발동한다 (M1).
 ## 초식은 BattleManager가 TechniqueModeController로 고른 뒤 cast_technique로 발동한다 (M3).
-## 임시 그래픽: 사각형과 공격 표시를 직접 그린다.
+## 그래픽: ChibiArt의 2등신 픽셀 스프라이트. 주력 무공 계열(style)에 따라 복장과 무기가 바뀐다.
+## body_size는 사거리·표시 위치 계산용 판정 크기이며 그림 크기와는 별개다.
 
 signal knocked_out()
 
@@ -30,6 +31,23 @@ var _tech_flash := 0.0
 var _tech_color := Color.WHITE
 var _hit_flash := 0.0
 var _down := false
+## 주력 무공 계열 (sword/fist/spell). 복장과 무기를 고른다
+var style := "sword"
+var _t := 0.0
+
+
+func _ready() -> void:
+	# 4배로 키운 픽셀 텍스처를 선형 필터로 줄여 그려 픽셀 경계를 고르게 한다
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+
+
+## 주력 무공 계열을 바꾼다 (복장/무기 교체)
+func set_style(category: String) -> void:
+	if category == "":
+		category = "sword"
+	if style != category:
+		style = category
+		queue_redraw()
 
 
 func setup(base: Dictionary) -> void:
@@ -73,6 +91,7 @@ func is_down() -> bool:
 ## 한 프레임 진행. 내공을 회복하고, 사거리 안의 가장 가까운 몬스터를 기본 공격한다.
 ## 반환값: 공격했으면 {target, damage, crit}, 아니면 빈 Dictionary
 func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_constant: float) -> Dictionary:
+	_t += delta
 	_swing = maxf(0.0, _swing - delta)
 	_tech_flash = maxf(0.0, _tech_flash - delta)
 	_hit_flash = maxf(0.0, _hit_flash - delta)
@@ -151,22 +170,61 @@ func recover() -> void:
 
 
 func _draw() -> void:
-	var color := Color(0.35, 0.55, 0.95)
+	var art := ChibiArt.hero(style)
+	var sc := ChibiArt.ART_SCALE
+	var size: Vector2 = art["size"]
+	# 발밑 그림자
+	draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.28))
+	draw_circle(Vector2.ZERO, 34.0, Color(0, 0, 0, 0.35))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if _down:
-		color = Color(0.4, 0.4, 0.45)
-	elif _hit_flash > 0.0:
-		color = Color.WHITE
-	var rect := Rect2(Vector2(-body_size.x * 0.5, -body_size.y), body_size)
-	if _down:
-		# 쓰러짐: 눕힌 사각형
-		rect = Rect2(Vector2(-body_size.y * 0.5, -body_size.x), Vector2(body_size.y, body_size.x))
-	draw_rect(rect, color)
+		# 쓰러짐: 뒤로 누운 자세
+		draw_set_transform(Vector2(-10, -6), -PI * 0.5, Vector2.ONE)
+		ChibiArt.draw_sprite(self, art["body"], size, Vector2.ZERO, sc, Color(0.7, 0.7, 0.75))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	# 공격 준비 자세: 숨쉬듯 들썩이고, 공격·초식 순간 앞으로 내딛는다
+	var bob := roundf(sin(_t * 5.0) * 1.2)
+	var swing_t := 1.0 - _swing / 0.15 if _swing > 0.0 else 0.0
+	var lunge := 0.0
 	if _swing > 0.0:
-		# 기본 공격 표시: 앞쪽으로 뻗는 선
-		var reach := 60.0 * (1.0 - _swing / 0.15) + 20.0
-		draw_line(Vector2(half_width(), -body_size.y * 0.6), Vector2(half_width() + reach, -body_size.y * 0.5), Color(1, 1, 0.8), 4.0)
+		lunge = 6.0 * sin(swing_t * PI)
 	if _tech_flash > 0.0:
-		# 초식 발동 순간 몸 테두리만 계열색으로 빛낸다. 초식 연출 자체는 EffectDirector (M6)
+		lunge = maxf(lunge, 10.0 * (_tech_flash / 0.3))
+	var feet := Vector2(lunge, bob * 0.5)
+	# 초식 발동 순간: 계열색 오라
+	if _tech_flash > 0.0:
 		var c := _tech_color
-		c.a = _tech_flash / 0.3
-		draw_rect(rect.grow(3.0), c, false, 3.0)
+		c.a = 0.55 * _tech_flash / 0.3
+		for o in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+			ChibiArt.draw_sprite(self, art["flash"], size, feet + o, sc, c)
+	var body_tex: Texture2D = art["flash"] if _hit_flash > 0.0 else art["body"]
+	ChibiArt.draw_sprite(self, body_tex, size, feet + Vector2(0, bob), sc)
+	# 무기: 손 위치에 회전해 그린다
+	var hand: Vector2 = feet + Vector2(0, bob) + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
+	var ang := 0.55
+	var off := Vector2.ZERO
+	match art["weapon_kind"]:
+		"sword":
+			ang = 0.55
+			if _swing > 0.0:
+				ang = lerpf(-0.4, 2.1, swing_t)
+			elif _tech_flash > 0.0:
+				ang = lerpf(2.3, 0.55, 1.0 - _tech_flash / 0.3)
+		"fist":
+			ang = 0.0
+			off = Vector2(-2, -4)
+			if _swing > 0.0 or _tech_flash > 0.0:
+				off.x += 12.0 * sin(maxf(swing_t, _tech_flash / 0.3) * PI)
+		"talisman":
+			ang = 0.15 + sin(_t * 3.0) * 0.05
+			off = Vector2(-4, -6)
+			if _tech_flash > 0.0:
+				ang = -0.35
+				off.y -= 8.0 * _tech_flash / 0.3
+	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand + off, ang, sc,
+		Color(3, 3, 3) if _hit_flash > 0.0 else Color.WHITE)
+	if _swing > 0.0 and art["weapon_kind"] == "sword":
+		# 기본 공격 궤적
+		var a := 1.0 - swing_t
+		draw_arc(hand + Vector2(4, -6), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, Color(1, 1, 0.9, 0.7 * a), 4.0)
