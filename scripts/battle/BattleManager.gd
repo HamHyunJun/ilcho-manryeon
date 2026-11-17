@@ -186,11 +186,32 @@ func _effective_stats() -> Dictionary:
 	return PlayerStats.apply(config["player_base"], PlayerStats.merge(list))
 
 
-## 주력 무공 계열에 맞춰 캐릭터 복장과 무기를 바꾼다 (검: 푸른 도복, 권: 주황 승복, 술: 보라 도복)
+## 주력 무공 계열과 고른 외형을 캐릭터에 넣는다 (외형을 안 골랐으면 검: 청풍검객, 권: 소림승려, 술: 음양사)
 func _apply_player_style() -> void:
 	if player == null or arts == null or not player.has_method("set_style"):
 		return
 	player.set_style(String(DataRegistry.get_martial_art(arts.main_art()).get("category", "sword")))
+	if player.has_method("set_appearance"):
+		player.set_appearance(appearance())
+
+
+## 고른 외형 (HeroArt id, "" = 주력 무공 계열의 기본 주인공). 저장 데이터 character.appearance
+func appearance() -> String:
+	if growth == null:
+		return ""
+	return String(growth.state.get("appearance", ""))
+
+
+## 외형을 바꾸고 저장한다 (육성 화면의 캐릭터 선택)
+func set_appearance(id: String) -> void:
+	if growth == null:
+		return
+	if id != "" and not HeroArt.has(id):
+		return
+	growth.state["appearance"] = id
+	if player != null and player.has_method("set_appearance"):
+		player.set_appearance(id)
+	_save_soon()
 
 
 ## 장비 특수 효과(보스 피해, 피해 감소)를 캐릭터에 넣는다

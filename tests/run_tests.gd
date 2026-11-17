@@ -1683,6 +1683,21 @@ func _test_design_visuals() -> void:
 	arts.unlock("arhat_fist")
 	arts.equip_main("arhat_fist")
 	_check(battle.player.style == "fist", "주력 무공이 나한권이면 주황 승복·주먹")
+	# 최종 시안 캐릭터 10종 (HeroArt)
+	_check(HeroArt.CHARACTERS.size() == 10, "최종 시안 캐릭터 10종")
+	var loaded := 0
+	for hid in HeroArt.ids():
+		var ha := HeroArt.art(hid)
+		if ha["full"] != null and ha["battle"] != null and ha["full_flash"] != null:
+			loaded += 1
+	_check(loaded == 10, "캐릭터마다 큰 일러스트·전투 포즈·피격 실루엣 로드 (%d/10)" % loaded)
+	_check(battle.player.hero_id() == "sorim", "외형을 안 고르면 권 계열 기본 주인공은 소림승려")
+	battle.set_appearance("hyeolma")
+	_check(battle.player.hero_id() == "hyeolma" and battle.growth.state.get("appearance") == "hyeolma", "고른 외형이 전투 캐릭터와 저장 데이터에 반영")
+	battle.set_appearance("no_such_hero")
+	_check(battle.player.hero_id() == "hyeolma", "없는 외형은 무시")
+	battle.set_appearance("")
+	_check(battle.player.hero_id() == "sorim", "자동으로 돌리면 다시 계열 기본 주인공")
 	battle.free()
 	# 하단 앱바: 메인 버튼은 열린 화면을 닫고, 육성 화면은 탭을 가진다
 	var gs = root.get_node("GameState")
@@ -1694,6 +1709,13 @@ func _test_design_visuals() -> void:
 	ui._on_menu_pressed("growth")
 	var grow = ui.panels["growth"]
 	_check(grow is GrowScreen and grow.visible and ui._app_bar.active == "growth", "앱바 육성 → 육성 화면, 육성 활성")
+	_check(grow.hero_id() == "cheongpung", "새 게임(매화검법, 검 계열) 기본 주인공은 청풍검객")
+	grow.open_picker()
+	_check(grow._picker.visible, "이름판을 누르면 캐릭터 선택 창")
+	grow.choose_hero("cheongang")
+	_check(grow.hero_id() == "cheongang" and gs.growth.state.get("appearance") == "cheongang", "선택 창에서 고른 캐릭터로 바뀜")
+	grow.choose_hero("")
+	grow._picker.visible = false
 	grow._set_tab("arts")
 	_check(grow._arts_panel.visible and grow._arts_panel.root.get_child_count() > 0, "무공 탭에 무공 장착·수련 화면")
 	grow._set_tab("equip")

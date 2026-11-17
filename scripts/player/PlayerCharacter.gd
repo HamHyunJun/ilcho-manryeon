@@ -2,7 +2,9 @@ extends Node2D
 ## 플레이어 캐릭터 (왼쪽 고정, 이동 없음).
 ## 기본 공격은 사거리 안 대상에게 자동 발동한다 (M1).
 ## 초식은 BattleManager가 TechniqueModeController로 고른 뒤 cast_technique로 발동한다 (M3).
-## 그래픽: ChibiArt의 2등신 픽셀 스프라이트. 주력 무공 계열(style)에 따라 복장과 무기가 바뀐다.
+## 그래픽: HeroArt의 최종 시안 도트 캐릭터(10종). 평소에는 큰 일러스트를 오른쪽으로 돌려 그리고,
+## 초식을 쓰는 순간에는 속성 이펙트가 들어간 전투 포즈로 바뀐다.
+## 외형(appearance)을 고르지 않았으면 주력 무공 계열(style)의 기본 주인공을 쓴다.
 ## body_size는 사거리·표시 위치 계산용 판정 크기이며 그림 크기와는 별개다.
 
 signal knocked_out()
@@ -33,12 +35,19 @@ var _hit_flash := 0.0
 var _down := false
 ## 주력 무공 계열 (sword/fist/spell). 복장과 무기를 고른다
 var style := "sword"
+## 고른 외형 (HeroArt id). "" 이면 계열 기본 주인공
+var appearance := ""
 var _t := 0.0
+## 초식 전투 포즈를 보여 줄 남은 시간
+var _pose := 0.0
+const POSE_TIME := 0.5
+## 전투 화면에서 큰 일러스트의 높이(px)
+const FULL_HEIGHT := 118.0
 
 
 func _ready() -> void:
-	# 4배로 키운 픽셀 텍스처를 선형 필터로 줄여 그려 픽셀 경계를 고르게 한다
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# 도트 일러스트를 크게 줄여 그리므로 밉맵 + 선형 필터로 고르게 보이게 한다
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
 ## 주력 무공 계열을 바꾼다 (복장/무기 교체)
@@ -48,6 +57,18 @@ func set_style(category: String) -> void:
 	if style != category:
 		style = category
 		queue_redraw()
+
+
+## 외형을 바꾼다 ("" = 계열 기본 주인공)
+func set_appearance(id: String) -> void:
+	if appearance != id:
+		appearance = id
+		queue_redraw()
+
+
+## 지금 그리는 캐릭터 id
+func hero_id() -> String:
+	return HeroArt.resolve(appearance, style)
 
 
 func setup(base: Dictionary) -> void:
@@ -94,6 +115,7 @@ func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_con
 	_t += delta
 	_swing = maxf(0.0, _swing - delta)
 	_tech_flash = maxf(0.0, _tech_flash - delta)
+	_pose = maxf(0.0, _pose - delta)
 	_hit_flash = maxf(0.0, _hit_flash - delta)
 	queue_redraw()
 	if _down:
@@ -134,6 +156,7 @@ func technique_targets(tech: Dictionary, monsters: Array, range_px: float) -> Ar
 func cast_technique(tech: Dictionary, targets: Array, rng: RandomNumberGenerator, defense_constant: float, color: Color, tech_bonus: float = 0.0) -> Array:
 	mp = maxf(0.0, mp - float(tech.get("mp_cost", 0)))
 	_tech_flash = 0.3
+	_pose = POSE_TIME
 	_tech_color = color
 	var hits: Array = []
 	for t in targets:
@@ -170,17 +193,15 @@ func recover() -> void:
 
 
 func _draw() -> void:
-	var art := ChibiArt.hero(style)
-	var sc := ChibiArt.ART_SCALE
-	var size: Vector2 = art["size"]
+	var id := hero_id()
 	# 발밑 그림자
 	draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.28))
 	draw_circle(Vector2.ZERO, 34.0, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if _down:
 		# 쓰러짐: 뒤로 누운 자세
-		draw_set_transform(Vector2(-10, -6), -PI * 0.5, Vector2.ONE)
-		ChibiArt.draw_sprite(self, art["body"], size, Vector2.ZERO, sc, Color(0.7, 0.7, 0.75))
+		draw_set_transform(Vector2(-14, -8), -PI * 0.5, Vector2.ONE)
+		HeroArt.draw_full(self, id, Vector2.ZERO, FULL_HEIGHT, true, Color(0.7, 0.7, 0.75))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	# 공격 준비 자세: 숨쉬듯 들썩이고, 공격·초식 순간 앞으로 내딛는다
@@ -188,43 +209,24 @@ func _draw() -> void:
 	var swing_t := 1.0 - _swing / 0.15 if _swing > 0.0 else 0.0
 	var lunge := 0.0
 	if _swing > 0.0:
-		lunge = 6.0 * sin(swing_t * PI)
-	if _tech_flash > 0.0:
-		lunge = maxf(lunge, 10.0 * (_tech_flash / 0.3))
+		lunge = 8.0 * sin(swing_t * PI)
 	var feet := Vector2(lunge, bob * 0.5)
-	# 초식 발동 순간: 계열색 오라
-	if _tech_flash > 0.0:
-		var c := _tech_color
-		c.a = 0.55 * _tech_flash / 0.3
-		for o in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
-			ChibiArt.draw_sprite(self, art["flash"], size, feet + o, sc, c)
-	var body_tex: Texture2D = art["flash"] if _hit_flash > 0.0 else art["body"]
-	ChibiArt.draw_sprite(self, body_tex, size, feet + Vector2(0, bob), sc)
-	# 무기: 손 위치에 회전해 그린다
-	var hand: Vector2 = feet + Vector2(0, bob) + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
-	var ang := 0.55
-	var off := Vector2.ZERO
-	match art["weapon_kind"]:
-		"sword":
-			ang = 0.55
-			if _swing > 0.0:
-				ang = lerpf(-0.4, 2.1, swing_t)
-			elif _tech_flash > 0.0:
-				ang = lerpf(2.3, 0.55, 1.0 - _tech_flash / 0.3)
-		"fist":
-			ang = 0.0
-			off = Vector2(-2, -4)
-			if _swing > 0.0 or _tech_flash > 0.0:
-				off.x += 12.0 * sin(maxf(swing_t, _tech_flash / 0.3) * PI)
-		"talisman":
-			ang = 0.15 + sin(_t * 3.0) * 0.05
-			off = Vector2(-4, -6)
-			if _tech_flash > 0.0:
-				ang = -0.35
-				off.y -= 8.0 * _tech_flash / 0.3
-	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand + off, ang, sc,
-		Color(3, 3, 3) if _hit_flash > 0.0 else Color.WHITE)
-	if _swing > 0.0 and art["weapon_kind"] == "sword":
-		# 기본 공격 궤적
+	if _pose > 0.0:
+		# 초식 순간: 시안의 전투 포즈(속성 이펙트 포함). 처음엔 살짝 크게 튀어나왔다가 자리 잡는다
+		var k := 1.0 - _pose / POSE_TIME
+		var pop := 1.0 + 0.12 * maxf(0.0, 1.0 - k * 4.0)
+		var fade := clampf(_pose / 0.12, 0.0, 1.0)
+		var pf := Vector2(6.0 + 6.0 * sin(minf(k * 3.0, 1.0) * PI * 0.5), 0)
+		var col := Color(3, 3, 3) if _hit_flash > 0.0 else Color(1, 1, 1, fade)
+		HeroArt.draw_pose(self, id, pf, FULL_HEIGHT * pop, col)
+		if fade >= 1.0:
+			return
+		HeroArt.draw_full(self, id, feet + Vector2(0, bob), FULL_HEIGHT, true, Color(1, 1, 1, 1.0 - fade))
+		return
+	HeroArt.draw_full(self, id, feet + Vector2(0, bob), FULL_HEIGHT, true, Color.WHITE, _hit_flash > 0.0)
+	if _swing > 0.0:
+		# 기본 공격 궤적 (캐릭터 대표색)
 		var a := 1.0 - swing_t
-		draw_arc(hand + Vector2(4, -6), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, Color(1, 1, 0.9, 0.7 * a), 4.0)
+		var tint: Color = HeroArt.info(id)["color"].lightened(0.45)
+		tint.a = 0.75 * a
+		draw_arc(feet + Vector2(26, -FULL_HEIGHT * 0.5), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, tint, 4.0)

@@ -3,6 +3,7 @@ class_name GrowScreen
 ## 육성 화면 (디자인 시안 mock-grow-screen-v1 반영).
 ## - 맨 위: 제목, 경지 · 전투력, 재화(은냥, 강화석, 보관함)
 ## - 가운데: 큰 주인공과 바닥 마법진, 좌우 장비 슬롯 5부위(등급색 테두리, 강화 수치). 슬롯을 누르면 상세
+##   주인공은 최종 시안 도트 일러스트(HeroArt). 머리 위 이름판을 누르면 10종 중 캐릭터를 고른다 (HeroPicker)
 ## - 아래: 능력치 4칸(공격력, 방어력, 체력, 내공)과 [장비 / 소환수 / 무공] 탭
 ## - [장비] 탭: 등급 필터가 있는 보유 장비 목록. 장비를 누르면 상세 창에서 장착/해제, 강화, 레벨업, 버리기
 ##   빈 슬롯을 누르면 그 부위 장비만 보여 줘 바로 골라 등록(장착)할 수 있다.
@@ -42,6 +43,10 @@ var _detail: PanelContainer
 var _detail_box: VBoxContainer
 var _rng := RandomNumberGenerator.new()
 var _slot_buttons: Dictionary = {}
+var _picker: HeroPicker
+var _name_button: Button
+## 이름판 위치 (캐릭터 선택 열기)
+const NAME_PLATE := Rect2(250, 170, 220, 46)
 
 
 func _init(martial_arts: MartialArtManager, equipment_manager: EquipmentManager = null, battle_manager: Node2D = null) -> void:
@@ -72,6 +77,7 @@ func _init(martial_arts: MartialArtManager, equipment_manager: EquipmentManager 
 	_build_list(layer)
 	_build_arts(layer)
 	_build_detail(layer)
+	_build_picker(layer)
 
 
 func _ready() -> void:
@@ -84,6 +90,8 @@ func on_open() -> void:
 	message = ""
 	slot_filter = ""
 	_close_detail()
+	if _picker != null:
+		_picker.visible = false
 	_set_tab(tab)
 
 
@@ -401,6 +409,52 @@ func stats() -> Dictionary:
 	return {}
 
 
+## 지금 그리는 주인공 캐릭터 id (HeroArt)
+func hero_id() -> String:
+	if battle != null and battle.player != null and battle.player.has_method("hero_id"):
+		return battle.player.hero_id()
+	return HeroArt.resolve("", hero_style())
+
+
+## 고른 외형 ("" = 주력 무공 따라 자동)
+func appearance() -> String:
+	if battle != null and battle.has_method("appearance"):
+		return battle.appearance()
+	return ""
+
+
+# ---- 캐릭터 선택 ----
+
+func _build_picker(layer: Control) -> void:
+	_name_button = Button.new()
+	_name_button.flat = true
+	_name_button.focus_mode = Control.FOCUS_NONE
+	_name_button.position = NAME_PLATE.position
+	_name_button.size = NAME_PLATE.size
+	_name_button.custom_minimum_size = NAME_PLATE.size
+	_name_button.pressed.connect(open_picker)
+	layer.add_child(_name_button)
+	_picker = HeroPicker.new()
+	_picker.screen = self
+	_picker.position = Vector2.ZERO
+	_picker.size = SCREEN.size
+	_picker.visible = false
+	layer.add_child(_picker)
+
+
+func open_picker() -> void:
+	_close_detail()
+	_picker.visible = true
+	_picker.queue_redraw()
+
+
+## 캐릭터를 고른다 ("" = 자동). 전투 캐릭터에도 바로 반영하고 저장한다
+func choose_hero(id: String) -> void:
+	if battle != null and battle.has_method("set_appearance"):
+		battle.set_appearance(id)
+	_picker.queue_redraw()
+
+
 func hero_style() -> String:
 	if battle != null and battle.player != null and "style" in battle.player:
 		return battle.player.style
@@ -444,6 +498,10 @@ class GrowCanvas extends Control:
 	var screen: GrowScreen
 	var _t := 0.0
 
+	func _init() -> void:
+		# 도트 일러스트를 정수배가 아닌 크기로 그리므로 선형 필터로 고르게 보이게 한다
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
 	func _process(d: float) -> void:
 		_t += d
 
@@ -485,24 +543,15 @@ class GrowCanvas extends Control:
 		draw_set_transform(base, 0.0, Vector2(1.0, 0.24))
 		draw_circle(Vector2.ZERO, 120, Color(0, 0, 0, 0.45))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		# 큰 주인공 (공격 준비 자세, 숨쉬기)
-		var art := ChibiArt.hero(s.hero_style())
-		var sc := 5.0
-		var size_v: Vector2 = art["size"]
-		var bob := roundf(sin(_t * 2.5) * 3.0)
-		var feet := base + Vector2(0, -6 + bob)
-		ChibiArt.draw_sprite(self, art["body"], size_v, feet, sc)
-		var hand: Vector2 = feet + (Vector2(art["hand"]) - Vector2(size_v.x * 0.5, size_v.y)) * sc
-		var ang := 0.55
-		var off := Vector2.ZERO
-		match art["weapon_kind"]:
-			"fist":
-				ang = 0.0
-				off = Vector2(-6, -12)
-			"talisman":
-				ang = 0.15
-				off = Vector2(-10, -16)
-		ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand + off, ang, sc)
+		# 큰 주인공: 최종 시안의 큰 도트 일러스트를 시안 방향 그대로 (숨쉬기)
+		var hid := s.hero_id()
+		var bob := roundf(sin(_t * 2.5) * 2.0)
+		HeroArt.draw_full(self, hid, base + Vector2(0, -6), 300.0 + bob)
+		# 이름판 (시안의 먹 붓 이름판) + 바꾸기 안내
+		var hinfo: Dictionary = HeroArt.info(hid)
+		var np := GrowScreen.NAME_PLATE
+		HeroPicker.draw_name_plate(self, np, String(hinfo["name"]), 26)
+		UiIcons.text(self, Vector2(np.position.x, np.end.y + 24), "눌러서 캐릭터 변경", 16, Color(0.85, 0.8, 0.7, 0.85), HORIZONTAL_ALIGNMENT_CENTER, np.size.x, 3)
 		# 좌우 장비 슬롯
 		for slot in s._slot_buttons.keys():
 			var b: Button = s._slot_buttons[slot]
@@ -538,3 +587,92 @@ class GrowCanvas extends Control:
 				UiIcons.text(self, Vector2(20, LIST_Y + 170), "소환수: MVP 이후 추가 예정", 22, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 680, 0)
 		if s.message != "" and s.tab == "equip":
 			UiIcons.text(self, Vector2(20, LIST_Y + 338), s.message, 16, Color(1, 0.8, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 680, 3)
+
+
+## 캐릭터 선택 창: 최종 시안 10종을 시안과 같은 2줄 × 5칸으로 보여 준다.
+## 카드를 누르면 바로 그 캐릭터로 바뀐다. [자동]은 주력 무공 계열의 기본 주인공을 따른다.
+class HeroPicker extends Control:
+	var screen: GrowScreen
+	const CARD := Vector2(128, 312)
+	const GAP := 10.0
+	const TOP := 150.0
+	const AUTO_BTN := Rect2(20, 830, 330, 64)
+	const CLOSE_BTN := Rect2(370, 830, 330, 64)
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+	func _process(d: float) -> void:
+		if visible:
+			_t += d
+			queue_redraw()
+
+	func card_rect(i: int) -> Rect2:
+		var col := i % 5
+		var row := i / 5
+		return Rect2(20 + col * (CARD.x + GAP), TOP + row * (CARD.y + 16), CARD.x, CARD.y)
+
+	func _gui_input(e: InputEvent) -> void:
+		var pos := Vector2.INF
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			pos = e.position
+		elif e is InputEventScreenTouch and e.pressed:
+			pos = e.position
+		if pos == Vector2.INF:
+			return
+		accept_event()
+		for i in HeroArt.CHARACTERS.size():
+			if card_rect(i).has_point(pos):
+				screen.choose_hero(HeroArt.CHARACTERS[i]["id"])
+				return
+		if AUTO_BTN.has_point(pos):
+			screen.choose_hero("")
+		elif CLOSE_BTN.has_point(pos):
+			visible = false
+
+	## 시안의 이름판: 어두운 먹 붓 띠 + 흰 글씨
+	static func draw_name_plate(ci: CanvasItem, r: Rect2, label: String, font: int) -> void:
+		var c := r.get_center()
+		var hw := r.size.x * 0.5
+		var hh := r.size.y * 0.5
+		var pts := PackedVector2Array([
+			c + Vector2(-hw, -hh * 0.55), c + Vector2(-hw + 14, -hh), c + Vector2(hw - 10, -hh * 0.9),
+			c + Vector2(hw, -hh * 0.35), c + Vector2(hw - 6, hh * 0.6), c + Vector2(hw - 18, hh),
+			c + Vector2(-hw + 8, hh * 0.85), c + Vector2(-hw + 2, hh * 0.3)])
+		ci.draw_colored_polygon(pts, Color(0.16, 0.15, 0.16, 0.96))
+		var edge := pts.duplicate()
+		edge.append(pts[0])
+		ci.draw_polyline(edge, Color(0.85, 0.64, 0.25, 0.7), 2.0)
+		UiIcons.text(ci, Vector2(r.position.x, c.y + font * 0.36), label, font, Color(0.98, 0.96, 0.92), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.035, 0.08, 0.94))
+		UiIcons.text(self, Vector2(0, 74), "캐릭터 선택", 36, Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 720, 6)
+		var cur := screen.appearance()
+		var shown := screen.hero_id()
+		UiIcons.text(self, Vector2(0, 112), "자동: 주력 무공 계열에 맞춰 검 청풍검객 · 권 소림승려 · 술 음양사", 16, Color(0.8, 0.78, 0.74), HORIZONTAL_ALIGNMENT_CENTER, 720, 3)
+		for i in HeroArt.CHARACTERS.size():
+			var c: Dictionary = HeroArt.CHARACTERS[i]
+			var r := card_rect(i)
+			var on: bool = c["id"] == shown
+			var col: Color = c["color"]
+			UiIcons.round_rect(self, r, 12, Color(0.93, 0.9, 0.84) if on else Color(0.86, 0.83, 0.77), col if on else Color(0.45, 0.4, 0.35), 4.0 if on else 2.0)
+			var bob := roundf(sin(_t * 3.0) * 2.0) if on else 0.0
+			# 카드 폭에 맞춰 줄인다 (무기·머리카락이 옆 카드로 넘치지 않게)
+			var tex: Texture2D = HeroArt.art(c["id"])["full"]
+			var fit := minf(196.0, (r.size.x - 8.0) * tex.get_size().y / tex.get_size().x)
+			var fx: float = (float(c["feet"].x) - tex.get_size().x * 0.5) * fit / tex.get_size().y
+			HeroArt.draw_full(self, c["id"], r.position + Vector2(r.size.x * 0.5 + fx, 214 + bob), fit)
+			draw_name_plate(self, Rect2(r.position + Vector2(6, 222), Vector2(r.size.x - 12, 34)), c["name"], 18)
+			var lines: PackedStringArray = String(c["desc"]).split("\n")
+			for k in lines.size():
+				UiIcons.text(self, r.position + Vector2(0, 280 + k * 18), lines[k], 13, Color(0.25, 0.2, 0.18), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 0)
+			if on and cur == "":
+				UiIcons.round_rect(self, Rect2(r.position + Vector2(8, 8), Vector2(48, 24)), 10, col)
+				UiIcons.text(self, r.position + Vector2(8, 26), "자동", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 48, 2)
+		UiIcons.round_rect(self, AUTO_BTN, 14, Color(0.3, 0.22, 0.5) if cur == "" else Color(0.12, 0.11, 0.2), Color(0.85, 0.64, 0.25, 0.8), 2.0)
+		UiIcons.text(self, AUTO_BTN.position + Vector2(0, 41), "자동 (주력 무공 따라)" + ("  ✓" if cur == "" else ""), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, AUTO_BTN.size.x, 3)
+		UiIcons.round_rect(self, CLOSE_BTN, 14, Color(0.12, 0.11, 0.2), Color(0.85, 0.64, 0.25, 0.8), 2.0)
+		UiIcons.text(self, CLOSE_BTN.position + Vector2(0, 41), "닫기", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, CLOSE_BTN.size.x, 3)
