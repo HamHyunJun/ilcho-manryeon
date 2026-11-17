@@ -34,6 +34,10 @@ func active_count() -> int:
 ## 초식 발동 연출. stage는 1~7.
 func play_technique(category: String, stage: int, from: Vector2, target_positions: Array, tech: Dictionary = {}) -> Node2D:
 	var p := EffectPresets.resolve(presets, category, stage, tech)
+	# 초식별 고유 연출 (12초식): 무공 ID와 초식 순서를 넘긴다
+	if tech.has("id"):
+		p["art_id"] = String(tech["id"]).get_slice(".", 0)
+		p["tech_order"] = int(tech.get("order", 1))
 	last_params = p
 	return _spawn(p, "technique", from, target_positions, "")
 

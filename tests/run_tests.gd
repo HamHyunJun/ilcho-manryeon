@@ -18,6 +18,8 @@ const TESTS := [
 	&"_test_stage_data_detects_errors",
 	&"_test_stage_manager",
 	&"_test_stage_loop",
+	&"_test_twenty_stages_and_monsters",
+	&"_test_ranged_monster",
 	&"_test_new_game_martial_arts",
 	&"_test_original_scenario_switch_restore",
 	&"_test_mastery_and_unlock",
@@ -58,6 +60,8 @@ const TESTS := [
 	&"_test_save_export_import",
 	&"_test_settings_and_sound",
 	&"_test_tutorial_steps",
+	&"_test_design_visuals",
+	&"_test_equipment_summon_and_level_up",
 ]
 
 var _failed := 0
@@ -209,9 +213,19 @@ func _test_battle_simulation() -> void:
 	_check(player.tick(0.1, [], battle.rng, 100.0).is_empty(), "대상이 없으면 기본 공격하지 않음")
 
 	battle.tick(0.05)
-	_check(battle.alive_count() == 1, "전투 시작 시 몬스터 생성")
+	var group: int = battle.alive_count()
+	_check(group >= int(cfg["spawn"]["group_min"]) and group <= int(cfg["spawn"]["group_max"]), "전투 시작 시 몬스터가 무리로 생성됨 (%d마리)" % group)
 	var first = battle.monsters[0]
-	_check(first.position.x >= float(cfg["layout"]["spawn_x"]) - 5.0, "몬스터는 화면 오른쪽에서 생성됨")
+	var all_right := true
+	var stops := {}
+	for m in battle.monsters:
+		if m.position.x < float(cfg["layout"]["spawn_x"]) - 15.0:  # 생성된 프레임에 한 걸음 움직일 수 있다
+			all_right = false
+		stops[snappedf(m.stop_range, 0.1)] = true
+		if m.stop_range > m.attack_range:
+			all_right = false
+	_check(all_right, "몬스터는 화면 오른쪽에서 생성되고, 멈추는 거리는 사거리 이하")
+	_check(stops.size() == group, "무리 안에서 멈추는 거리가 서로 달라 한 점에 겹치지 않음")
 	var start_x: float = first.position.x
 	for i in 20:
 		battle.tick(0.05)
@@ -267,7 +281,7 @@ func _test_stage_data() -> void:
 	_check(all_50, "모든 스테이지 보스 등장 조건 50마리")
 	_check(scaling_up, "스테이지가 오를수록 배율 증가")
 	var boss: Dictionary = _reg().get_monster(stages[0]["boss"])
-	_check(boss.get("type") == "boss" and boss.get("patterns", []).size() == 2, "보스 패턴 2개(임시)")
+	_check(boss.get("type") == "boss" and boss.get("patterns", []).size() == 2, "스테이지 1 보스 패턴 2개")
 	_finish()
 
 
@@ -333,6 +347,137 @@ func _test_stage_loop() -> void:
 	_check(stage.stage_no == 2, "보스 처치 후 스테이지 2로 자동 진행 (%.0f초)" % t)
 	_check(stage.kill_count == 0 and stage.remaining_to_boss() == 50, "새 스테이지에서 처치 진행도 초기화")
 	_check(battle.player.hp == battle.player.max_hp, "새 스테이지 시작 시 체력 회복 (가안)")
+	battle.free()
+	_finish()
+
+
+## 20스테이지: 구역별 몬스터 구성, 보스 배치, 난이도 상승 (O-10 가안)
+func _test_twenty_stages_and_monsters() -> void:
+	print("[20스테이지와 스테이지별 몬스터]")
+	var reg := _reg()
+	var stages: Array = reg.get_region("cheongpung_mountain").get("stages", [])
+	_check(stages.size() == 20, "청풍산 스테이지 20개 (%d)" % stages.size())
+	# 구역마다 등장하는 일반 몬스터 구성이 다르다
+	var area_sets := {}
+	var areas_ok := true
+	for s in stages:
+		var area: String = s.get("area", "")
+		if area == "":
+			areas_ok = false
+		var ids: Array = []
+		for e in s["spawn_pool"]:
+			ids.append(e["monster"])
+		ids.sort()
+		if not area_sets.has(area):
+			area_sets[area] = {}
+		area_sets[area][",".join(ids)] = true
+	_check(areas_ok and area_sets.size() == 4, "5스테이지씩 구역 4개 (%s)" % ", ".join(area_sets.keys()))
+	# 이웃한 스테이지끼리 생성 구성(비율 포함)이 모두 다르다
+	var pools_differ := true
+	for i in range(1, stages.size()):
+		if JSON.stringify(stages[i]["spawn_pool"]) == JSON.stringify(stages[i - 1]["spawn_pool"]):
+			pools_differ = false
+	_check(pools_differ, "스테이지마다 몬스터 구성(종류/비율)이 다름")
+	var first_ids := {}
+	for e in stages[0]["spawn_pool"]:
+		first_ids[e["monster"]] = true
+	var last_new := true
+	for e in stages[19]["spawn_pool"]:
+		if first_ids.has(e["monster"]):
+			last_new = false
+	_check(last_new, "스테이지 20에는 스테이지 1의 몬스터가 나오지 않음")
+	# 보스: 2스테이지마다 바뀌고, 5·10·15·20은 구역 대장
+	var boss_ids := {}
+	for s in stages:
+		boss_ids[s["boss"]] = true
+	_check(boss_ids.size() == 12, "보스 12종 (%d)" % boss_ids.size())
+	var chapter_ok := true
+	for no in [10, 15, 20]:
+		var b: Dictionary = reg.get_monster(stages[no - 1]["boss"])
+		if b.get("patterns", []).size() != 3:
+			chapter_ok = false
+	_check(chapter_ok, "10·15·20스테이지 구역 대장 보스는 패턴 3개")
+	_check(stages[4]["boss"] == "test_boss", "5스테이지 보스는 산채 두목")
+	# 난이도: 배율, 일반 몬스터 평균 체력, 보스 체력, 보상이 스테이지마다 오른다
+	var prev_hp := 0.0
+	var prev_boss := 0.0
+	var prev_reward := 0.0
+	var hp_up := true
+	var boss_up := true
+	var reward_up := true
+	var ratio_ok := true
+	for s in stages:
+		var sc := float(s["scaling"])
+		var total := 0.0
+		var hp := 0.0
+		var reward := 0.0
+		for e in s["spawn_pool"]:
+			var m: Dictionary = reg.get_monster(e["monster"])
+			total += float(e["weight"])
+			hp += float(m["max_hp"]) * float(e["weight"])
+			reward += float(m["rewards"]["silver"]) * float(e["weight"])
+		hp = hp / total * sc
+		reward = reward / total * sc
+		var boss_hp := float(reg.get_monster(s["boss"])["max_hp"]) * sc
+		if hp <= prev_hp:
+			hp_up = false
+		if boss_hp <= prev_boss:
+			boss_up = false
+		if reward <= prev_reward:
+			reward_up = false
+		if boss_hp / hp < 15.0 or boss_hp / hp > 50.0:
+			ratio_ok = false
+		prev_hp = hp
+		prev_boss = boss_hp
+		prev_reward = reward
+	_check(hp_up, "일반 몬스터 평균 체력이 스테이지마다 오름 (20스테이지 %.0f)" % prev_hp)
+	_check(boss_up, "보스 체력이 스테이지마다 오름 (20스테이지 %.0f)" % prev_boss)
+	_check(reward_up, "일반 몬스터 평균 은냥 보상이 스테이지마다 오름")
+	_check(ratio_ok, "보스 체력은 같은 스테이지 일반 몬스터 평균의 15~50배")
+	# 모든 몬스터 그림이 만들어진다
+	var art_ok := true
+	for id in reg.monsters:
+		var m: Dictionary = reg.monsters[id]
+		var art := ChibiArt.monster(String(m.get("sprite", "bandit")))
+		if not (art.get("body") is Texture2D) or not (art.get("weapon") is Texture2D):
+			art_ok = false
+	_check(art_ok, "모든 몬스터의 2등신 스프라이트 생성 (%d종)" % reg.monsters.size())
+	# 스테이지 관리자와 실제 생성
+	var sm := StageManager.new(reg.get_region("cheongpung_mountain"), 12)
+	_check(sm.area_name() == "철문관", "스테이지 12 구역 이름: 철문관")
+	var battle := _make_battle()
+	battle.stage.start(17)
+	var spawned := {}
+	for i in 40:
+		spawned[battle._pick_spawn_id()] = true
+	var allowed := {}
+	for e in battle.stage.current()["spawn_pool"]:
+		allowed[e["monster"]] = true
+	var only_pool := true
+	for id in spawned:
+		if not allowed.has(id):
+			only_pool = false
+	_check(only_pool and spawned.size() >= 2, "스테이지 17에서는 그 스테이지 몬스터만 생성 (%s)" % ", ".join(spawned.keys()))
+	battle.free()
+	_finish()
+
+
+## 원거리형(삿갓 궁수)은 멀리서 멈춰 공격한다
+func _test_ranged_monster() -> void:
+	print("[원거리형 몬스터]")
+	var battle := _make_battle()
+	for m in battle.monsters:
+		m.queue_free()
+	battle.monsters.clear()
+	var archer: Node2D = battle.spawn_monster("archer")
+	var hp0: int = battle.player.hp
+	var t := 0.0
+	while t < 12.0 and battle.player.hp == hp0:
+		archer.tick(0.05, battle.player, 100.0)
+		t += 0.05
+	var gap := TargetSelector.edge_gap(battle.player.position.x, battle.player.half_width(), archer.position.x, archer.half_width())
+	_check(archer.is_ranged() and battle.player.hp < hp0, "삿갓 궁수가 공격함 (%.1f초)" % t)
+	_check(gap > 100.0 and gap <= float(archer.attack_range) + 1.0, "근접형보다 멀리서 멈춤 (거리 %.0f)" % gap)
 	battle.free()
 	_finish()
 
@@ -1502,6 +1647,126 @@ func _test_tutorial_steps() -> void:
 	var ui = main.get_node("GameUi")
 	_check(ui.tutorial != null and ui.tutorial.visible, "새 게임 첫 화면에 튜토리얼이 뜸")
 	_check(ui.panels.has("settings"), "설정 화면 등록 (화면 위 설정 버튼)")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_design_visuals() -> void:
+	print("[디자인 반영: 스프라이트, 쓰러짐 연출, 앱바, 육성 화면]")
+	# 무공 계열마다 복장·무기가 다른 2등신 스프라이트
+	var sw := ChibiArt.hero("sword")
+	var fi := ChibiArt.hero("fist")
+	_check(sw["weapon_kind"] == "sword" and fi["weapon_kind"] == "fist" and sw["body"] != fi["body"], "무공 계열별 복장과 무기")
+	var mon := ChibiArt.monster("bandit")
+	_check(mon.has("ko") and mon.has("weapon"), "몬스터 스프라이트에 기절(X눈) 그림과 무기")
+	# 쓰러짐 연출 8프레임
+	var DeathScript = load("res://scripts/battle/MonsterDeath.gd")
+	var d = DeathScript.new()
+	root.add_child(d)
+	d.setup({"art": mon, "scale": ChibiArt.ART_SCALE, "position": Vector2(400, 1020)})
+	var frames := {}
+	for i in 80:
+		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			break
+		frames[d.frame()] = true
+		d.advance(1.0 / 60.0)
+	_check(frames.size() == 8, "쓰러짐 연출이 8프레임을 모두 거침")
+	_check(d.is_done(), "연출이 끝나면 스스로 사라짐")
+	# 전투에서 처치하면 쓰러짐 연출이 뜨고, 판정용 몬스터 노드는 바로 빠짐
+	var arts := _new_arts()
+	var battle := _make_battle(arts)
+	var m: Node2D = battle.spawn_monster("test_bandit")
+	m.take_damage(99999)
+	_check(not battle.monsters.has(m) and battle._death_layer.get_child_count() == 1, "처치 시 쓰러짐 연출 생성")
+	# 주력 무공을 바꾸면 복장이 바뀜
+	arts.unlock("arhat_fist")
+	arts.equip_main("arhat_fist")
+	_check(battle.player.style == "fist", "주력 무공이 나한권이면 주황 승복·주먹")
+	battle.free()
+	# 하단 앱바: 메인 버튼은 열린 화면을 닫고, 육성 화면은 탭을 가진다
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	_check(main.has_node("BattleBackground"), "전투 배경이 붙음")
+	ui._on_menu_pressed("growth")
+	var grow = ui.panels["growth"]
+	_check(grow is GrowScreen and grow.visible and ui._app_bar.active == "growth", "앱바 육성 → 육성 화면, 육성 활성")
+	grow._set_tab("arts")
+	_check(grow._arts_panel.visible and grow._arts_panel.root.get_child_count() > 0, "무공 탭에 무공 장착·수련 화면")
+	grow._set_tab("equip")
+	var it: Dictionary = gs.equipment.generate("weapon", "rare", 1.0, RandomNumberGenerator.new())
+	gs.equipment.add_item(it)
+	grow._open_detail(int(it["uid"]))
+	_check(grow._detail.visible, "보유 장비를 누르면 상세 창")
+	ui._on_menu_pressed("main")
+	_check(not grow.visible and ui._app_bar.active == "main", "메인(태극) 버튼은 화면을 닫고 전투로")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+func _test_equipment_summon_and_level_up() -> void:
+	print("[장비 소환과 장비 레벨업]")
+	var eq := _new_equipment()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var starter := int(_reg().equipment.get("summon", {}).get("starter_tickets", 0))
+	_check(eq.tickets() == starter and starter > 0, "새 게임 시작 소환패 지급 (%d장)" % starter)
+	var r1: Dictionary = eq.summon(1, 1.0, rng)
+	_check(r1["ok"] and r1["items"].size() == 1 and eq.tickets() == starter - 1, "1회 소환: 소환패 1장 소모, 장비 1개")
+	var r2: Dictionary = eq.summon(10, 1.0, rng)
+	_check(not r2["ok"] and eq.tickets() == starter - 1, "소환패가 모자라면 소환하지 않음")
+	eq.add_currency("ticket", 1)
+	var r3: Dictionary = eq.summon(10, 1.0, rng)
+	var best := 0
+	for it in r3["items"]:
+		best = maxi(best, eq.grade_index(it["grade"]))
+	_check(r3["ok"] and r3["items"].size() == 10 and best >= eq.grade_index("rare"), "10회 소환은 희귀 이상 1개 보장")
+	_check(eq.auto_equip_best(r3["items"]) > 0 and not eq.equipped_item("weapon").is_empty() or not eq.equipped_item("armor").is_empty(), "자동 장착이 부위별로 장비를 등록")
+	# 보스 처치 소환패
+	var t0 := eq.tickets()
+	eq.roll_drop(true, 1.0, rng)
+	_check(eq.tickets() == t0 + int(_reg().equipment["summon"].get("boss_tickets", 0)), "보스 처치로 소환패 획득")
+	# 레벨업: 같은 부위·같은 등급 중복 장비를 재료로
+	var eq2 := _new_equipment()
+	var a: Dictionary = eq2.generate("helmet", "rare", 1.0, rng)
+	var b: Dictionary = eq2.generate("helmet", "rare", 1.0, rng)
+	var c: Dictionary = eq2.generate("helmet", "epic", 1.0, rng)
+	var d: Dictionary = eq2.generate("armor", "rare", 1.0, rng)
+	for it in [a, b, c, d]:
+		eq2.add_item(it)
+	eq2.equip(int(a["uid"]))
+	_check(eq2.level_up_materials(int(a["uid"])).size() == 1, "재료는 같은 부위·같은 등급의 장착하지 않은 장비만")
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.NOT_ENOUGH, "은냥이 없으면 레벨업 불가")
+	eq2.add_currency("silver", 100000)
+	var def0: float = float(eq2.item_base_stats(a)["def"])
+	var bonus0: float = float(eq2.stat_bonuses()["def"]["flat"])
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.OK and eq2.item_level(a) == 2, "레벨업 성공: Lv 2")
+	_check(eq2.find(int(b["uid"])).is_empty() and not eq2.find(int(c["uid"])).is_empty(), "재료 장비만 사라짐")
+	_check(float(eq2.item_base_stats(a)["def"]) > def0 and float(eq2.stat_bonuses()["def"]["flat"]) > bonus0, "레벨이 오르면 장착 능력치도 오름")
+	_check(eq2.level_up(int(a["uid"])) == EquipmentManager.LevelUpResult.NO_MATERIAL, "재료가 없으면 레벨업 불가")
+	_check(eq2.item_name(a).contains("Lv2"), "장비 이름에 레벨 표시")
+	# 소환 화면과 육성 화면 연결
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	ui._on_menu_pressed("summon")
+	var sp = ui.panels["summon"]
+	_check(sp.visible and ui._app_bar.active == "summon", "앱바 소환 → 장비 소환 화면")
+	var res: Dictionary = sp.do_summon(10)
+	_check(res["ok"] and sp.last_results.size() == 10, "소환 화면에서 10회 소환")
+	ui._on_menu_pressed("growth")
+	var grow = ui.panels["growth"]
+	grow._slot_buttons["shoes"].pressed.emit()
+	if gs.equipment.equipped_item("shoes").is_empty():
+		_check(grow.slot_filter == "shoes", "빈 슬롯을 누르면 그 부위 장비만 보여 줌")
+	else:
+		_check(grow._detail.visible, "장착된 슬롯을 누르면 상세 창")
 	main.free()
 	gs.reset_to_new_game()
 	_finish()

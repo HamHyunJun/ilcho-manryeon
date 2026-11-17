@@ -1,10 +1,13 @@
 extends Control
-## 전투 아래쪽 화면 (M3 → M5 정리).
-## - 전투 조작 영역: 수련 중인 초식과 진행도, 연속초식 토글 버튼 (docs/09 2-3, 확정 사항 21·22).
-## - 하단 앱바: 장비 │ 소환 │ 던전 │ 육성. 각 메뉴는 MenuPanel 화면을 연다.
-## 임시 UI: 기본 테마를 쓰며, 정식 UI 작업 때 바꾼다.
+## 전투 위의 조작 화면 (M3 → M5 → 디자인 시안 mock-vector-v30-bigbar 반영).
+## - 전투 조작 영역: 수련 중인 초식과 진행도(앱바 위 초식 게이지), 연속초식 토글 (docs/09 2-3, 확정 사항 21·22).
+## - 하단 앱바(AppBar, 높이 134): 상점 │ 육성 │ 메인(태극) │ 던전 │ 소환(장비 소환). 장비는 육성 화면의 [장비] 탭에서 다룬다.
+## - 오른쪽 위 설정 버튼 (상단 바 가로 중심선에 맞춤).
 
-const BAR_Y := 1188.0
+## 하단 앱바 윗선 (720×1280 기준). 앱바 높이 약 100 → 134px로 키웠다
+const BAR_Y := 1146.0
+## 연속초식 토글과 수련 문구 줄 (앱바가 커진 만큼 위로)
+const CONTROLS_Y := 1036.0
 
 var arts: MartialArtManager
 ## 장비 관리자 (M8). 없으면 GameState의 것을 쓴다
@@ -18,7 +21,8 @@ var _style_on: StyleBoxFlat
 var _style_off: StyleBoxFlat
 ## 메뉴 이름 → MenuPanel
 var panels: Dictionary = {}
-var _menu_buttons: Dictionary = {}
+var _app_bar: AppBar
+var _gear_button: Button
 var _open_name := ""
 ## 튜토리얼 안내 (M11)
 var tutorial: TutorialGuide
@@ -27,6 +31,8 @@ var tutorial: TutorialGuide
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 전투 화면(상단 바 z 20, 이펙트 z 9~10)보다 위에 그린다. 육성 화면은 상단 바까지 덮는다
+	z_index = 40
 	if arts == null:
 		arts = get_node("/root/GameState").arts
 	_build_combat_controls()
@@ -43,37 +49,80 @@ func _process(_delta: float) -> void:
 # ---- 전투 조작 영역 ----
 
 func _build_combat_controls() -> void:
-	var box := VBoxContainer.new()
-	box.position = Vector2(32, 796)
-	box.size = Vector2(656, 200)
-	box.add_theme_constant_override("separation", 10)
-	add_child(box)
-
-	_target_label = MenuPanel.label("", 22)
-	box.add_child(_target_label)
+	# 왼쪽: 수련 중인 초식과 진행 문구, 연속초식 발동 순서
+	_target_label = MenuPanel.label("", 19, Color(1, 0.95, 0.85))
+	_target_label.position = Vector2(20, CONTROLS_Y)
+	_target_label.size = Vector2(470, 28)
+	_target_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_target_label.clip_text = true
+	_outline(_target_label)
+	add_child(_target_label)
+	_chain_label = MenuPanel.label("", 15, Color(0.85, 0.85, 0.92))
+	_chain_label.position = Vector2(20, CONTROLS_Y + 30)
+	_chain_label.size = Vector2(470, 24)
+	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_chain_label.clip_text = true
+	_outline(_chain_label)
+	add_child(_chain_label)
+	# 수련 진행도: 앱바 바로 위 금색 초식 게이지로 그린다 (AppBar.gauge). 값 보관용 바는 숨긴다
 	_target_bar = ProgressBar.new()
-	_target_bar.custom_minimum_size = Vector2(656, 18)
+	_target_bar.visible = false
 	_target_bar.show_percentage = false
-	box.add_child(_target_bar)
+	add_child(_target_bar)
 
+	# 오른쪽: "연속초식" 글자 + 스위치 모양 토글
+	var cap := MenuPanel.label("연속초식", 20, Color(0.95, 0.92, 0.85))
+	cap.position = Vector2(500, CONTROLS_Y + 12)
+	cap.size = Vector2(100, 30)
+	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_outline(cap)
+	add_child(cap)
 	_style_off = StyleBoxFlat.new()
-	_style_off.bg_color = Color(0.16, 0.15, 0.22)
-	_style_off.border_color = Color(0.4, 0.38, 0.5)
+	_style_off.bg_color = Color(0.18, 0.18, 0.24, 0.95)
+	_style_off.border_color = Color(0.45, 0.45, 0.55)
 	_style_off.set_border_width_all(2)
-	_style_off.set_corner_radius_all(10)
+	_style_off.set_corner_radius_all(22)
 	_style_on = StyleBoxFlat.new()
-	_style_on.bg_color = Color(0.55, 0.36, 0.08)
-	_style_on.border_color = Color(1.0, 0.82, 0.35)
-	_style_on.set_border_width_all(4)
-	_style_on.set_corner_radius_all(10)
-
-	_chain_button = MenuPanel.button("연속초식", 30)
+	_style_on.bg_color = Color(0.72, 0.48, 0.12, 0.95)
+	_style_on.border_color = Color(1.0, 0.85, 0.4)
+	_style_on.set_border_width_all(2)
+	_style_on.set_corner_radius_all(22)
+	_chain_button = MenuPanel.button("OFF", 15)
 	_chain_button.toggle_mode = true
-	_chain_button.custom_minimum_size = Vector2(656, 84)
+	_chain_button.position = Vector2(604, CONTROLS_Y + 6)
+	_chain_button.custom_minimum_size = Vector2(96, 44)
+	_chain_button.size = Vector2(96, 44)
 	_chain_button.toggled.connect(_on_chain_toggled)
-	box.add_child(_chain_button)
-	_chain_label = MenuPanel.label("", 18, Color(0.8, 0.8, 0.88))
-	box.add_child(_chain_label)
+	add_child(_chain_button)
+	# 스위치 손잡이 (켜면 오른쪽으로)
+	var knob := ToggleKnob.new()
+	knob.button = _chain_button
+	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	knob.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_chain_button.add_child(knob)
+
+
+## 배경 위에서도 읽히도록 글자에 외곽선
+static func _outline(l: Label) -> void:
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 5)
+
+
+## 연속초식 스위치의 동그란 손잡이
+class ToggleKnob extends Control:
+	var button: Button
+
+	func _process(_d: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		if button == null:
+			return
+		var on := button.button_pressed
+		var r := size.y * 0.5 - 5.0
+		var cx := size.x - r - 5.0 if on else r + 5.0
+		draw_circle(Vector2(cx, size.y * 0.5 + 1), r, Color(0, 0, 0, 0.3))
+		draw_circle(Vector2(cx, size.y * 0.5), r, Color(1, 0.97, 0.9) if on else Color(0.82, 0.82, 0.88))
 
 
 func _update_combat_controls() -> void:
@@ -82,25 +131,30 @@ func _update_combat_controls() -> void:
 	var count := arts.count_of(tid)
 	var target := arts.mastery_target_of(tid)
 	var state := "대성" if arts.is_mastered(tid) else GrowthPanel.stage_name(arts, count)
-	_target_label.text = "수련 중: %s · %s · %s / %s" % [tech.get("name", "-"), state, MenuPanel.fmt(count), MenuPanel.fmt(target)]
+	_target_label.text = "%s · %s · %s / %s" % [tech.get("name", "-"), state, MenuPanel.fmt(count), MenuPanel.fmt(target)]
 	_target_bar.max_value = target
 	_target_bar.value = mini(count, target)
+	if _app_bar:
+		_app_bar.gauge = float(mini(count, target)) / float(maxi(target, 1))
 
 	var on := arts.is_chain_mode()
 	_chain_button.set_pressed_no_signal(on)
-	_chain_button.text = "연속초식  ON" if on else "연속초식  OFF"
+	_chain_button.text = "ON" if on else "OFF"
+	_chain_button.alignment = HORIZONTAL_ALIGNMENT_LEFT if on else HORIZONTAL_ALIGNMENT_RIGHT
 	var style := _style_on if on else _style_off
 	for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		_chain_button.add_theme_stylebox_override(s, style)
-	_chain_button.add_theme_color_override("font_color", Color(1, 0.95, 0.8) if on else Color(0.8, 0.8, 0.88))
+	_chain_button.add_theme_color_override("font_color", Color(1, 0.95, 0.8) if on else Color(0.75, 0.75, 0.82))
 	_chain_button.add_theme_color_override("font_pressed_color", Color(1, 0.95, 0.8))
+	_chain_button.add_theme_color_override("font_hover_pressed_color", Color(1, 0.95, 0.8))
+	_chain_button.add_theme_constant_override("h_separation", 0)
 	if on:
 		var names: PackedStringArray = []
 		for t in arts.unlocked_main_techniques():
 			names.append(str(int(t.get("order", 0))))
-		_chain_label.text = "해금한 초식을 순서대로 발동: %s초식 (발동한 모든 초식이 수련됩니다)" % " → ".join(names)
+		_chain_label.text = "연속초식: %s초식 순서로 발동 (모두 수련됨)" % " → ".join(names)
 	else:
-		_chain_label.text = "단일 수련: 수련 중인 초식만 반복합니다"
+		_chain_label.text = "단일 수련: 수련 중인 초식만 반복"
 
 
 func _on_chain_toggled(on: bool) -> void:
@@ -115,12 +169,15 @@ func _on_chain_toggled(on: bool) -> void:
 # ---- 하단 앱바와 메뉴 화면 ----
 
 func _build_panels() -> void:
-	_add_panel("growth", GrowthPanel.new(arts))
 	var gs = get_node_or_null("/root/GameState")
 	var eq: EquipmentManager = equipment if equipment != null else (gs.equipment if gs else null)
+	var battle = get_parent().get_node_or_null("Battle") if get_parent() else null
+	# 육성 화면: 주인공과 장비 슬롯, 능력치, [장비 / 소환수 / 무공] 탭 (무공 탭은 기존 GrowthPanel)
+	_add_panel("growth", GrowScreen.new(arts, eq, battle))
 	if eq != null:
 		_add_panel("equipment", EquipmentPanel.new(eq))
-	var battle = get_parent().get_node_or_null("Battle") if get_parent() else null
+		# 장비 소환 (소환패, 결과에서 바로 장착)
+		_add_panel("summon", SummonPanel.new(eq, battle))
 	if battle != null:
 		var dp := DungeonPanel.new(battle)
 		_add_panel("dungeon", dp)
@@ -148,11 +205,27 @@ func _add_panel(menu: String, panel: MenuPanel) -> void:
 func _build_top_buttons() -> void:
 	if not panels.has("settings"):
 		return
-	var b := MenuPanel.button("설정", 20)
-	b.position = Vector2(608, 16)
-	b.custom_minimum_size = Vector2(96, 52)
+	# 톱니바퀴 버튼: 상단 바 가로 중심선(BattleHud.CENTER_Y)에 맞춘다
+	var b := Button.new()
+	b.flat = true
+	b.tooltip_text = "설정"
+	b.custom_minimum_size = Vector2(64, 64)
+	b.size = Vector2(64, 64)
+	b.position = Vector2(664 - 32, 92 - 32)
+	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(func(): open_menu("" if _open_name == "settings" else "settings"))
 	add_child(b)
+	_gear_button = b
+	var icon := GearIcon.new()
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.add_child(icon)
+
+
+class GearIcon extends Control:
+	func _draw() -> void:
+		UiIcons.gear(self, size * 0.5 + Vector2(1, 1), 40, Color(0, 0, 0, 0.5))
+		UiIcons.gear(self, size * 0.5, 40)
 
 
 func _build_tutorial() -> void:
@@ -163,6 +236,8 @@ func _build_tutorial() -> void:
 	if steps.is_empty():
 		return
 	tutorial = TutorialGuide.new(steps, gs.data["tutorial"], arts)
+	# 상단 바 아래, 몬스터와 상단 정보창을 가리지 않는 자리
+	tutorial.position = Vector2(24, 186)
 	var battle = get_parent().get_node_or_null("Battle") if get_parent() else null
 	if battle:
 		tutorial.kill_count = func(): return battle.kill_count
@@ -180,27 +255,16 @@ func _show_offline(summary: Dictionary) -> void:
 
 
 func _build_app_bar() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.06, 0.1)
-	bg.position = Vector2(0, BAR_Y - 8)
-	bg.size = Vector2(720, 1280 - BAR_Y + 8)
-	add_child(bg)
-	var row := HBoxContainer.new()
-	row.position = Vector2(12, BAR_Y)
-	row.size = Vector2(696, 80)
-	row.add_theme_constant_override("separation", 8)
-	add_child(row)
-	for m in [["equipment", "장비"], ["summon", "소환"], ["dungeon", "던전"], ["growth", "육성"]]:
-		var b := MenuPanel.button(m[1], 24)
-		b.custom_minimum_size = Vector2(168, 76)
-		b.toggle_mode = true
-		b.pressed.connect(_on_menu_pressed.bind(m[0]))
-		row.add_child(b)
-		_menu_buttons[m[0]] = b
+	_app_bar = AppBar.new(BAR_Y)
+	_app_bar.menu_pressed.connect(_on_menu_pressed)
+	add_child(_app_bar)
 	_refresh_menu_buttons()
 
 
 func _on_menu_pressed(menu: String) -> void:
+	if menu == "main":
+		open_menu("")
+		return
 	open_menu("" if _open_name == menu else menu)
 
 
@@ -222,10 +286,15 @@ func open_menu(menu: String) -> void:
 
 
 func _refresh_menu_buttons() -> void:
-	for k in _menu_buttons.keys():
-		_menu_buttons[k].set_pressed_no_signal(k == _open_name)
-		_menu_buttons[k].disabled = false
+	if _app_bar == null:
+		return
+	# 장비 상세는 육성, 무공 도감은 던전 아래 화면으로 본다
+	# 육성 화면은 상단 바까지 덮으므로 설정 버튼을 숨긴다
+	if _gear_button:
+		_gear_button.visible = _open_name != "growth"
+	_app_bar.active = {"growth": "growth", "equipment": "growth", "dungeon": "dungeon", "codex": "dungeon", "summon": "summon"}.get(_open_name, "main")
+	_app_bar.queue_redraw()
 
 
 func _menu_title(menu: String) -> String:
-	return {"equipment": "장비", "summon": "소환", "dungeon": "던전", "growth": "육성"}.get(menu, menu)
+	return {"equipment": "장비", "summon": "소환", "dungeon": "던전", "growth": "육성", "shop": "상점"}.get(menu, menu)

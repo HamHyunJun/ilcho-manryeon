@@ -48,5 +48,14 @@
     "stone_normal_amount": 1,
     "stone_boss_amount": 3
   },
-  "inventory_capacity": 100
+  "inventory_capacity": 100,
+  "summon": {
+    "_comment": "장비 소환 (가안). 소환패는 게임 플레이(보스 처치)로만 얻고 결제로 팔지 않는다 (확정 사항 6, O-30). 10회 소환은 마지막 1개를 guarantee_grade 이상으로 보장한다.",
+    "cost_per_pull": 1, "starter_tickets": 10, "boss_tickets": 1, "guarantee_from": 10, "guarantee_grade": "rare",
+    "grade_weights": { "common": 50, "uncommon": 30, "rare": 14, "epic": 5, "legendary": 0.9, "mythic": 0.1 }
+  },
+  "level_up": {
+    "_comment": "장비 레벨업 (가안). 같은 부위·같은 등급의 장착하지 않은 장비를 재료로 소모한다. 레벨당 기본 능력치 +10% (강화 배율과 곱함).",
+    "max_level": 10, "materials_per_level": 1, "silver_base": 100, "silver_per_level": 100, "stat_per_level": 0.1
+  }
 }

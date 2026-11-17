@@ -1,12 +1,21 @@
 extends Control
 ## 진입 화면.
-## 전투 화면(Battle)과 아래쪽 조작 영역·하단 앱바(GameUi)를 띄운다.
+## 배경(BattleBackground), 전투 화면(Battle), 조작 영역·하단 앱바(GameUi)를 띄운다.
 ## 데이터 요약은 로그에만 남기고, 데이터 오류나 저장 불러오기 오류가 있을 때만 제목 아래에 표시한다.
 
 @onready var _info: Label = $Margin/VBox/Info
 
 
 func _ready() -> void:
+	# 전투 배경: 달빛, 산, 폭포, 누각, 매화, 돌바닥 (Battle보다 뒤)
+	var ground := float(DataRegistry.balance.get("combat", {}).get("layout", {}).get("ground_y", 1020))
+	var bg := BattleBackground.new(ground, preload("res://scripts/ui/GameUi.gd").BAR_Y)
+	bg.name = "BattleBackground"
+	add_child(bg)
+	move_child(bg, $Background.get_index() + 1)
+	# 제목 글자는 상단 바와 겹치므로 숨긴다 (데이터 오류 안내만 남김)
+	$Margin/VBox/Title.visible = false
+	$Margin/VBox/Subtitle.visible = false
 	# 조작 영역과 육성 화면 (M3)
 	var ui := preload("res://scripts/ui/GameUi.gd").new()
 	ui.name = "GameUi"
