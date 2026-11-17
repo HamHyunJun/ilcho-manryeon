@@ -15,6 +15,11 @@ const PROFILE_X := 60.0
 const PROFILE_R := 36.0
 
 
+func _ready() -> void:
+	# 프로필 얼굴(도트 일러스트 축소)을 고르게 보이게 한다
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+
 func _draw() -> void:
 	if battle == null or battle.stage == null:
 		return
@@ -27,7 +32,7 @@ func _draw() -> void:
 	if battle.last_technique_left > 0.0 and battle.last_technique_name != "":
 		var a2 := clampf(battle.last_technique_left / 0.3, 0.0, 1.0)
 		var pp: Vector2 = player.position + battle.world_offset
-		UiIcons.text(self, Vector2(pp.x - 100, pp.y - 112), battle.last_technique_name, 22, Color(1, 0.88, 0.95, a2), HORIZONTAL_ALIGNMENT_CENTER, 200)
+		UiIcons.text(self, Vector2(pp.x - 100, pp.y - 146), battle.last_technique_name, 22, Color(1, 0.88, 0.95, a2), HORIZONTAL_ALIGNMENT_CENTER, 200)
 
 	# 화면 가운데 안내 문구
 	if battle.banner_left > 0.0 and battle.banner_text != "":
@@ -37,16 +42,11 @@ func _draw() -> void:
 
 func _draw_profile(player) -> void:
 	var c := Vector2(PROFILE_X, CENTER_Y)
-	var style: String = player.style if "style" in player else "sword"
-	var art := ChibiArt.hero(style)
-	# 바탕 원과 얼굴
+	var hero_id: String = player.hero_id() if player.has_method("hero_id") else "cheongpung"
+	# 바탕 원과 얼굴 (최종 시안 캐릭터의 큰 일러스트에서 얼굴 부분)
 	draw_circle(c, PROFILE_R, Color("#1b1d3a"))
 	draw_circle(c, PROFILE_R - 4, Color("#2c3160"))
-	var hr: Rect2 = art["head_rect"]
-	var img_scale := float(ChibiArt.UPSCALE)
-	var src := Rect2(hr.position * img_scale, hr.size * img_scale)
-	var dsize := Vector2(62, 62 * hr.size.y / hr.size.x)
-	draw_texture_rect_region(art["body"], Rect2(c - Vector2(dsize.x * 0.5, dsize.y * 0.5 + 2), dsize), src)
+	HeroArt.draw_face(self, hero_id, c + Vector2(0, 2), 62.0)
 	# 경험치 고리 (보라) + 금테
 	draw_arc(c, PROFILE_R, 0, TAU, 48, Color("#d9a441"), 4.0)
 	var growth = battle.growth

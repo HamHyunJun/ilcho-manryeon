@@ -38,7 +38,7 @@
       "status_effects": [],
       "special": [],
       "animation": "",
-      "effect_override": null
+      "effect_override": {"sprite": "res://assets/sprites/effects/plum_blossom_sword_t1.png", "motion": "impact", "scale": 1.5}
     },
     {
       "id": "plum_blossom_sword.t2",
@@ -55,7 +55,7 @@
       "status_effects": [],
       "special": [],
       "animation": "",
-      "effect_override": null
+      "effect_override": {"sprite": "res://assets/sprites/effects/plum_blossom_sword_t2.png", "motion": "impact", "scale": 1.45}
     },
     {
       "id": "plum_blossom_sword.t3",
@@ -72,7 +72,7 @@
       "status_effects": [],
       "special": [],
       "animation": "",
-      "effect_override": null
+      "effect_override": {"sprite": "res://assets/sprites/effects/plum_blossom_sword_t3.png", "motion": "impact", "scale": 1.4}
     },
     {
       "id": "plum_blossom_sword.t4",
@@ -89,7 +89,7 @@
       "status_effects": [],
       "special": [],
       "animation": "",
-      "effect_override": null
+      "effect_override": {"sprite": "res://assets/sprites/effects/plum_blossom_sword_t4.png", "motion": "impact", "scale": 1.55}
     }
   ]
 }

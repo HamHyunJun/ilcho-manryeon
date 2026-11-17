@@ -102,7 +102,7 @@
 
 - `order`: 해금 순서.
 - `mastery_target`: 대성 목표 횟수(기본 10,000, 데이터 값).
-- `effect_override`: 대성 전용 연출 Resource 경로(선택).
+- `effect_override`: 초식 전용 이펙트 그림(선택). `{sprite, motion, scale}` 형태로, `sprite`는 PNG 경로, `motion`은 `impact`(대상 위에서 터짐) 또는 `travel`(손에서 대상으로 날아감), `scale`은 기본 크기 배율이다. 지정하면 **모든 수련 단계**에서 코드 그림 대신 이 그림을 쓰고, 단계에 따라 크기(0.85~1.3배)와 부가 연출(충격파·균열·파티클)만 달라진다. 현재 12초식 모두 1차 이펙트 시안 그림이 연결돼 있다.
 
 데이터 예시는 [12-tech-structure.md](12-tech-structure.md) 참고.
 

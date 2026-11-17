@@ -1,6 +1,7 @@
 extends SceneTree
 ## 화면 확인용 스크린샷 도구 (개발용).
 ## 실행: xvfb-run godot --path . -s res://tests/screenshot.gd -- <출력 경로> [초] [메뉴]
+## 메뉴: 패널 이름, summon10, growdetail, heropick(캐릭터 선택), hero:<id>(그 캐릭터로 육성 화면), pose:<id>(초식 포즈 순간)
 ## 메인 화면을 띄우고 지정한 시간만큼 진행한 뒤 화면을 PNG로 저장한다.
 
 func _initialize() -> void:
@@ -30,6 +31,22 @@ func _initialize() -> void:
 			if not root.get_node("GameState").equipment.level_up_materials(int(it["uid"])).is_empty():
 				g._open_detail(int(it["uid"]))
 				break
+	elif ui and menu == "heropick":
+		# 캐릭터 선택 창
+		ui.open_menu("growth")
+		ui.panels["growth"].open_picker()
+	elif ui and menu.begins_with("hero:"):
+		# 특정 캐릭터로 바꾼 뒤 육성 화면 (hero:<id>)
+		main.get_node("Battle").set_appearance(menu.substr(5))
+		ui.open_menu("growth")
+	elif ui and menu.begins_with("pose:"):
+		# 특정 캐릭터의 초식 전투 포즈 순간 (pose:<id>)
+		var b = main.get_node("Battle")
+		b.set_appearance(menu.substr(5))
+		await create_timer(maxf(sec - 0.15, 0.0)).timeout
+		b.player._pose = b.player.POSE_TIME * 0.7
+		b.player._tech_flash = 0.2
+		sec = 0.0
 	elif ui and menu != "":
 		ui.open_menu(menu)
 	await create_timer(sec).timeout
