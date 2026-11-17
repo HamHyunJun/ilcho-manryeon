@@ -82,7 +82,7 @@ func _draw_stage_block() -> void:
 	var place := stage.area_name() if stage.area_name() != "" else stage.region_name()
 	var title := "%s · 스테이지 %d" % [place, stage.stage_no]
 	if dg != null:
-		title = dg.data.get("name", "던전")
+		title = "%s · %s" % [dg.data.get("name", "던전"), dg.data.get("difficulty_name", "")]
 	var left := 236.0
 	var width := 240.0
 	# 구역 이름이 붙어 제목이 길어지면 글자를 조금 줄인다
@@ -99,7 +99,7 @@ func _draw_stage_block() -> void:
 		var tl: float = float(dg.battle_cfg().get("time_limit", 180))
 		ratio = clampf(dg.time_left / tl, 0.0, 1.0)
 		col = Color("#6fb6ff")
-		caption = "웨이브 %d / %d · 남은 적 %d · %d초" % [mini(dg.wave_index + 1, dg.wave_count()), dg.wave_count(), dg.remaining_in_wave(), ceili(maxf(dg.time_left, 0.0))]
+		caption = dg.progress_text() + " · %d초" % ceili(maxf(dg.time_left, 0.0))
 	elif (stage.phase == StageManager.Phase.BOSS or dg != null) and is_instance_valid(boss):
 		ratio = float(boss.hp) / float(boss.max_hp)
 		col = Color("#e8443a")

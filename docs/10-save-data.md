@@ -154,6 +154,9 @@
   "dungeons": {
     "manual_dungeon": { "highest_cleared": 3, "entries_today": 1, "pity_counter": 4 }
   },
+  // 구현: 던전 기록은 collection.dungeons.<던전 ID>에 둔다.
+  // { "day": "2026-11-16", "entries": 1, "clears": 12, "pity": 2, "best_level": 2, "best_kills": { "1": 37 } }
+  // best_level, best_kills는 없으면 0으로 읽으므로 저장 버전을 올리지 않았다.
 
   "missions": {
     "daily_reset_at_unix": 1794870000,
