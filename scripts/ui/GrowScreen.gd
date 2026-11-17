@@ -497,6 +497,9 @@ class EquipCard extends Button:
 class GrowCanvas extends Control:
 	var screen: GrowScreen
 	var _t := 0.0
+	## 육성 화면 주인공 몸 높이(px)와 공격·초식 동작을 보여 주는 주기(초)
+	const HERO_BODY := 250.0
+	const SHOWCASE_EVERY := 6.0
 
 	func _init() -> void:
 		# 도트 일러스트를 정수배가 아닌 크기로 그리므로 선형 필터로 고르게 보이게 한다
@@ -543,10 +546,16 @@ class GrowCanvas extends Control:
 		draw_set_transform(base, 0.0, Vector2(1.0, 0.24))
 		draw_circle(Vector2.ZERO, 120, Color(0, 0, 0, 0.45))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		# 큰 주인공: 최종 시안의 큰 도트 일러스트를 시안 방향 그대로 (숨쉬기)
+		# 큰 주인공: 1차 모션 시안의 동작 시트. 대기 2칸을 돌다가 SHOWCASE_EVERY초마다 공격·초식 동작을 한 번 보여 준다
 		var hid := s.hero_id()
+		var cyc := fmod(_t, SHOWCASE_EVERY)
+		var frame := HeroArt.anim_frame("idle", _t)
+		if cyc < 0.3:
+			frame = HeroArt.anim_frame("attack", 0.0, cyc / 0.3)
+		elif cyc < 0.9:
+			frame = HeroArt.anim_frame("skill", 0.0, (cyc - 0.3) / 0.6)
 		var bob := roundf(sin(_t * 2.5) * 2.0)
-		HeroArt.draw_full(self, hid, base + Vector2(0, -6), 300.0 + bob)
+		HeroArt.draw_motion(self, hid, frame, base + Vector2(0, -6), HERO_BODY + bob)
 		# 이름판 (시안의 먹 붓 이름판) + 바꾸기 안내
 		var hinfo: Dictionary = HeroArt.info(hid)
 		var np := GrowScreen.NAME_PLATE

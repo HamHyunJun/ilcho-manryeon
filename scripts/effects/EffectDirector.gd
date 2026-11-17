@@ -38,6 +38,10 @@ func play_technique(category: String, stage: int, from: Vector2, target_position
 	if tech.has("id"):
 		p["art_id"] = String(tech["id"]).get_slice(".", 0)
 		p["tech_order"] = int(tech.get("order", 1))
+	# 초식 전용 이펙트 그림 (1차 이펙트 시안): effect_override = {sprite, motion, scale}
+	var ov = tech.get("effect_override")
+	if ov is Dictionary and String(ov.get("sprite", "")) != "":
+		p["sprite_fx"] = ov
 	last_params = p
 	return _spawn(p, "technique", from, target_positions, "")
 

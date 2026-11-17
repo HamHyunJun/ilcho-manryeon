@@ -2,8 +2,9 @@ extends Node2D
 ## 플레이어 캐릭터 (왼쪽 고정, 이동 없음).
 ## 기본 공격은 사거리 안 대상에게 자동 발동한다 (M1).
 ## 초식은 BattleManager가 TechniqueModeController로 고른 뒤 cast_technique로 발동한다 (M3).
-## 그래픽: HeroArt의 최종 시안 도트 캐릭터(10종). 평소에는 큰 일러스트를 오른쪽으로 돌려 그리고,
-## 초식을 쓰는 순간에는 속성 이펙트가 들어간 전투 포즈로 바뀐다.
+## 그래픽: HeroArt의 1차 모션 시안 동작 시트(10종).
+## - 대기(2칸): 사거리 안에 대상이 없을 때 / 걷기(3칸): 화면에 몬스터가 하나도 없을 때(다음 무리를 향해 전진)
+## - 공격(1칸): 기본 공격 순간 / 초식(3칸): 초식을 쓰는 동안 차례로 재생
 ## 외형(appearance)을 고르지 않았으면 주력 무공 계열(style)의 기본 주인공을 쓴다.
 ## body_size는 사거리·표시 위치 계산용 판정 크기이며 그림 크기와는 별개다.
 
@@ -43,6 +44,13 @@ var _pose := 0.0
 const POSE_TIME := 0.5
 ## 전투 화면에서 큰 일러스트의 높이(px)
 const FULL_HEIGHT := 118.0
+## 전투 화면에서 동작 시트 캐릭터의 몸 높이(px). 큰 일러스트(FULL_HEIGHT)와 같은 키로 보이게 맞춘 값
+const BODY_HEIGHT := 112.0
+## 기본 공격 동작(공격 칸)을 보여 주는 시간
+const ATTACK_TIME := 0.24
+var _attack_pose := 0.0
+## 화면에 살아 있는 몬스터가 없어 걷는 중인지
+var _walking := false
 
 
 func _ready() -> void:
@@ -116,6 +124,12 @@ func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_con
 	_swing = maxf(0.0, _swing - delta)
 	_tech_flash = maxf(0.0, _tech_flash - delta)
 	_pose = maxf(0.0, _pose - delta)
+	_attack_pose = maxf(0.0, _attack_pose - delta)
+	_walking = true
+	for m in monsters:
+		if is_instance_valid(m) and not m.is_dead():
+			_walking = false
+			break
 	_hit_flash = maxf(0.0, _hit_flash - delta)
 	queue_redraw()
 	if _down:
@@ -130,6 +144,7 @@ func tick(delta: float, monsters: Array, rng: RandomNumberGenerator, defense_con
 		return {}
 	_attack_cd = attack_interval
 	_swing = 0.15
+	_attack_pose = ATTACK_TIME
 	var crit := DamageCalculator.roll_crit(rng, crit_rate)
 	var bonus := boss_damage if target.is_boss() else 0.0
 	var dmg := DamageCalculator.compute(atk, attack_coef, target.def, defense_constant, crit, crit_mult, bonus)
@@ -199,34 +214,33 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 34.0, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if _down:
-		# 쓰러짐: 뒤로 누운 자세
+		# 쓰러짐: 대기 칸을 뒤로 눕혀 그린다
 		draw_set_transform(Vector2(-14, -8), -PI * 0.5, Vector2.ONE)
-		HeroArt.draw_full(self, id, Vector2.ZERO, FULL_HEIGHT, true, Color(0.7, 0.7, 0.75))
+		HeroArt.draw_motion(self, id, HeroArt.anim_frame("idle", 0.0), Vector2.ZERO, BODY_HEIGHT, false, Color(0.7, 0.7, 0.75))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
-	# 공격 준비 자세: 숨쉬듯 들썩이고, 공격·초식 순간 앞으로 내딛는다
-	var bob := roundf(sin(_t * 5.0) * 1.2)
-	var swing_t := 1.0 - _swing / 0.15 if _swing > 0.0 else 0.0
-	var lunge := 0.0
-	if _swing > 0.0:
-		lunge = 8.0 * sin(swing_t * PI)
-	var feet := Vector2(lunge, bob * 0.5)
+	var flash := _hit_flash > 0.0
 	if _pose > 0.0:
-		# 초식 순간: 시안의 전투 포즈(속성 이펙트 포함). 처음엔 살짝 크게 튀어나왔다가 자리 잡는다
+		# 초식: 시안의 초식 동작 3칸을 차례로. 처음엔 살짝 앞으로 튀어나왔다가 자리 잡는다
 		var k := 1.0 - _pose / POSE_TIME
-		var pop := 1.0 + 0.12 * maxf(0.0, 1.0 - k * 4.0)
-		var fade := clampf(_pose / 0.12, 0.0, 1.0)
-		var pf := Vector2(6.0 + 6.0 * sin(minf(k * 3.0, 1.0) * PI * 0.5), 0)
-		var col := Color(3, 3, 3) if _hit_flash > 0.0 else Color(1, 1, 1, fade)
-		HeroArt.draw_pose(self, id, pf, FULL_HEIGHT * pop, col)
-		if fade >= 1.0:
-			return
-		HeroArt.draw_full(self, id, feet + Vector2(0, bob), FULL_HEIGHT, true, Color(1, 1, 1, 1.0 - fade))
+		var pf := Vector2(10.0 * sin(minf(k * 3.0, 1.0) * PI * 0.5), 0)
+		HeroArt.draw_motion(self, id, HeroArt.anim_frame("skill", 0.0, k), pf, BODY_HEIGHT, false, Color.WHITE, flash)
 		return
-	HeroArt.draw_full(self, id, feet + Vector2(0, bob), FULL_HEIGHT, true, Color.WHITE, _hit_flash > 0.0)
-	if _swing > 0.0:
-		# 기본 공격 궤적 (캐릭터 대표색)
-		var a := 1.0 - swing_t
-		var tint: Color = HeroArt.info(id)["color"].lightened(0.45)
-		tint.a = 0.75 * a
-		draw_arc(feet + Vector2(26, -FULL_HEIGHT * 0.5), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, tint, 4.0)
+	if _attack_pose > 0.0:
+		# 기본 공격: 공격 칸으로 앞으로 내딛는다
+		var k := 1.0 - _attack_pose / ATTACK_TIME
+		var lunge := 10.0 * sin(k * PI)
+		HeroArt.draw_motion(self, id, HeroArt.anim_frame("attack", 0.0, k), Vector2(lunge, 0), BODY_HEIGHT, false, Color.WHITE, flash)
+		if _swing > 0.0:
+			# 기본 공격 궤적 (캐릭터 대표색)
+			var swing_t := 1.0 - _swing / 0.15
+			var tint: Color = HeroArt.info(id)["color"].lightened(0.45)
+			tint.a = 0.6 * (1.0 - swing_t)
+			draw_arc(Vector2(lunge + 30, -BODY_HEIGHT * 0.5), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, tint, 4.0)
+		return
+	if _walking:
+		HeroArt.draw_motion(self, id, HeroArt.anim_frame("walk", _t), Vector2.ZERO, BODY_HEIGHT, false, Color.WHITE, flash)
+		return
+	# 대기: 시안의 대기 2칸 + 숨쉬듯 살짝 들썩임
+	var bob := roundf(sin(_t * 5.0) * 1.2) * 0.5
+	HeroArt.draw_motion(self, id, HeroArt.anim_frame("idle", _t), Vector2(0, bob), BODY_HEIGHT, false, Color.WHITE, flash)

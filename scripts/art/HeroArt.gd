@@ -5,6 +5,8 @@ class_name HeroArt
 ##   <id>_full.png  : 시안 위쪽의 큰 도트 일러스트 (육성 화면, 전투 대기 모습, 프로필 얼굴)
 ##   <id>_battle.png: 시안 아래쪽의 속성 이펙트가 들어간 전투 포즈 (초식 발동 순간)
 ##   자르는 도구: tools/hero_sprite_cutter.py (배경 제거, 흰 테두리·갇힌 배경 정리)
+##   <id>_motion.png: 1차 모션 시안(통합 아틀라스)에서 잘라 낸 9칸 동작 시트 (전투·육성 화면 애니메이션)
+##   자르는 도구: tools/motion_fx/ (extract.py → build.py). 칸마다 몸 높이와 발 기준점을 맞춰 두었다.
 ## - 큰 일러스트는 시안 그대로 정면(왼쪽 3/4)을 보고, 전투 포즈는 오른쪽을 본다.
 ##   전투 화면에서는 몬스터가 오른쪽에 있으므로 큰 일러스트를 좌우 반전해 오른쪽을 보게 한다.
 ## - 외형은 저장 데이터 character.appearance에 둔다. "" 이면 주력 무공 계열을 따른다
@@ -43,6 +45,20 @@ const DEFAULT_BY_CATEGORY := {"sword": "cheongpung", "fist": "sorim", "spell": "
 ## 전투 포즈 속 캐릭터는 큰 일러스트보다 작게 그려져 있어, 같은 키로 보이도록 키우는 비율
 const POSE_RATIO := 1.9
 
+## 동작 시트: 한 칸 크기, 칸 안의 발 기준점, 칸 안의 몸 높이(머리끝~발끝, px)
+const MOTION_CELL := Vector2(200, 150)
+const MOTION_FEET := Vector2(84, 142)
+const MOTION_BODY := 104.0
+## 시안 동작 칸 순서: 0~1 대기, 2~4 걷기, 5 공격, 6~8 초식(기술)
+const ANIMS := {
+	"idle": [0, 1],
+	"walk": [2, 3, 4, 3],
+	"attack": [5],
+	"skill": [6, 7, 8],
+}
+## 반복 동작의 초당 칸 수
+const ANIM_FPS := {"idle": 1.6, "walk": 7.0}
+
 static var _cache: Dictionary = {}
 
 
@@ -78,7 +94,8 @@ static func art(id: String) -> Dictionary:
 	if not _cache.has(id):
 		var full: Texture2D = load(DIR + id + "_full.png")
 		var battle: Texture2D = load(DIR + id + "_battle.png")
-		_cache[id] = {"full": full, "full_flash": _silhouette(full), "battle": battle, "info": info(id)}
+		var motion: Texture2D = load(DIR + id + "_motion.png") if ResourceLoader.exists(DIR + id + "_motion.png") else null
+		_cache[id] = {"full": full, "full_flash": _silhouette(full), "battle": battle, "motion": motion, "info": info(id)}
 	return _cache[id]
 
 
@@ -142,3 +159,39 @@ static func draw_face(ci: CanvasItem, id: String, center: Vector2, size: float) 
 	src = src.intersection(Rect2(Vector2.ZERO, tex.get_size()))
 	var sc := size / side
 	ci.draw_texture_rect_region(tex, Rect2(center + (src.position - h) * sc, src.size * sc), src)
+
+
+## 동작 이름과 경과 시간으로 시트 칸 번호를 고른다. 반복 동작(idle, walk)은 ANIM_FPS로 돈다.
+## progress(0~1)를 주면 한 번만 재생하는 동작(attack, skill)의 진행도로 칸을 고른다.
+static func anim_frame(anim: String, t: float, progress: float = -1.0) -> int:
+	var frames: Array = ANIMS.get(anim, ANIMS["idle"])
+	var i := 0
+	if progress >= 0.0:
+		i = mini(frames.size() - 1, int(clampf(progress, 0.0, 0.999) * frames.size()))
+	else:
+		i = int(floor(t * float(ANIM_FPS.get(anim, 4.0)))) % frames.size()
+	return int(frames[i])
+
+
+## 동작 시트가 있는지 (없으면 큰 일러스트로 대신 그린다)
+static func has_motion(id: String) -> bool:
+	return art(id)["motion"] != null
+
+
+## 동작 시트의 한 칸을 발 기준점 위에 그린다. body_height: 화면에서의 몸 높이(머리끝~발끝)
+## 시안 동작은 오른쪽(몬스터 쪽)을 보고 있다. flip: true면 좌우 반전
+static func draw_motion(ci: CanvasItem, id: String, frame: int, feet: Vector2, body_height: float, flip: bool = false, modulate: Color = Color.WHITE, flash: bool = false) -> void:
+	var a := art(id)
+	var tex: Texture2D = a["motion"]
+	if tex == null:
+		draw_full(ci, id, feet, body_height * 1.12, not flip, modulate, flash)
+		return
+	if flash:
+		if not a.has("motion_flash"):
+			a["motion_flash"] = _silhouette(tex)
+		tex = a["motion_flash"]
+	var sc := body_height / MOTION_BODY
+	var src := Rect2(Vector2(MOTION_CELL.x * frame, 0), MOTION_CELL)
+	ci.draw_set_transform(feet, 0.0, Vector2(-sc if flip else sc, sc))
+	ci.draw_texture_rect_region(tex, Rect2(-MOTION_FEET, MOTION_CELL), src, modulate)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

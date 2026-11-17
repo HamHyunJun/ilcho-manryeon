@@ -5,6 +5,8 @@ extends Node2D
 ## - 픽셀 제약 없이 3D 게임처럼: 구체 음영, 다층 광채, 충격파 고리, 번개, 꽃잎 폭풍, 바닥 원근 마법진.
 ## - 가산 혼합(빛이 겹칠수록 밝아짐)으로 그린다. 몬스터 몸 위는 반투명 테두리 위주로 그려 과하게 가리지 않는다.
 ## - 연출 높이는 대상 위 MAX_RISE px로 제한해 상단 정보창을 덮지 않는다.
+## - 초식 데이터에 effect_override(시안 이펙트 그림)가 있으면 코드 그림 대신 그 그림을 보통 혼합으로 그린다
+##   (가산 혼합이면 시안보다 하얗게 뜬다). 단계 공통 부가 연출(충격파·균열·파티클)은 그대로 얹는다.
 ## kind: "technique"(초식 발동), "stage_up"(단계 상승 알림), "mastery"(대성 알림)
 
 ## 대상 발밑에서 위로 그릴 수 있는 최대 높이 (상단 정보창 보호)
@@ -32,6 +34,21 @@ var _particles: Array = []
 var _cracks: Array = []
 var _font: Font
 var _seed := 0
+## 시안 이펙트 그림 (없으면 null) 과 움직임 방식(impact: 대상 위에서 터짐, travel: 손에서 대상으로 날아감)
+var _sprite_tex: Texture2D
+var _sprite_motion := "impact"
+var _sprite_scale := 1.4
+var _sprite_layer: Node2D
+
+static var _sprite_cache: Dictionary = {}
+
+
+## 이펙트 그림을 그리는 자식 층. 부모의 가산 혼합 재질을 물려받지 않아 시안 색 그대로 보인다
+class SpriteLayer extends Node2D:
+	var fx: Node2D
+
+	func _draw() -> void:
+		fx.draw_sprite_fx(self)
 
 
 func setup(p: Dictionary, effect_kind: String, from: Vector2, to: Array, ground: float, rng: RandomNumberGenerator, label: String = "") -> void:
@@ -57,6 +74,19 @@ func setup(p: Dictionary, effect_kind: String, from: Vector2, to: Array, ground:
 		duration = maxf(duration, 2.0)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_font = ThemeDB.fallback_font
+	var sfx = p.get("sprite_fx")
+	if kind == "technique" and sfx is Dictionary:
+		var path := String(sfx.get("sprite", ""))
+		if not _sprite_cache.has(path):
+			_sprite_cache[path] = load(path) if ResourceLoader.exists(path) else null
+		_sprite_tex = _sprite_cache[path]
+		if _sprite_tex != null:
+			_sprite_motion = String(sfx.get("motion", "impact"))
+			_sprite_scale = float(sfx.get("scale", 1.4))
+			_sprite_layer = SpriteLayer.new()
+			_sprite_layer.fx = self
+			_sprite_layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			add_child(_sprite_layer)
 	var n := int(p.get("particles", 0))
 	if kind == "technique":
 		n = maxi(n, 8)
@@ -115,6 +145,8 @@ func advance(delta: float) -> void:
 		pt["pos"] = pt["pos"] + pt["vel"] * delta
 		pt["rot"] = pt["rot"] + pt["spin"] * delta
 	queue_redraw()
+	if _sprite_layer:
+		_sprite_layer.queue_redraw()
 
 
 ## 화면 흔들림 세기(px). 시작 직후가 가장 세고 줄어든다
@@ -179,6 +211,49 @@ func _draw_technique(t: float, fade: float, c1: Color, c2: Color) -> void:
 	var key := art_id
 	if key == "":
 		key = {"sword": "plum_blossom_sword", "fist": "arhat_fist", "spell": "yin_yang_five_elements"}.get(category, "plum_blossom_sword")
+	if _sprite_tex != null:
+		# 시안 이펙트 그림이 있으면 코드 그림 대신 은은한 바탕 광채만 깐다 (그림은 SpriteLayer가 그림)
+		_glow(body, 70.0 * g, c1, 0.18 * a)
+	else:
+		_draw_procedural(key, t, a, center, body, hand, g)
+	_draw_stage_extras(t, fade, a, center, body, g, c1)
+
+
+## 시안 이펙트 그림 (SpriteLayer에서 부른다). 대상마다 하나씩 그린다
+func draw_sprite_fx(ci: CanvasItem) -> void:
+	if _sprite_tex == null:
+		return
+	var t := clampf(age / maxf(0.01, duration), 0.0, 1.0)
+	var g := _grow()
+	var sz := _sprite_tex.get_size()
+	# 나타날 때 살짝 커지며 튀어나오고, 후반 45%에서 사라진다
+	var pop := lerpf(0.6, 1.0, _ease_out(clampf(t * 4.0, 0.0, 1.0)))
+	var alpha := clampf((1.0 - t) / 0.45, 0.0, 1.0)
+	var sc := _sprite_scale * g
+	var hand := origin + Vector2(6, -48)
+	var pts: Array = targets if not targets.is_empty() else [origin + Vector2(120, 0)]
+	for tp in pts:
+		var body: Vector2 = tp + Vector2(0, -45)
+		var c := body
+		var s := sc * pop
+		if _sprite_motion == "travel":
+			# 손 앞에서 출발해 대상까지 날아간다 (그림의 오른쪽 끝이 앞장선다)
+			var k := _ease_out(clampf(t / 0.4, 0.0, 1.0))
+			var start := Vector2(hand.x + sz.x * sc * 0.5, body.y)
+			var finish := Vector2(body.x - sz.x * sc * 0.25, body.y)
+			c = start.lerp(finish, k)
+			s = sc
+		ci.draw_set_transform(c, 0.0, Vector2(s, s))
+		ci.draw_texture(_sprite_tex, -sz * 0.5, Color(1, 1, 1, alpha))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _ease_out(x: float) -> float:
+	return 1.0 - (1.0 - x) * (1.0 - x)
+
+
+## 시안 그림이 없는 초식의 코드 그림 연출 (12초식 고유 모양)
+func _draw_procedural(key: String, t: float, a: float, center: Vector2, body: Vector2, hand: Vector2, g: float) -> void:
 	match key:
 		"arhat_fist":
 			match tech_order:
@@ -198,6 +273,9 @@ func _draw_technique(t: float, fade: float, c1: Color, c2: Color) -> void:
 				3: _plum_thrust(t, a, hand, body, g)
 				4: _plum_bloom(t, a, center, body, g)
 				_: _plum_slash(t, a, body, g)
+
+
+func _draw_stage_extras(t: float, fade: float, a: float, center: Vector2, body: Vector2, g: float, c1: Color) -> void:
 	# 단계 공통 부가 연출: 충격파 고리, 먼지, 지면 균열, 대성 이중 고리
 	var sw := float(params.get("shockwave", 0))
 	if sw > 0.0:

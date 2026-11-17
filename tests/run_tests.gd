@@ -1691,6 +1691,22 @@ func _test_design_visuals() -> void:
 		if ha["full"] != null and ha["battle"] != null and ha["full_flash"] != null:
 			loaded += 1
 	_check(loaded == 10, "캐릭터마다 큰 일러스트·전투 포즈·피격 실루엣 로드 (%d/10)" % loaded)
+	# 1차 모션 시안 동작 시트 (대기 2·걷기 3·공격 1·초식 3칸)
+	var motions := 0
+	for hid in HeroArt.ids():
+		var mt: Texture2D = HeroArt.art(hid)["motion"]
+		if mt != null and mt.get_size() == Vector2(HeroArt.MOTION_CELL.x * 9, HeroArt.MOTION_CELL.y):
+			motions += 1
+	_check(motions == 10, "캐릭터마다 9칸 동작 시트 로드 (%d/10)" % motions)
+	_check(HeroArt.anim_frame("idle", 0.0) == 0 and HeroArt.anim_frame("walk", 0.2) == 3 and HeroArt.anim_frame("skill", 0.0, 0.99) == 8, "동작 이름과 시간으로 시트 칸을 고름")
+	# 초식별 시안 이펙트 그림 (12초식 effect_override)
+	var fx_ok := 0
+	for aid in ["plum_blossom_sword", "arhat_fist", "yin_yang_five_elements"]:
+		for tch in (root.get_node("DataRegistry").get_martial_art(aid).get("techniques", [])):
+			var ov = tch.get("effect_override")
+			if ov is Dictionary and ResourceLoader.exists(String(ov.get("sprite", ""))):
+				fx_ok += 1
+	_check(fx_ok == 12, "12초식 모두 시안 이펙트 그림 연결 (%d/12)" % fx_ok)
 	_check(battle.player.hero_id() == "sorim", "외형을 안 고르면 권 계열 기본 주인공은 소림승려")
 	battle.set_appearance("hyeolma")
 	_check(battle.player.hero_id() == "hyeolma" and battle.growth.state.get("appearance") == "hyeolma", "고른 외형이 전투 캐릭터와 저장 데이터에 반영")
