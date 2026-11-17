@@ -49,6 +49,13 @@ var _death_layer: Node2D
 ## GameState에 스테이지 진행을 기록하는지
 var _persist := false
 var _hud: Node2D
+## 전투 화면 전체를 내리는 양 (세로로 긴 화면에서 남는 높이만큼). HUD(상단 바)는 화면 맨 위에 그대로 둔다
+var world_offset := Vector2.ZERO:
+	set(v):
+		world_offset = v
+		position = v
+		if _hud:
+			_hud.position = -v
 ## 초식 연출 관리자 (M6)
 var effects: EffectDirector
 ## 캐릭터 레벨/경지 (M7). GameState를 쓰지 않는 전투(테스트)는 따로 만든다
@@ -144,6 +151,7 @@ func setup(combat_config: Dictionary, region_data: Dictionary = {}, martial_arts
 		_hud.name = "Hud"
 		_hud.z_index = 20
 		_hud.battle = self
+		_hud.position = -world_offset
 		add_child(_hud)
 
 	_spawn_cd = 0.0
@@ -254,9 +262,9 @@ func tick(delta: float) -> void:
 			effects.shake_enabled = bool(get_node("/root/GameState").data.get("settings", {}).get("screen_shake", true))
 		effects.tick(delta)
 		# 화면 흔들림: 전투 화면만 흔들고 HUD는 제자리에 둔다
-		position = effects.shake_offset
+		position = world_offset + effects.shake_offset
 		if _hud:
-			_hud.position = -effects.shake_offset
+			_hud.position = -(world_offset + effects.shake_offset)
 
 	if player.is_down():
 		_recover_cd -= delta

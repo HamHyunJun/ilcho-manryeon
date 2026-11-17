@@ -20,14 +20,22 @@ var active := "main"
 var gauge := 0.0
 var _t := 0.0
 var bar_y := 1146.0
+var _last_id := ""
+var _last_ms := -100000
 
 
 func _init(top: float) -> void:
+	set_top(top)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+## 앱바 윗선 높이를 바꾼다. 컨트롤 영역은 태극 버튼이 솟은 높이부터 화면 아래까지
+## (안전 영역 아래로도 앱바 바탕색이 이어지게 400px 더 그린다)
+func set_top(top: float) -> void:
 	bar_y = top
-	# 컨트롤 영역은 태극 버튼이 솟은 높이부터 화면 아래까지
 	position = Vector2(0, top - 70)
 	size = Vector2(720, HEIGHT + 70 + 400)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -50,23 +58,44 @@ func _slot_x(i: int) -> float:
 	return 72.0 + i * 144.0
 
 
+## 모바일에서는 손가락을 뗄 때 터치 이벤트와, 터치를 흉내 낸 마우스 이벤트가 둘 다 들어온다
+## (input_devices/pointing/emulate_mouse_from_touch 기본값 true).
+## 둘 다 처리하면 같은 탭이 두 번 눌려 육성·던전·소환이 열렸다가 바로 닫혔다. 한 번만 처리한다.
 func _gui_input(event: InputEvent) -> void:
-	var pressed := false
 	var pos := Vector2.ZERO
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		pressed = true
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			accept_event()
+			return
 		pos = event.position
-	elif event is InputEventScreenTouch and not event.pressed:
-		pressed = true
+	elif event is InputEventScreenTouch:
+		accept_event()
+		# 마우스 흉내가 켜져 있으면 뒤따라오는 마우스 이벤트로 처리한다
+		if event.pressed or _touch_emulates_mouse():
+			return
 		pos = event.position
-	if not pressed:
+	else:
 		return
 	accept_event()
-	if pos.distance_to(_taiji_center()) <= TAIJI_R + 8.0:
-		menu_pressed.emit("main")
+	_press_at(pos)
+
+
+static func _touch_emulates_mouse() -> bool:
+	return bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true))
+
+
+## pos(앱바 컨트롤 안 좌표)에 있는 메뉴를 누른다
+## 같은 탭이 아주 짧은 간격(0.2초 안)으로 두 번 들어오면 한 번으로 본다 (기기별 중복 입력 대비)
+func _press_at(pos: Vector2) -> void:
+	var id: String = "main"
+	if pos.distance_to(_taiji_center()) > TAIJI_R + 8.0:
+		id = ITEMS[clampi(int(pos.x / 144.0), 0, ITEMS.size() - 1)][0]
+	var now := Time.get_ticks_msec()
+	if id == _last_id and now - _last_ms < 200:
 		return
-	var i := clampi(int(pos.x / 144.0), 0, ITEMS.size() - 1)
-	menu_pressed.emit(ITEMS[i][0])
+	_last_id = id
+	_last_ms = now
+	menu_pressed.emit(id)
 
 
 func _draw() -> void:

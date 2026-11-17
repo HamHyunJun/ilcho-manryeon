@@ -62,6 +62,7 @@ const TESTS := [
 	&"_test_tutorial_steps",
 	&"_test_design_visuals",
 	&"_test_equipment_summon_and_level_up",
+	&"_test_app_bar_touch_and_tall_screen",
 ]
 
 var _failed := 0
@@ -115,6 +116,7 @@ func _test_project_settings() -> void:
 	_check(ProjectSettings.get_setting("display/window/size/viewport_height") == 1280, "기준 높이 1280")
 	# 1 = 세로(Portrait)
 	_check(ProjectSettings.get_setting("display/window/handheld/orientation") == 1, "세로 고정")
+	_check(ProjectSettings.get_setting("display/window/stretch/aspect") == "keep_width", "가로 720 고정, 세로로 긴 화면은 높이를 늘림")
 	_check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/main/Main.tscn", "메인 씬 지정")
 	for name in ["EventBus", "TimeService", "DataRegistry", "GameState", "SaveManager"]:
 		_check(ProjectSettings.has_setting("autoload/" + name), "오토로드 등록: " + name)
@@ -1767,6 +1769,46 @@ func _test_equipment_summon_and_level_up() -> void:
 		_check(grow.slot_filter == "shoes", "빈 슬롯을 누르면 그 부위 장비만 보여 줌")
 	else:
 		_check(grow._detail.visible, "장착된 슬롯을 누르면 상세 창")
+	main.free()
+	gs.reset_to_new_game()
+	_finish()
+
+
+## 하단 앱바: 모바일 터치(터치 + 흉내 낸 마우스 이벤트)로 한 번 눌러도 메뉴가 열린 채로 남는지,
+## 세로로 긴 화면(1080×2400 → 720×1600)에서 앱바가 맨 아래로 내려가는지
+func _test_app_bar_touch_and_tall_screen() -> void:
+	print("[하단 앱바 터치와 세로로 긴 화면]")
+	var gs = root.get_node("GameState")
+	gs.reset_to_new_game()
+	var main: Node = load("res://scenes/main/Main.tscn").instantiate()
+	root.add_child(main)
+	var ui = main.get_node("GameUi")
+	var bar: AppBar = ui._app_bar
+	# 모바일에서 손가락 한 번 = 터치 누름/뗌 + 마우스 누름/뗌
+	var tap := func(x: float):
+		var pos := Vector2(x, 70.0 + 60.0)
+		for pressed in [true, false]:
+			var t := InputEventScreenTouch.new()
+			t.position = pos
+			t.pressed = pressed
+			bar._gui_input(t)
+			var m := InputEventMouseButton.new()
+			m.button_index = MOUSE_BUTTON_LEFT
+			m.position = pos
+			m.pressed = pressed
+			bar._gui_input(m)
+	for case in [[1, "growth"], [3, "dungeon"], [4, "summon"]]:
+		tap.call(bar._slot_x(case[0]))
+		_check(ui.panels[case[1]].visible and bar.active == case[1], "터치 한 번으로 %s 화면이 열린 채로 남음" % case[1])
+	tap.call(360.0)
+	_check(ui._open_name == "" and bar.active == "main", "태극 버튼 터치 → 메인으로 돌아옴")
+	# 720×1600 화면: 남는 320px만큼 전투 화면과 앱바를 내린다
+	ui.apply_layout(320.0)
+	main.get_node("Battle").world_offset = Vector2(0, 320)
+	_check(is_equal_approx(bar.bar_y, 1146.0 + 320.0), "앱바 윗선이 화면 맨 아래 기준으로 내려감")
+	_check(is_equal_approx(ui.panels["growth"].size.y, 1466.0), "육성 화면이 앱바 윗선까지 늘어남")
+	_check(is_equal_approx(ui.panels["dungeon"].size.y, MenuPanel.AREA.size.y + 320.0), "던전 화면이 앱바 윗선까지 늘어남")
+	_check(is_equal_approx(main.get_node("Battle/Hud").position.y + main.get_node("Battle").position.y, 0.0), "상단 바는 화면 맨 위에 그대로")
 	main.free()
 	gs.reset_to_new_game()
 	_finish()

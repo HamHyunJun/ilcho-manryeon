@@ -8,6 +8,7 @@ signal close_requested()
 
 ## 화면 배치 (720×1280 기준): 상단 바 아래부터 하단 앱바(높이 134) 위까지.
 ## 배경과 전투는 뒤에서 계속 진행되며, 상단 바는 가리지 않는다.
+## 세로로 긴 화면에서는 GameUi.apply_layout()이 높이를 앱바 윗선까지 늘린다.
 const AREA := Rect2(0, 172, 720, 974)
 
 var title_text := ""
