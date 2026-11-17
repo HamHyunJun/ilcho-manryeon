@@ -26,13 +26,13 @@ func _draw() -> void:
 	# 캐릭터 머리 위: 방금 발동한 초식 이름
 	if battle.last_technique_left > 0.0 and battle.last_technique_name != "":
 		var a2 := clampf(battle.last_technique_left / 0.3, 0.0, 1.0)
-		var pp: Vector2 = player.position
+		var pp: Vector2 = player.position + battle.world_offset
 		UiIcons.text(self, Vector2(pp.x - 100, pp.y - 112), battle.last_technique_name, 22, Color(1, 0.88, 0.95, a2), HORIZONTAL_ALIGNMENT_CENTER, 200)
 
 	# 화면 가운데 안내 문구
 	if battle.banner_left > 0.0 and battle.banner_text != "":
 		var a := clampf(battle.banner_left / 0.4, 0.0, 1.0)
-		UiIcons.text(self, Vector2(0, 560), battle.banner_text, 40, Color(1, 0.92, 0.7, a), HORIZONTAL_ALIGNMENT_CENTER, 720, 8)
+		UiIcons.text(self, Vector2(0, 560 + battle.world_offset.y), battle.banner_text, 40, Color(1, 0.92, 0.7, a), HORIZONTAL_ALIGNMENT_CENTER, 720, 8)
 
 
 func _draw_profile(player) -> void:

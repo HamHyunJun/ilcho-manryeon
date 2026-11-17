@@ -8,12 +8,20 @@ class_name BattleBackground
 
 const W := 720.0
 const H := 1280.0
+## 밤하늘 맨 윗색 (StaticPainter._sky 첫 색과 같다)
+const SKY_TOP := Color("#070a1f")
 ## 바닥(돌바닥 윗선) 높이. 전투 ground_y와 맞춘다
 var ground_y := 1020.0
 ## 돌바닥이 끝나는 높이 (하단 앱바 윗선)
 var floor_bottom := 1146.0
 
 var _static_vp: SubViewport
+## 세로로 긴 화면에서 배경을 아래로 내린 양. 위쪽 빈 곳은 밤하늘로 채운다 (ScreenFit.shift)
+var world_shift := 0.0:
+	set(v):
+		world_shift = v
+		position = Vector2(0, v)
+		queue_redraw()
 var _t := 0.0
 var _petals: Array = []
 var _twinkles: Array = []
@@ -46,7 +54,7 @@ func _ready() -> void:
 
 func _new_petal(anywhere: bool) -> Dictionary:
 	return {
-		"pos": Vector2(_rng.randf_range(-40, W), _rng.randf_range(120, ground_y) if anywhere else _rng.randf_range(100, 260)),
+		"pos": Vector2(_rng.randf_range(-40, W), _rng.randf_range(120, ground_y) if anywhere else _rng.randf_range(100, 260) - minf(world_shift, 200.0)),
 		"vel": Vector2(_rng.randf_range(14, 40), _rng.randf_range(26, 60)),
 		"rot": _rng.randf_range(0, TAU),
 		"spin": _rng.randf_range(-2.5, 2.5),
@@ -67,8 +75,20 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	# 위로 남는 하늘: 배경 맨 윗색으로 채우고 별을 흩뿌린다 (매번 같은 자리)
+	if world_shift > 0.0:
+		draw_rect(Rect2(0, -world_shift, W, world_shift + 1), SKY_TOP)
+		var r := RandomNumberGenerator.new()
+		r.seed = 99
+		for i in int(world_shift / 8.0):
+			var p := Vector2(r.randf_range(0, W), r.randf_range(-world_shift, 0))
+			var s := 1.0 if r.randf() < 0.85 else 2.0
+			draw_rect(Rect2(p, Vector2(s, s)), Color(1, 1, 1, r.randf_range(0.25, 0.8)))
 	if _static_vp:
 		draw_texture(_static_vp.get_texture(), Vector2.ZERO)
+	# 상단 정보창 보호: 화면 맨 위를 어둡게 (배경을 내려도 상단 바 자리에 맞춘다)
+	for i in 18:
+		draw_rect(Rect2(0, -world_shift + i * 10.0, W, 10), Color(0.02, 0.02, 0.06, 0.55 * (1.0 - i / 18.0)))
 	# 별 반짝임
 	for i in _twinkles.size():
 		var tw := 0.5 + 0.5 * sin(_t * (1.5 + i * 0.13) + i)
@@ -143,10 +163,7 @@ class StaticPainter extends Node2D:
 		_plum_branch_left()
 		_plum_branch_right()
 		_floor()
-		# 상단 정보창 보호: 위쪽을 어둡게
-		for i in 18:
-			var y := i * 10.0
-			draw_rect(Rect2(0, y, 720, 10), Color(0.02, 0.02, 0.06, 0.55 * (1.0 - i / 18.0)))
+		# 상단 정보창 보호(위쪽 어둡게)는 바깥 _draw에서 화면 맨 위 기준으로 그린다
 
 	func _sky() -> void:
 		var stops := [[0.0, Color("#070a1f")], [0.25, Color("#11173a")], [0.5, Color("#1f2752")], [0.75, Color("#2e3866")], [1.0, Color("#262d52")]]

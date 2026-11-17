@@ -42,6 +42,9 @@ var _detail: PanelContainer
 var _detail_box: VBoxContainer
 var _rng := RandomNumberGenerator.new()
 var _slot_buttons: Dictionary = {}
+var _list_scroll: ScrollContainer
+## 보유 장비 목록 높이. 세로로 긴 화면에서는 fit_height()로 남는 만큼 늘린다
+var list_h := 350.0
 
 
 func _init(martial_arts: MartialArtManager, equipment_manager: EquipmentManager = null, battle_manager: Node2D = null) -> void:
@@ -196,6 +199,7 @@ func _build_list(layer: Control) -> void:
 	_chips.add_theme_constant_override("separation", 6)
 	_list_box.add_child(_chips)
 	var scroll := ScrollContainer.new()
+	_list_scroll = scroll
 	scroll.position = Vector2(8, 50)
 	scroll.size = Vector2(664, 292)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -265,6 +269,20 @@ func _refresh_list() -> void:
 		var l := MenuPanel.label("보유한 장비가 없습니다. 몬스터와 보스가 떨어뜨립니다." if grade_filter == "" else "이 등급의 장비가 없습니다.", 17, Color(0.75, 0.75, 0.82))
 		l.custom_minimum_size = Vector2(640, 0)
 		_grid.add_child(l)
+
+
+## 화면 높이를 맞춘다 (하단 앱바 윗선까지). 늘어난 만큼 보유 장비 목록과 무공 탭을 키운다
+func fit_height(h: float) -> void:
+	h = maxf(h, SCREEN.size.y)
+	size = Vector2(SCREEN.size.x, h)
+	custom_minimum_size = size
+	_canvas.size = size
+	list_h = 350.0 + (h - SCREEN.size.y)
+	_list_box.size = Vector2(680, list_h)
+	_list_scroll.size = Vector2(664, list_h - 58)
+	_arts_panel.size = Vector2(720, h - LIST_Y + 4)
+	_arts_panel.custom_minimum_size = _arts_panel.size
+	_canvas.queue_redraw()
 
 
 # ---- 무공 탭 (기존 무공 화면) ----
@@ -450,8 +468,9 @@ class GrowCanvas extends Control:
 	func _draw() -> void:
 		var s := screen
 		# 배경: 남색 밤하늘 + 은은한 달빛
-		for i in 20:
-			draw_rect(Rect2(0, i * 58, 720, 58), Color("#1a1838").lerp(Color("#0f0e1f"), i / 19.0))
+		var rows := ceili(size.y / 58.0)
+		for i in rows:
+			draw_rect(Rect2(0, i * 58, 720, 58), Color("#1a1838").lerp(Color("#0f0e1f"), i / float(maxi(rows - 1, 1))))
 		for i in 8:
 			draw_circle(Vector2(540, 230), 150 - i * 14, Color(1.0, 0.92, 0.7, 0.025))
 		# 제목과 경지 · 전투력
@@ -532,9 +551,9 @@ class GrowCanvas extends Control:
 			UiIcons.text(self, Vector2(x, box.position.y + 72), v, 30, cells[i][2], HORIZONTAL_ALIGNMENT_CENTER, 170, 4)
 		# 탭 아래 목록 테두리
 		if s.tab == "equip" or s.tab == "summon":
-			var lr := Rect2(20, LIST_Y, 680, 350)
+			var lr := Rect2(20, LIST_Y, 680, s.list_h)
 			UiIcons.round_rect(self, lr, 14, Color(0.05, 0.04, 0.09, 0.85), Color(0.85, 0.64, 0.25, 0.6), 2.0)
 			if s.tab == "summon":
-				UiIcons.text(self, Vector2(20, LIST_Y + 170), "소환수: MVP 이후 추가 예정", 22, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 680, 0)
+				UiIcons.text(self, Vector2(20, LIST_Y + s.list_h * 0.5 - 5), "소환수: MVP 이후 추가 예정", 22, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 680, 0)
 		if s.message != "" and s.tab == "equip":
-			UiIcons.text(self, Vector2(20, LIST_Y + 338), s.message, 16, Color(1, 0.8, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 680, 3)
+			UiIcons.text(self, Vector2(20, LIST_Y + s.list_h - 12), s.message, 16, Color(1, 0.8, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 680, 3)

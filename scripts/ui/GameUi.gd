@@ -5,6 +5,7 @@ extends Control
 ## - 오른쪽 위 설정 버튼 (상단 바 가로 중심선에 맞춤).
 
 ## 하단 앱바 윗선 (720×1280 기준). 앱바 높이 약 100 → 134px로 키웠다
+## 세로로 긴 화면에서는 여기에 layout_shift를 더한 높이에 놓는다 (ScreenFit 참고)
 const BAR_Y := 1146.0
 ## 연속초식 토글과 수련 문구 줄 (앱바가 커진 만큼 위로)
 const CONTROLS_Y := 1036.0
@@ -26,6 +27,9 @@ var _gear_button: Button
 var _open_name := ""
 ## 튜토리얼 안내 (M11)
 var tutorial: TutorialGuide
+var _combat_layer: Control
+## 세로로 긴 화면에서 전투 조작 줄과 하단 앱바를 아래로 내린 양 (ScreenFit.shift)
+var layout_shift := 0.0
 
 
 func _ready() -> void:
@@ -40,6 +44,24 @@ func _ready() -> void:
 	_build_app_bar()
 	_build_top_buttons()
 	_build_tutorial()
+	apply_layout(layout_shift)
+
+
+## 화면 비율에 맞춰 배치한다. shift만큼 전투 조작 줄과 하단 앱바를 내리고, 메뉴 화면은 앱바 윗선까지 늘린다
+func apply_layout(shift: float) -> void:
+	layout_shift = shift
+	if _combat_layer:
+		_combat_layer.position = Vector2(0, shift)
+	if _app_bar:
+		_app_bar.set_top(BAR_Y + shift)
+	for k in panels.keys():
+		var p: MenuPanel = panels[k]
+		if p is GrowScreen:
+			p.fit_height(BAR_Y + shift)
+		else:
+			var h := maxf(MenuPanel.AREA.size.y + shift, 400.0)
+			p.custom_minimum_size = Vector2(MenuPanel.AREA.size.x, h)
+			p.size = p.custom_minimum_size
 
 
 func _process(_delta: float) -> void:
@@ -49,6 +71,12 @@ func _process(_delta: float) -> void:
 # ---- 전투 조작 영역 ----
 
 func _build_combat_controls() -> void:
+	# 전투 조작 줄은 한 묶음으로 두고, 화면 비율에 따라 통째로 위아래로 옮긴다 (apply_layout)
+	_combat_layer = Control.new()
+	_combat_layer.name = "CombatControls"
+	_combat_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combat_layer.size = Vector2(720, 1280)
+	add_child(_combat_layer)
 	# 왼쪽: 수련 중인 초식과 진행 문구, 연속초식 발동 순서
 	_target_label = MenuPanel.label("", 19, Color(1, 0.95, 0.85))
 	_target_label.position = Vector2(20, CONTROLS_Y)
@@ -56,19 +84,19 @@ func _build_combat_controls() -> void:
 	_target_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_target_label.clip_text = true
 	_outline(_target_label)
-	add_child(_target_label)
+	_combat_layer.add_child(_target_label)
 	_chain_label = MenuPanel.label("", 15, Color(0.85, 0.85, 0.92))
 	_chain_label.position = Vector2(20, CONTROLS_Y + 30)
 	_chain_label.size = Vector2(470, 24)
 	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_chain_label.clip_text = true
 	_outline(_chain_label)
-	add_child(_chain_label)
+	_combat_layer.add_child(_chain_label)
 	# 수련 진행도: 앱바 바로 위 금색 초식 게이지로 그린다 (AppBar.gauge). 값 보관용 바는 숨긴다
 	_target_bar = ProgressBar.new()
 	_target_bar.visible = false
 	_target_bar.show_percentage = false
-	add_child(_target_bar)
+	_combat_layer.add_child(_target_bar)
 
 	# 오른쪽: "연속초식" 글자 + 스위치 모양 토글
 	var cap := MenuPanel.label("연속초식", 20, Color(0.95, 0.92, 0.85))
@@ -76,7 +104,7 @@ func _build_combat_controls() -> void:
 	cap.size = Vector2(100, 30)
 	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_outline(cap)
-	add_child(cap)
+	_combat_layer.add_child(cap)
 	_style_off = StyleBoxFlat.new()
 	_style_off.bg_color = Color(0.18, 0.18, 0.24, 0.95)
 	_style_off.border_color = Color(0.45, 0.45, 0.55)
@@ -93,7 +121,7 @@ func _build_combat_controls() -> void:
 	_chain_button.custom_minimum_size = Vector2(96, 44)
 	_chain_button.size = Vector2(96, 44)
 	_chain_button.toggled.connect(_on_chain_toggled)
-	add_child(_chain_button)
+	_combat_layer.add_child(_chain_button)
 	# 스위치 손잡이 (켜면 오른쪽으로)
 	var knob := ToggleKnob.new()
 	knob.button = _chain_button
