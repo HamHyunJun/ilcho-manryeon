@@ -100,9 +100,11 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	# 위로 남는 하늘: 안개 하늘 맨 윗색으로 채운다
+	# 위로 남는 하늘: 정적 배경의 맨 윗줄을 위로 늘여 나무 줄기가 끊기지 않고 이어지게 한다
 	if world_shift > 0.0:
 		draw_rect(Rect2(0, -world_shift, W, world_shift + 1), SKY_TOP)
+		if _static_vp:
+			draw_texture_rect_region(_static_vp.get_texture(), Rect2(0, -world_shift, W, world_shift + 1), Rect2(0, 0, W, 2))
 	if _static_vp:
 		draw_texture(_static_vp.get_texture(), Vector2.ZERO)
 	# 상단 정보창 보호: 화면 맨 위를 어둡게 (배경을 내려도 상단 바 자리에 맞춘다)
