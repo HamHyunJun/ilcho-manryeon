@@ -7,7 +7,7 @@ extends Control
 
 
 func _ready() -> void:
-	# 전투 배경: 달빛, 산, 폭포, 누각, 매화, 돌바닥 (Battle보다 뒤)
+	# 전투 배경: 안개 숲, 먹빛 산, 흙바닥 (Battle보다 뒤)
 	var ground := float(DataRegistry.balance.get("combat", {}).get("layout", {}).get("ground_y", 1020))
 	var bg := BattleBackground.new(ground, preload("res://scripts/ui/GameUi.gd").BAR_Y)
 	bg.name = "BattleBackground"

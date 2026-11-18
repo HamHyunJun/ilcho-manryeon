@@ -41,7 +41,7 @@ func _draw_profile(player) -> void:
 	var art := ChibiArt.hero(style)
 	# 바탕 원과 얼굴
 	draw_circle(c, PROFILE_R, UiIcons.INK)
-	draw_circle(c, PROFILE_R - 4, Color("#3a3d39"))
+	draw_circle(c, PROFILE_R - 4, Color("#93ab9f"))
 	var hr: Rect2 = art["head_rect"]
 	var img_scale := float(ChibiArt.UPSCALE)
 	var src := Rect2(hr.position * img_scale, hr.size * img_scale)

@@ -472,6 +472,10 @@ class GrowCanvas extends Control:
 				UiIcons.text(self, r.position + Vector2(0, 28), cur[i][1], 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 18, 0)
 		# 바닥 마법진 (원근)
 		var base := Vector2(360, 586)
+		# 먹색 실루엣이 보이도록 뒤에 안개빛 원판을 깐다 (전투 배경 하늘색)
+		for k in 6:
+			draw_circle(base + Vector2(0, -150), 175.0 - k * 6.0, Color(0.58, 0.67, 0.62, 0.16 + k * 0.1))
+		UiIcons.ink_ring(self, base + Vector2(0, -150), 178.0, Color(UiIcons.BONE, 0.35), 2.0, 9, 2.0)
 		for k in 3:
 			var rr := 190.0 - k * 50.0
 			var pts := PackedVector2Array()
@@ -487,7 +491,7 @@ class GrowCanvas extends Control:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		# 큰 주인공 (공격 준비 자세, 숨쉬기)
 		var art := ChibiArt.hero(s.hero_style())
-		var sc := 5.0
+		var sc := 4.2
 		var size_v: Vector2 = art["size"]
 		var bob := roundf(sin(_t * 2.5) * 3.0)
 		var feet := base + Vector2(0, -6 + bob)

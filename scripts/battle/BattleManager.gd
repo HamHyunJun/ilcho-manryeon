@@ -361,12 +361,13 @@ func technique_stage(tech_id: String) -> int:
 ## 계열 기본색 (데미지 숫자, 캐릭터 테두리). 연출 색은 effect_presets.json
 func _category_color(category: String) -> Color:
 	match category:
+		# 이펙트 계열색과 맞춘다 (검: 붉은 검기, 권: 주황 권풍, 술: 노란 부적)
 		"sword":
-			return Color(1.0, 0.55, 0.75)
+			return Color("#e8604a")
 		"fist":
-			return Color(1.0, 0.65, 0.3)
+			return Color("#f08a2c")
 		"spell":
-			return Color(0.5, 0.85, 1.0)
+			return Color("#e8c547")
 	return Color(0.9, 0.9, 0.9)
 
 
