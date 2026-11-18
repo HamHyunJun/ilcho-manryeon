@@ -5,7 +5,7 @@ extends Node2D
 ## 공격 예고는 플레이어가 피하는 장치가 아니라 연출이다 (docs/02 7장, 가안).
 ## 유형별 동작(돌진, 방어형 등)은 이후 type 값에 따라 추가한다.
 ## type "ranged"(원거리형, 삿갓 궁수)는 근접형과 같이 움직이되 사거리가 길고, 공격할 때 화살이 날아가는 연출만 더한다.
-## 그래픽: ChibiArt 2등신 픽셀 스프라이트 (data의 sprite: bandit/masked/chief). body_size는 판정 크기다.
+## 그래픽: InkMonsters 먹 실루엣(붉은 눈, 작은 포인트 색). data의 sprite로 종류를 고른다. body_size는 판정 크기다.
 ## 처치되면 BattleManager가 MonsterDeath 연출(8프레임 쓰러짐)을 따로 띄우고 이 노드는 바로 지운다.
 
 signal died(monster: Node)
@@ -32,7 +32,12 @@ var telegraph_left := 0.0
 var patterns_used := 0
 
 var _attack_cd := 0.0
+## 공격 모션 길이: 짧은 예비 동작(뒤로 젖힘) → 베기(앞으로 내딛으며 휘두름) → 되돌림
+const ATTACK_TIME := 0.3
+
 var _hit_flash := 0.0
+## 맞을 때마다 바뀌는 먹 튀김 모양 seed
+var _hit_seed := 0
 var _dead := false
 var _pattern_cd: Dictionary = {}
 var _t := 0.0
@@ -84,14 +89,10 @@ func is_ranged() -> bool:
 	return data.get("type", "") == "ranged" or bool(data.get("ranged", false))
 
 
-## 화살 연출: 손에서 캐릭터 쪽(왼쪽)으로 날아간다. t: 0~1
+## 원거리 연출: 입에서 캐릭터 쪽(왼쪽)으로 날아가는 먹물 침. t: 0~1
 func _draw_arrow(from: Vector2, t: float) -> void:
 	var x := from.x - (_gap + half_width()) * t
-	var p := Vector2(x, from.y - 4.0)
-	draw_line(p, p + Vector2(22, 0), Color("#6b4426"), 3.0)
-	draw_colored_polygon(PackedVector2Array([p + Vector2(-7, 0), p + Vector2(1, -4), p + Vector2(1, 4)]), Color("#dfe7f7"))
-	draw_line(p + Vector2(18, -4), p + Vector2(24, 0), Color("#f4f1ff"), 2.0)
-	draw_line(p + Vector2(18, 4), p + Vector2(24, 0), Color("#f4f1ff"), 2.0)
+	InkFx.arrow(self, Vector2(x, from.y - 4.0), -1.0, t)
 
 
 func is_boss() -> bool:
@@ -140,7 +141,7 @@ func tick(delta: float, player, defense_constant: float) -> int:
 			_attack_cd -= delta
 			if _attack_cd <= 0.0:
 				_attack_cd = attack_interval
-				_attack_anim = 0.25
+				_attack_anim = ATTACK_TIME
 				dealt = player.take_damage(DamageCalculator.compute(atk, 1.0, player.def, defense_constant))
 	queue_redraw()
 	return dealt
@@ -173,6 +174,7 @@ func take_damage(amount: int) -> void:
 		return
 	hp = maxi(0, hp - amount)
 	_hit_flash = 0.12
+	_hit_seed += 1
 	queue_redraw()
 	if hp == 0:
 		_dead = true
@@ -187,36 +189,68 @@ func _draw() -> void:
 	draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.28))
 	draw_circle(Vector2.ZERO, size.x * sc * 0.36, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# 걸을 때는 통통 튀고, 공격할 때는 앞으로 내민다
+	# 걸을 때는 통통 튀고, 공격할 때는 뒤로 젖혔다가 앞으로 내딛는다
 	var hop := -absf(sin(_t * 9.0)) * 3.0 if _moving else roundf(sin(_t * 4.0))
+	var at := attack_phase()
 	var lunge := 0.0
-	if _attack_anim > 0.0:
-		lunge = -8.0 * sin((1.0 - _attack_anim / 0.25) * PI)
-	var feet := Vector2(lunge, hop)
-	var tint := Color.WHITE
-	if is_telegraphing():
-		# 패턴 준비 중: 붉게 깜빡인다
-		var a := 0.5 + 0.5 * absf(sin(telegraph_progress() * PI * 4.0))
-		tint = Color(1.0, 1.0 - 0.6 * a, 1.0 - 0.6 * a)
-		draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.3))
-		draw_arc(Vector2.ZERO, size.x * sc * 0.5, 0.0, TAU, 32, Color(1, 0.3, 0.2, a), 4.0)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	ChibiArt.draw_sprite(self, art["flash"] if _hit_flash > 0.0 else art["body"], size, feet, sc, tint)
-	var hand: Vector2 = feet + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
 	var ang := -0.45
-	if _attack_anim > 0.0:
-		ang = lerpf(0.5, -1.9, 1.0 - _attack_anim / 0.25)
-	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand, ang, sc, tint)
-	if is_ranged() and _attack_anim > 0.0:
-		_draw_arrow(hand, 1.0 - _attack_anim / 0.25)
+	if at > 0.0:
+		if at < 0.3:
+			# 예비 동작: 뒤로 젖히며 무기를 치켜든다
+			var k := at / 0.3
+			lunge = 6.0 * k
+			ang = lerpf(-0.45, 1.0, k)
+		elif at < 0.6:
+			# 베기: 앞으로 크게 내딛으며 내려친다
+			var k := (at - 0.3) / 0.3
+			lunge = lerpf(6.0, -18.0, k)
+			ang = lerpf(1.0, -2.2, k)
+		else:
+			var k := (at - 0.6) / 0.4
+			lunge = lerpf(-18.0, 0.0, k)
+			ang = lerpf(-2.2, -0.45, k)
+	var feet := Vector2(lunge, hop)
+	if is_telegraphing():
+		# 패턴 준비 중: 붉은 기운이 실루엣 둘레에서 일렁이고 발밑에 붓 고리
+		var a := 0.5 + 0.5 * absf(sin(telegraph_progress() * PI * 4.0))
+		for o in [Vector2(-3, 0), Vector2(3, 0), Vector2(0, -3)]:
+			ChibiArt.draw_sprite(self, art["flash"], size, feet + o, sc, Color(InkFx.RED, 0.55 * a))
+		draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.3))
+		UiIcons.ink_ring(self, Vector2.ZERO, size.x * sc * 0.5, Color(InkFx.RED, a), 4.0, 7, 3.0)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var flash := _hit_flash > 0.0
+	ChibiArt.draw_sprite(self, art["flash"] if flash else art["body"], size, feet, sc, InkFx.BONE if flash else Color.WHITE)
+	var hand: Vector2 = feet + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
+	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand, ang, sc)
+	if at >= 0.3 and at < 0.8:
+		if is_ranged():
+			_draw_arrow(hand, (at - 0.3) / 0.5)
+		else:
+			# 베기 궤적: 위에서 주인공 쪽(왼쪽) 아래로 내려 긋는 먹 초승달 + 붉은 가장자리
+			var k := (at - 0.3) / 0.5
+			var r := 28.0 * sc
+			var c := hand + Vector2(-6.0 * sc, 2.0 * sc)
+			var a0 := -PI * 0.5 - 0.2
+			var a1 := lerpf(a0 - 0.2, -PI - 0.9, minf(k * 1.7, 1.0))
+			var fade := 1.0 - maxf(0.0, k - 0.4) / 0.6
+			InkFx.crescent(self, c, r, a0, a1, 8.0 * sc, Color(InkFx.INK, 0.85 * fade), 17)
+			InkFx.crescent(self, c, r + 4.5 * sc, a0 - 0.1, a1 + 0.1, 2.5 * sc, Color(InkFx.RED, 0.9 * fade), 19)
+	if flash:
+		# 맞은 자리 먹 튀김
+		InkFx.splash(self, Vector2(-size.x * sc * 0.15, -size.y * sc * 0.55), 18.0 * sc / ChibiArt.ART_SCALE, 1.0 - _hit_flash / 0.12, _hit_seed * 31 + 3)
 	if is_boss():
 		return  # 보스 체력은 상단 바의 보스 체력 바로 표시한다
-	# 체력 바 (머리 위)
+	# 체력 바 (머리 위, 붓 띠)
 	var top := -size.y * sc + 2.0
 	var bar_w := 44.0
-	var bar_pos := Vector2(-bar_w * 0.5, top - 10.0)
-	draw_rect(Rect2(bar_pos - Vector2(1, 1), Vector2(bar_w + 2, 7)), Color(0.05, 0.03, 0.06, 0.9))
-	draw_rect(Rect2(bar_pos, Vector2(bar_w * float(hp) / float(max_hp), 5)), Color(0.9, 0.22, 0.22))
+	UiIcons.ink_bar(self, Rect2(Vector2(-bar_w * 0.5, top - 8.0), Vector2(bar_w, 5)), float(hp) / float(max_hp), InkFx.RED, 41)
+
+
+## 공격 모션 진행도 0~1 (공격 중이 아니면 0)
+func attack_phase() -> float:
+	if _attack_anim <= 0.0:
+		return 0.0
+	return clampf(1.0 - _attack_anim / ATTACK_TIME, 0.001, 1.0)
 
 
 ## 쓰러짐 연출에 넘길 정보 (MonsterDeath)

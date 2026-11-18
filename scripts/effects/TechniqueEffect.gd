@@ -1,9 +1,12 @@
 extends Node2D
-## 초식 한 번의 연출 (M6 → 디자인 시안 design-skill-effects-v4, design-skill-hero-* 반영).
+## 초식 한 번의 연출 (실루엣 + 손그림 질감 스타일 시안 반영).
 ## EffectPresets.resolve()가 만든 파라미터(계열 색, 수련 단계 크기)에 더해 초식마다 다른 연출을 코드로 그린다.
 ## - 12초식(매화검법/나한권/음양오행술 각 1~4초식)이 각자 고유한 모양을 가진다.
-## - 픽셀 제약 없이 3D 게임처럼: 구체 음영, 다층 광채, 충격파 고리, 번개, 꽃잎 폭풍, 바닥 원근 마법진.
-## - 가산 혼합(빛이 겹칠수록 밝아짐)으로 그린다. 몬스터 몸 위는 반투명 테두리 위주로 그려 과하게 가리지 않는다.
+##   매화검법: 일섬·영살난무·용아돌·패도참 (붉은 검기)
+##   나한권: 파산권·삼연권·장풍·금강진 (주황 권풍, 금강진은 황금빛)
+##   음양오행술: 부적술·화염부·수류부·천뢰부 (노란 부적, 오행 원소색)
+## - 캐릭터·몬스터·UI는 먹색이고 색은 이펙트에만 쓴다. 굵은 반투명 색 띠 + 흰 심지 + 옅은 번짐,
+##   선은 손으로 그은 듯 떨린다.
 ## - 연출 높이는 대상 위 MAX_RISE px로 제한해 상단 정보창을 덮지 않는다.
 ## kind: "technique"(초식 발동), "stage_up"(단계 상승 알림), "mastery"(대성 알림)
 
@@ -47,16 +50,13 @@ func setup(p: Dictionary, effect_kind: String, from: Vector2, to: Array, ground:
 	duration = float(p.get("duration", 0.3))
 	if kind == "technique":
 		duration = maxf(duration, MIN_TECH_DURATION)
-		# 빛 연출은 가산 혼합으로 그린다
-		var mat := CanvasItemMaterial.new()
-		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		material = mat
+		# 손그림 스타일: 가산 혼합 대신 일반 혼합으로 칠해 흙빛 배경 위에서도 색이 또렷하게 남는다
 	elif kind == "stage_up":
 		duration = maxf(duration, 1.2)
 	elif kind == "mastery":
 		duration = maxf(duration, 2.0)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_font = ThemeDB.fallback_font
+	_font = InkTheme.title_font()
 	var n := int(p.get("particles", 0))
 	if kind == "technique":
 		n = maxi(n, 8)
@@ -156,7 +156,7 @@ func _draw() -> void:
 	if text != "" and _font:
 		var col := c2.lerp(Color.WHITE, 0.5)
 		col.a = clampf(fade * 1.6, 0.0, 1.0)
-		var size := 30 if kind == "mastery" else 24
+		var size := 42 if kind == "mastery" else 34
 		var pos := origin + Vector2(-140, -150 - 40.0 * t)
 		draw_string_outline(_font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 280, size, 6, Color(0, 0, 0, col.a))
 		draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 280, size, col)
@@ -213,234 +213,322 @@ func _draw_technique(t: float, fade: float, c1: Color, c2: Color) -> void:
 		_ring(body, 20.0 + 110.0 * t, c1, fade, 3.0)
 
 
-# ---- 매화검법 (분홍 매화, 검기) ----
+# ---- 손그림 붓 도형 (실루엣 + 손그림 질감 스타일) ----
+# 색은 이펙트에만 쓴다. 굵고 반투명한 색 띠 + 가는 흰 심지 + 옅은 번짐, 가장자리는 손으로 그은 듯 떨린다.
 
-const PINK := Color("#ff7fb8")
-const PINK_L := Color("#ffc4dd")
+## 붓선: 점들을 잇되 마디마다 살짝 흔들고, 끝으로 갈수록 가늘게
+func _ink(pts: PackedVector2Array, col: Color, w: float, salt: int, wobble: float = 2.0) -> void:
+	if pts.size() < 2 or col.a <= 0.0:
+		return
+	var prev := pts[0]
+	for i in range(1, pts.size()):
+		var k := float(i) / (pts.size() - 1)
+		var j := Vector2(_hash01(salt * 31 + i) - 0.5, _hash01(salt * 17 + i * 3) - 0.5) * wobble * 2.0
+		var p := pts[i] + (j if i < pts.size() - 1 else Vector2.ZERO)
+		var ww := w * lerpf(1.0, 0.45, k) * lerpf(0.85, 1.1, _hash01(salt + i * 7))
+		draw_line(prev, p, col, maxf(1.0, ww))
+		prev = p
 
-## 1초식 횡베기: 대상을 가르는 큰 초승달 검기 + 분홍 광채
+
+## 색 띠 + 흰 심지 한 번에
+func _stroke(pts: PackedVector2Array, col: Color, a: float, w: float, salt: int) -> void:
+	_ink(pts, Color(col, 0.45 * a), w, salt, 2.5)
+	_ink(pts, Color(col, 0.9 * a), w * 0.45, salt + 1, 1.6)
+	_ink(pts, Color(1, 1, 1, a), maxf(1.5, w * 0.14), salt + 2, 1.0)
+
+
+## 원호 위의 점들
+func _arc_pts(c: Vector2, r: float, a0: float, a1: float, n: int = 20, squash: float = 1.0) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in n + 1:
+		var ang := lerpf(a0, a1, float(i) / n)
+		pts.append(c + Vector2(cos(ang) * r, sin(ang) * r * squash))
+	return pts
+
+
+## 들쭉날쭉한 번개 경로
+func _jag(p0: Vector2, p1: Vector2, seg: int, amp: float, salt: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var nrm := (p1 - p0).orthogonal().normalized()
+	for i in seg + 1:
+		var k := float(i) / seg
+		var off := (_hash01(salt * 13 + i) - 0.5) * amp * 2.0 if i > 0 and i < seg else 0.0
+		pts.append(p0.lerp(p1, k) + nrm * off)
+	return pts
+
+
+## 초승달(검기): 원호를 따라 가운데가 가장 두껍고 양 끝이 뾰족한 붓 띠. 가장자리는 잔떨림
+## (다각형 삼각분할이 깨지지 않도록 짧은 굵은 선을 이어 그린다)
+func _crescent(c: Vector2, r: float, a0: float, a1: float, thick: float, col: Color, salt: int) -> void:
+	if a1 <= a0 + 0.02 or col.a <= 0.0:
+		return
+	var n := 26
+	var prev := Vector2.ZERO
+	for i in n + 1:
+		var k := float(i) / n
+		var ang := lerpf(a0, a1, k)
+		var th := maxf(1.0, thick * sin(k * PI))
+		var rr := r - th * 0.5 + (_hash01(salt + i) - 0.5) * 2.5
+		var p := c + Vector2(cos(ang), sin(ang)) * rr
+		if i > 0:
+			draw_line(prev, p, col, th)
+			draw_circle(p, th * 0.5, col)
+		prev = p
+
+
+## 잔상 붓털: 원호를 따라 짧게 끊긴 흰 선
+func _hairs(c: Vector2, r: float, a0: float, a1: float, n: int, a: float, salt: int) -> void:
+	for i in n:
+		var ang := lerpf(a0, a1, _hash01(salt + i))
+		var rr := r * lerpf(0.85, 1.15, _hash01(salt + i * 5))
+		var p0 := c + Vector2(cos(ang), sin(ang)) * rr
+		var p1 := c + Vector2(cos(ang - 0.18), sin(ang - 0.18)) * (rr + 4.0)
+		draw_line(p0, p1, Color(1, 1, 1, 0.7 * a), 1.5)
+
+
+# ---- 매화검법 (붉은 검기: 삿갓 검객) ----
+
+const BLADE := Color("#d8402f")
+const BLADE_L := Color("#ff8a70")
+
+## 1초식 일섬: 한 번에 그어 내는 붉은 초승달 베기와 잔상
 func _plum_slash(t: float, a: float, body: Vector2, g: float) -> void:
-	var sweep := clampf(t * 2.2, 0.0, 1.0)
-	var r := 96.0 * g
-	var a0 := -2.5
-	var a1 := lerpf(a0, 0.9, sweep)
-	_glow(body, 120.0 * g, PINK, 0.35 * a)
-	if a1 > a0 + 0.05:
-		draw_arc(body, r, a0, a1, 32, Color(PINK, 0.25 * a), 30.0 * g)
-		draw_arc(body, r, a0 + 0.2, a1, 32, Color(PINK, 0.7 * a), 12.0 * g)
-		draw_arc(body, r, a0 + 0.5, a1, 28, Color(1, 1, 1, a), 4.0 * g)
-		_sparkle(body + Vector2(cos(a1), sin(a1)) * r, 16.0 * g, Color(1, 1, 1, a))
-	_sparkles_around(body, 90.0 * g, 6, PINK_L, a, t)
+	var sweep := clampf(t * 2.4, 0.0, 1.0)
+	var r := 100.0 * g
+	var c := body + Vector2(-20, 20) * g
+	var a0 := -2.6
+	var a1 := lerpf(a0, -0.4, sweep)
+	_glow(body, 110.0 * g, BLADE, 0.25 * a)
+	for k in 3:
+		_crescent(c, r - k * 6.0, a0 + k * 0.12, a1, (22.0 - k * 6.0) * g, Color(BLADE, (0.3 + k * 0.25) * a), 10 + k)
+	_crescent(c, r - 14.0 * g, a0 + 0.35, a1, 5.0 * g, Color(1, 1, 1, a), 20)
+	_hairs(c, r, a0, a1, 12, a, 30)
 
 
-## 2초식 X자 베기: 대상 위에서 교차하는 두 줄기 빛 + 바닥 고리
+## 2초식 영살난무: 대상 둘레에 어지럽게 교차하는 칼자국
 func _plum_cross(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
-	var L := 105.0 * g
-	_magic_circle(Vector2(center.x, ground_y), 95.0 * g, PINK, a * 0.6, t * 1.5)
-	for i in 2:
-		var k := clampf((t - 0.15 * i) * 2.6, 0.0, 1.0)
+	for i in 6:
+		var k := clampf((t - 0.08 * i) * 3.0, 0.0, 1.0)
 		if k <= 0.0:
 			continue
-		var d := Vector2(1, -0.85 if i == 0 else 0.85).normalized()
-		var p0 := body - d * L
-		var p1 := body - d * L + d * 2.0 * L * k
-		_beam(p0, p1, PINK, a, 26.0 * g)
-	_glow(body, 80.0 * g, PINK, 0.4 * a)
-	_sparkles_around(body, 110.0 * g, 8, PINK_L, a, t)
+		var ang := PI * _hash01(100 + i)
+		var d := Vector2(cos(ang), sin(ang))
+		var off := Vector2(_hash01(110 + i) - 0.5, _hash01(120 + i) - 0.5) * 80.0 * g
+		var L := (60.0 + 40.0 * _hash01(130 + i)) * g
+		var p0 := body + off - d * L
+		var p1 := p0 + d * 2.0 * L * k
+		_stroke(_jag(p0, p1, 4, 2.0, 140 + i), BLADE, a, 14.0 * g, 150 + i * 3)
+	_glow(body, 80.0 * g, BLADE, 0.3 * a)
 
 
-## 3초식 삼연 찌르기: 주인공 칼끝에서 대상으로 뻗는 세 줄기 찌르기
+## 3초식 용아돌: 칼끝에서 일직선으로 뻗어 적을 꿰뚫는 찌르기와 나선 기운
 func _plum_thrust(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
+	var k := clampf(t * 3.0, 0.0, 1.0)
+	var from := Vector2(hand.x + 16.0, body.y)
+	var to := Vector2(lerpf(from.x, body.x + 160.0 * g, k), body.y)
+	var w := 22.0 * g
+	if to.x - from.x < 4.0:
+		return
+	draw_colored_polygon(PackedVector2Array([from, to + Vector2(0, -w), to + Vector2(0, w)]), Color(BLADE, 0.4 * a))
+	draw_colored_polygon(PackedVector2Array([from, to + Vector2(0, -w * 0.3), to + Vector2(0, w * 0.3)]), Color(1, 1, 1, 0.9 * a))
+	var n := int(24 * k)
+	for i in n:
+		var x := lerpf(from.x, to.x, float(i) / 24.0)
+		var y := body.y + sin(i * 0.9 + t * 10.0) * (4.0 + i * 0.6) * g
+		draw_circle(Vector2(x, y), (2.0 + i * 0.07) * g, Color(Color.WHITE if i % 2 else BLADE_L, a))
+	for i in 6:
+		var x := lerpf(from.x, to.x, _hash01(160 + i))
+		var y := body.y + (_hash01(170 + i) - 0.5) * w * 1.4
+		draw_line(Vector2(x, y), Vector2(x + 18.0 * g, y), Color(1, 1, 1, 0.7 * a), 1.3)
+	_glow(to, 40.0 * g, BLADE, 0.6 * a)
+
+
+## 4초식 패도참: 머리 위에서 내리찍는 거대한 초승달과 갈라지는 땅
+func _plum_bloom(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
+	var sweep := clampf(t * 2.2, 0.0, 1.0)
+	var c := body + Vector2(-30, 10) * g
+	var r := 110.0 * g
+	var a0 := -1.8
+	var a1 := lerpf(a0, 0.7, sweep)
+	_crescent(c, r, a0, a1, 30.0 * g, Color(BLADE, 0.7 * a), 200)
+	_crescent(c, r - 8.0 * g, a0 + 0.1, a1, 7.0 * g, Color(1, 1, 1, a), 210)
+	_hairs(c, r, a0, a1, 10, a, 220)
+	if t > 0.35:
+		var k := clampf((t - 0.35) * 2.5, 0.0, 1.0)
+		var base := Vector2(center.x, ground_y - 2)
+		for i in 7:
+			var ang := lerpf(-0.6, 0.6, i / 6.0) + (PI if i % 2 else 0.0)
+			var end := base + Vector2(cos(ang) * 130.0 * g * k, sin(ang) * 18.0 * g * k)
+			_ink(_jag(base, end, 5, 5.0, 230 + i), Color(Color.WHITE if i % 3 == 0 else BLADE, a), 3.0, 240 + i, 1.5)
+		for i in 10:
+			var p := base + Vector2((_hash01(250 + i) - 0.5) * 200.0 * g, -_hash01(260 + i) * 60.0 * k)
+			var s := (3.0 + _hash01(270 + i) * 5.0) * g
+			draw_rect(Rect2(p, Vector2(s, s)), Color(BLADE, a))
+	_glow(body, 140.0 * g, BLADE, 0.3 * a)
+
+
+# ---- 나한권 (주황 권풍: 권법가 / 금강진은 황금빛) ----
+
+const FIST := Color("#f08a2c")
+const FIST_L := Color("#ffc27a")
+const VAJRA := Color("#d9a441")
+
+## 1초식 파산권: 주먹에서 원뿔꼴로 퍼지는 권풍 물결
+func _fist_straight(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
+	var k := clampf(t * 2.5, 0.0, 1.0)
+	var from := Vector2(hand.x + 14.0, body.y)
+	var reach := (body.x - from.x) + 70.0 * g
+	for i in 4:
+		var kk := clampf(k - i * 0.12, 0.0, 1.0)
+		if kk <= 0.0:
+			continue
+		var x := from.x + reach * kk * (0.35 + i * 0.22)
+		var h := (18.0 + i * 20.0) * g
+		_stroke(_arc_pts(Vector2(x - h * 0.6, body.y), h, -0.9, 0.9, 12), FIST if i % 2 == 0 else FIST_L, a, (9.0 - i) * g, 300 + i * 5)
+	for i in 10:
+		var ang := (_hash01(320 + i) - 0.5) * 1.4
+		var l := (40.0 + _hash01(330 + i) * 80.0) * g * k
+		_ink(PackedVector2Array([from + Vector2(cos(ang), sin(ang)) * 16.0, from + Vector2(cos(ang), sin(ang)) * (16.0 + l)]), Color(FIST, 0.8 * a), 2.0, 340 + i, 1.0)
+	_glow(from, 34.0 * g, FIST, 0.8 * a)
+	draw_circle(from, 9.0 * g, Color(1, 1, 1, a))
+
+
+## 2초식 삼연권: 대상 위에서 연달아 터지는 세 번의 권풍
+func _fist_triple(t: float, a: float, body: Vector2, g: float) -> void:
 	for i in 3:
-		var k := clampf((t - 0.12 * i) * 3.0, 0.0, 1.0)
+		var k := clampf((t - 0.15 * i) * 3.0, 0.0, 1.0)
 		if k <= 0.0:
 			continue
-		var y := (i - 1) * 24.0 * g
-		var from := Vector2(hand.x + 20.0, body.y + y)
-		var to := Vector2(lerpf(from.x, body.x + 30.0, k), body.y + y)
-		var w := 10.0 * g
-		var pts := PackedVector2Array([from + Vector2(0, -w * 0.25), to + Vector2(-26 * g, -w * 0.5), to, to + Vector2(-26 * g, w * 0.5), from + Vector2(0, w * 0.25)])
-		draw_colored_polygon(pts, Color(PINK, 0.55 * a))
-		draw_line(from, to, Color(1, 1, 1, a), 2.5 * g)
-		_glow(to, 34.0 * g, PINK, 0.8 * a)
-		_sparkle(to, 12.0 * g, Color(1, 1, 1, a))
-	_glow(body, 70.0 * g, PINK, 0.3 * a)
+		var p := body + Vector2((i - 1) * 26.0, (i - 1) * -18.0) * g
+		var aa := a * (1.0 - k * 0.6)
+		_stroke(_arc_pts(p, (14.0 + 44.0 * k) * g, -1.1, 1.1, 14), FIST, aa, 9.0 * g, 360 + i * 7)
+		_stroke(_arc_pts(p, (8.0 + 26.0 * k) * g, -1.0, 1.0, 10), FIST_L, aa, 6.0 * g, 380 + i * 7)
+		_glow(p, 30.0 * g, FIST, 0.7 * aa)
+		draw_circle(p, 6.0 * g * (1.0 - k * 0.5), Color(1, 1, 1, aa))
 
 
-## 4초식 매화 만개: 대상 위로 피어나는 거대한 다섯 꽃잎 매화 + 원근 마법진 + 꽃잎 폭풍
-func _plum_bloom(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
-	_magic_circle(Vector2(center.x, ground_y), 150.0 * g, PINK, a, t * 2.0)
-	var bloom := _ease_back(clampf(t * 2.0, 0.0, 1.0))
-	var r := 88.0 * g * bloom
-	_glow(body, 170.0 * g, PINK, 0.45 * a)
-	if r > 2.0:
-		_plum_flower(body, r, t * 1.2, a)
-	_ring(body, 40.0 + 170.0 * g * t, PINK_L, a * 0.8, 4.0)
-	# 꽃잎 폭풍: 대상 둘레를 돌며 퍼진다
-	for i in 26:
-		var ang := TAU * i / 26.0 + t * 5.0
-		var rr := (50.0 + 150.0 * t) * g * (0.6 + 0.4 * _hash01(i))
-		var p := body + Vector2(cos(ang) * rr, sin(ang) * rr * 0.55)
-		_petal(p, 9.0 * g, ang * 2.0, Color(PINK_L if i % 3 else Color.WHITE, a * 0.9))
-	_sparkles_around(body, 160.0 * g, 10, Color.WHITE, a, t)
-
-
-# ---- 나한권 (금빛, 주황 기공) ----
-
-const GOLD := Color("#ffb43c")
-const GOLD_L := Color("#fff0b0")
-
-## 1초식 직권: 속도선 + 대상에 터지는 빛 구체와 방사형 가시
-func _fist_straight(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
-	var k := clampf(t * 3.0, 0.0, 1.0)
-	for i in 7:
-		var y := (i - 3) * 9.0 * g
-		var x0 := lerpf(hand.x, body.x - 40.0, clampf(k - 0.1 * absf(i - 3), 0.0, 1.0) * 0.6)
-		draw_line(Vector2(x0, body.y + y), Vector2(lerpf(hand.x, body.x, k), body.y + y), Color(GOLD, 0.7 * a * (1.0 - absf(i - 3) / 4.0)), 3.0)
-	if t > 0.2:
-		var it := clampf((t - 0.2) / 0.8, 0.0, 1.0)
-		_sphere(body, 32.0 * g * (0.7 + 0.5 * it), GOLD, a)
-		_spikes(body, 34.0 * g, 85.0 * g * (0.6 + 0.6 * it), 12, GOLD_L, a)
-		_ellipse_ring(body, 60.0 * g + 70.0 * it * g, GOLD, a * (1.0 - it), 4.0, 0.55)
-
-
-## 2초식 삼연타: 대상 둘레 세 곳에 차례로 터지는 빛 구체
-func _fist_triple(t: float, a: float, body: Vector2, g: float) -> void:
-	var offs := [Vector2(-26, -28), Vector2(14, 0), Vector2(46, 26)]
-	for i in 3:
-		var k := clampf((t - 0.18 * i) / 0.45, 0.0, 1.0)
-		if k <= 0.0 or k >= 1.0:
-			continue
-		var p: Vector2 = body + offs[i] * g
-		var fk := 1.0 - k
-		_sphere(p, 26.0 * g * (0.6 + 0.6 * k), GOLD, a * fk * 1.3)
-		_spikes(p, 26.0 * g, 64.0 * g * (0.5 + 0.7 * k), 10, GOLD_L, a * fk)
-		_ring(p, 30.0 * g + 40.0 * k * g, GOLD, a * fk, 3.0)
-
-
-## 3초식 장풍: 손바닥에서 뻗어 나가는 금빛 초승달 장풍 + 수평 속도선
+## 3초식 장풍: 손바닥에서 날아가 대상을 휘감는 회오리 바람
 func _fist_palm_wind(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
-	var k := clampf(t * 1.8, 0.0, 1.0)
-	var front := Vector2(lerpf(hand.x + 20.0, body.x + 10.0, k), body.y)
-	for i in 8:
-		var y := (i - 3.5) * 12.0 * g
-		var len := 120.0 * g * (0.6 + 0.4 * _hash01(i))
-		draw_line(Vector2(front.x - 30.0 - len, front.y + y), Vector2(front.x - 30.0, front.y + y), Color(GOLD_L, 0.6 * a), 2.5)
-	var r := 70.0 * g
-	_glow(front, 90.0 * g, GOLD, 0.4 * a)
-	draw_arc(front + Vector2(-r * 0.6, 0), r, -1.2, 1.2, 28, Color(GOLD, 0.3 * a), 26.0 * g)
-	draw_arc(front + Vector2(-r * 0.6, 0), r, -1.1, 1.1, 28, Color(GOLD, 0.8 * a), 10.0 * g)
-	draw_arc(front + Vector2(-r * 0.6, 0), r, -0.95, 0.95, 24, Color(1, 1, 1, a), 3.5 * g)
-	if k >= 1.0:
-		_glow(body, 80.0 * g, GOLD, 0.5 * a)
-		_sparkles_around(body, 80.0 * g, 6, GOLD_L, a, t)
-
-
-## 4초식 금강일격: 대상 위의 거대한 금빛 구체가 내리꽂히고, 바닥에 원근 마법진과 충격파
-func _fist_vajra(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
-	_magic_circle(Vector2(center.x, ground_y), 150.0 * g, GOLD, a, -t)
-	_ground_grid(Vector2(center.x, ground_y), 150.0 * g, GOLD, a * 0.8)
-	var drop := clampf(t * 2.5, 0.0, 1.0)
-	var p := body + Vector2(0, lerpf(-150.0, -10.0, drop * drop) * g)
-	var r := 58.0 * g * (1.0 if drop < 1.0 else 1.0 + 0.25 * (t - 0.4))
-	_sphere(p, r, GOLD, a * (0.85 if drop >= 1.0 else 1.0))
-	if drop >= 1.0:
-		var k := (t - 0.4) / 0.6
-		_ellipse_ring(Vector2(center.x, ground_y - 4), 60.0 * g + 160.0 * g * k, GOLD_L, a * (1.0 - k), 6.0)
-		_spikes(body, 50.0 * g, 130.0 * g, 16, GOLD_L, a * (1.0 - k))
-		for i in 10:
-			var ang := -PI * _hash01(i + 3)
-			var d := Vector2(cos(ang), sin(ang)) * (40.0 + 120.0 * k) * g
-			draw_rect(Rect2(Vector2(center.x, ground_y - 8) + d, Vector2(5, 5) * g), Color(GOLD_L, a * (1.0 - k)))
-
-
-# ---- 음양오행술 (부적, 오행 원소) ----
-
-const TALISMAN := Color("#ffe25a")
-const FIRE := Color("#ff6a2a")
-const FIRE_L := Color("#ffd27a")
-const WATER := Color("#5fd8ff")
-const THUNDER := Color("#fff27a")
-
-## 1초식 부적 발사: 빛나는 부적 세 장이 날아가 터진다
-func _spell_talisman(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
-	for i in 3:
-		var k := clampf((t - 0.1 * i) * 2.2, 0.0, 1.0)
-		var y := (i - 1) * 26.0 * g
-		var p := hand.lerp(body + Vector2(-10, y * 0.6), k) + Vector2(0, y * (1.0 - k) - sin(k * PI) * 30.0)
-		if k < 1.0:
-			_glow(p, 30.0 * g, TALISMAN, 0.8 * a)
-			var rot := k * 6.0 + i
-			var s := 9.0 * g
-			var pts := PackedVector2Array([p + Vector2(-s * 0.6, -s).rotated(rot), p + Vector2(s * 0.6, -s).rotated(rot), p + Vector2(s * 0.6, s).rotated(rot), p + Vector2(-s * 0.6, s).rotated(rot)])
-			draw_colored_polygon(pts, Color(TALISMAN, a))
-			draw_line(p + Vector2(0, -s * 0.6).rotated(rot), p + Vector2(0, s * 0.6).rotated(rot), Color(1, 0.3, 0.2, a), 2.0)
-			# 불꽃 꼬리
-			for j in 3:
-				var tail := p - (body - hand).normalized() * (10.0 + j * 9.0) * g
-				_sparkle(tail, (6.0 - j) * g, Color(TALISMAN, a * 0.6))
-		else:
-			var e := clampf((t - 0.1 * i - 0.45) / 0.4, 0.0, 1.0)
-			_glow(body + Vector2(0, y * 0.6), 60.0 * g, TALISMAN, a * (1.0 - e))
-			_zigzag(body + Vector2(0, y * 0.6), 50.0 * g, 6, THUNDER, a * (1.0 - e), i)
-
-
-## 2초식 화염: 대상 둘레에서 솟구치는 불기둥과 바닥 화염 고리
-func _spell_flame(t: float, a: float, center: Vector2, g: float) -> void:
-	var base := Vector2(center.x, ground_y)
-	_ellipse_ring(base + Vector2(0, -2), 110.0 * g, FIRE, a, 5.0)
-	_glow(base + Vector2(0, -50), 130.0 * g, FIRE, 0.4 * a)
-	var rise := _ease_back(clampf(t * 2.4, 0.0, 1.0))
-	for i in 9:
-		var u := (i - 4) / 4.0
-		var x := base.x + u * 95.0 * g
-		var h := (120.0 - absf(u) * 55.0) * g * rise * (0.85 + 0.3 * sin(age * 25.0 + i))
-		var w := (22.0 - absf(u) * 6.0) * g
-		var y := base.y + 4.0 - absf(u) * 10.0
-		_flame(Vector2(x, y), h, w, FIRE, a * 0.85)
-		_flame(Vector2(x, y), h * 0.65, w * 0.6, FIRE_L, a)
-	for i in 10:
-		var k := fmod(t * 1.5 + _hash01(i), 1.0)
-		var p := base + Vector2((_hash01(i + 20) - 0.5) * 180.0 * g, -k * 200.0 * g)
-		draw_rect(Rect2(p, Vector2(4, 4)), Color(FIRE_L, a * (1.0 - k)))
-
-
-## 3초식 수류: 대상을 감싸는 물의 소용돌이와 물방울
-func _spell_water(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
-	var rmax := 105.0 * g * clampf(0.4 + t * 1.5, 0.0, 1.0)
-	_glow(body, rmax * 1.3, WATER, 0.3 * a)
-	for arm in 4:
+	var k := clampf(t * 2.2, 0.0, 1.0)
+	var c := hand.lerp(body, k)
+	for j in 2:
 		var pts := PackedVector2Array()
-		for s in 34:
-			var u := s / 33.0
-			var ang := u * TAU * 1.4 + arm * TAU / 4.0 + age * 7.0
-			var rr := rmax * u
-			pts.append(body + Vector2(cos(ang) * rr, sin(ang) * rr * 0.8))
-		draw_polyline(pts, Color(WATER, 0.35 * a), 10.0 * g)
-		draw_polyline(pts, Color(0.85, 0.97, 1.0, a), 3.0 * g)
-	_ring(body, rmax, Color(WATER, 1.0), a * 0.8, 4.0)
-	for i in 12:
-		var ang := TAU * i / 12.0 + age * 2.0
-		var p := body + Vector2(cos(ang), sin(ang) * 0.8) * (rmax + 22.0 * g)
-		_drop(p, 7.0 * g, Color(WATER, a))
-	_ellipse_ring(Vector2(center.x, ground_y - 2), rmax * 0.9, WATER, a * 0.6, 3.0)
+		for i in 40:
+			var u := i / 39.0
+			var ang := u * PI * 6.0 + t * 12.0 + j * PI
+			var rr := (4.0 + u * 30.0) * g
+			pts.append(c + Vector2(cos(ang) * rr, sin(ang) * rr * 0.5 - u * 60.0 * g))
+		_ink(pts, Color(FIST, 0.85 * a), 4.0 * g, 400 + j, 1.0)
+		_ink(pts, Color(1, 1, 1, 0.8 * a), 1.5, 410 + j, 0.6)
+	for i in 5:
+		var y := hand.y - 30.0 + i * 15.0
+		_ink(_arc_pts(Vector2(hand.x + 10.0, y + 60.0), 60.0 + i * 8.0, -1.3, -0.3, 10), Color(FIST_L, 0.6 * a), 2.0, 420 + i, 1.0)
+	_glow(c, 50.0 * g, FIST, 0.4 * a)
 
 
-## 4초식 뇌정 태극: 하늘에서 내리꽂는 번개와 바닥의 태극 문양
-func _spell_thunder(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
-	var base := Vector2(center.x, ground_y)
-	_taiji(base, 120.0 * g, a, age * 3.0)
-	_magic_circle(base, 150.0 * g, THUNDER, a * 0.8, t * 2.0)
-	var top_y := maxf(base.y - MAX_RISE, base.y - 330.0)
-	var flick := int(age * 24.0)
+## 4초식 금강진: 바닥에 펼쳐지는 황금 결계 고리와 대상 뒤 광배
+func _fist_vajra(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
+	var k := _ease_back(clampf(t * 2.0, 0.0, 1.0))
+	var base := Vector2(center.x, ground_y - 4)
+	var r := 100.0 * g * k
+	if r > 2.0:
+		_ink(_arc_pts(base, r, 0.0, TAU, 40, 0.32), Color(VAJRA, 0.9 * a), 4.0, 440, 1.5)
+		_ink(_arc_pts(base, r * 0.82, 0.0, TAU, 36, 0.32), Color(VAJRA, 0.6 * a), 2.0, 441, 1.2)
+		for i in 12:
+			var ang := TAU * i / 12.0 + t * 1.5
+			draw_circle(base + Vector2(cos(ang) * r * 0.91, sin(ang) * r * 0.91 * 0.32), 4.0 * g, Color(1, 1, 1, a))
+	var hr := 110.0 * g * k
+	if hr > 2.0:
+		_ink(_arc_pts(body, hr, PI * 1.1, PI * 1.9, 24), Color(VAJRA, 0.7 * a), 6.0, 450, 2.0)
+		for i in 14:
+			var ang := PI * (1.05 + 0.9 * i / 13.0)
+			var r1 := hr * (1.0 + 0.25 * _hash01(460 + i))
+			_ink(PackedVector2Array([body + Vector2(cos(ang), sin(ang)) * hr * 0.6, body + Vector2(cos(ang), sin(ang)) * r1]), Color(VAJRA, 0.8 * a), 2.0, 470 + i, 1.0)
+	_glow(body, 120.0 * g, VAJRA, 0.3 * a)
+
+
+# ---- 음양오행술 (노란 부적과 벼락: 부적 도사 / 오행 원소색) ----
+
+const TALISMAN := Color("#e8c547")
+const FIRE := Color("#e8562a")
+const FIRE_L := Color("#ffb04a")
+const WATER := Color("#46d3d0")
+const THUNDER := Color("#f2df5a")
+
+## 부적 한 장 (노란 종이 + 먹 글씨 두 줄)
+func _paper(p: Vector2, s: float, rot: float, a: float) -> void:
+	draw_set_transform(p, rot, Vector2.ONE)
+	draw_rect(Rect2(-s * 0.32, -s * 0.5, s * 0.64, s), Color(TALISMAN, a))
+	draw_line(Vector2(-s * 0.08, -s * 0.36), Vector2(-s * 0.05, s * 0.34), Color(0.1, 0.05, 0.02, a), 2.0)
+	draw_line(Vector2(s * 0.12, -s * 0.3), Vector2(s * 0.1, s * 0.2), Color(0.6, 0.1, 0.05, a), 2.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## 1초식 부적술: 부적이 날아가 대상 위에서 터진다
+func _spell_talisman(t: float, a: float, hand: Vector2, body: Vector2, g: float) -> void:
+	var k := clampf(t * 2.2, 0.0, 1.0)
 	for i in 3:
-		var dx := (i - 1) * 46.0 * g
-		var from := Vector2(base.x + dx * 1.6 + (_hash01(i + flick) - 0.5) * 30.0, top_y)
-		var to := body + Vector2(dx * 0.4, 20.0)
-		if (flick + i) % 3 != 0:
-			_bolt(from, to, flick * 7 + i, THUNDER, a)
-	_glow(body, 120.0 * g, THUNDER, 0.6 * a * (0.7 + 0.3 * sin(age * 40.0)))
-	_sparkles_around(body, 120.0 * g, 8, Color.WHITE, a, t)
+		var kk := clampf(k - i * 0.1, 0.0, 1.0)
+		var arc := Vector2(0, -sin(kk * PI) * (40.0 + i * 16.0) * g)
+		var p := hand.lerp(body + Vector2(0, (i - 1) * 20.0 * g), kk) + arc
+		if kk < 1.0:
+			_paper(p, 22.0 * g, kk * 6.0 + i, a)
+	if k >= 1.0:
+		var e := clampf((t - 0.45) * 2.5, 0.0, 1.0)
+		_stroke(_arc_pts(body, (16.0 + 50.0 * e) * g, 0.0, TAU, 22), TALISMAN, a * (1.0 - e * 0.5), 8.0 * g, 500)
+		for i in 8:
+			var ang := TAU * i / 8.0
+			_ink(PackedVector2Array([body + Vector2(cos(ang), sin(ang)) * 20.0 * g, body + Vector2(cos(ang), sin(ang)) * (30.0 + 50.0 * e) * g]), Color(1, 1, 1, a), 2.0, 510 + i, 1.0)
+		_glow(body, 70.0 * g, TALISMAN, 0.6 * a)
+
+
+## 2초식 화염부: 대상 발밑에서 치솟는 불길 (붓으로 그은 불꽃 혀)
+func _spell_flame(t: float, a: float, center: Vector2, g: float) -> void:
+	var k := clampf(t * 2.0, 0.0, 1.0)
+	for tgt in (targets if not targets.is_empty() else [center]):
+		var base := Vector2(tgt.x, ground_y - 2)
+		for i in 7:
+			var x := base.x + (i - 3) * 12.0 * g
+			var h := (60.0 + 50.0 * _hash01(520 + i)) * g * k * (1.0 - absf(i - 3) / 5.0)
+			var sway := sin(age * 14.0 + i) * 8.0 * g
+			var pts := PackedVector2Array([Vector2(x, base.y), Vector2(x + sway * 0.5, base.y - h * 0.5), Vector2(x + sway, base.y - h)])
+			_ink(pts, Color(FIRE, 0.75 * a), 12.0 * g, 530 + i, 2.0)
+			_ink(pts, Color(FIRE_L, 0.9 * a), 5.0 * g, 540 + i, 1.5)
+			_ink(pts, Color(1, 1, 0.9, a), 1.8, 550 + i, 1.0)
+		_glow(base + Vector2(0, -40.0 * g), 70.0 * g, FIRE, 0.5 * a)
+
+
+## 3초식 수류부: 대상을 중심으로 퍼지는 청록 물결 고리와 물방울
+func _spell_water(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
+	for i in 4:
+		var k := clampf(t * 1.6 - i * 0.15, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		_stroke(_arc_pts(body, (20.0 + 110.0 * k) * g, -PI, PI, 32, 0.55), WATER, a * (1.0 - k * 0.7), (7.0 - i) * g, 600 + i * 5)
+	for i in 10:
+		var ang := TAU * _hash01(620 + i)
+		var rr := (30.0 + 100.0 * t) * g * (0.6 + 0.4 * _hash01(630 + i))
+		var p := body + Vector2(cos(ang) * rr, sin(ang) * rr * 0.55 - 30.0 * t)
+		draw_circle(p, 4.0 * g, Color(WATER if i % 3 else Color.WHITE, a))
+	_glow(body, 90.0 * g, WATER, 0.35 * a)
+
+
+## 4초식 천뢰부: 부적이 뿌려진 자리마다 내리꽂히는 벼락
+func _spell_thunder(t: float, a: float, center: Vector2, body: Vector2, g: float) -> void:
+	var flick := int(age * 24.0)
+	var spots: Array = targets if not targets.is_empty() else [center]
+	for si in spots.size():
+		var tgt: Vector2 = spots[si]
+		var hit := tgt + Vector2(0, -40)
+		var top := Vector2(hit.x + (_hash01(700 + si) - 0.5) * 40.0, hit.y - MAX_RISE + 40.0)
+		if (flick + si) % 3 != 0:
+			var pts := _jag(top, hit, 9, 14.0 * g, 710 + si * 11 + flick % 4)
+			_ink(pts, Color(THUNDER, 0.7 * a), 8.0 * g, 720 + si, 1.0)
+			_ink(pts, Color(1, 1, 1, a), 2.2, 730 + si, 0.5)
+		_glow(hit, 50.0 * g, THUNDER, 0.6 * a)
+		draw_circle(hit, 8.0 * g, Color(1, 1, 1, a))
+		_paper(hit + Vector2(0, -26.0 * g), 18.0 * g, 0.2 * sin(age * 9.0 + si), a)
+	_glow(body, 110.0 * g, THUNDER, 0.25 * a * (0.7 + 0.3 * sin(age * 40.0)))
 
 
 # ---- 공통 도형 ----
@@ -580,11 +668,11 @@ func _plum_flower(p: Vector2, r: float, rot: float, alpha: float) -> void:
 			if cos(u) > 0.85:
 				local.x -= r * 0.08
 			pts.append(c + local.rotated(ang))
-		draw_colored_polygon(pts, Color(PINK, 0.32 * alpha))
+		draw_colored_polygon(pts, Color(BLADE, 0.32 * alpha))
 		var outline := pts.duplicate()
 		outline.append(pts[0])
-		draw_polyline(outline, Color(PINK_L, 0.9 * alpha), 3.0)
-		_glow(c, r * 0.45, PINK_L, 0.35 * alpha)
+		draw_polyline(outline, Color(BLADE_L, 0.9 * alpha), 3.0)
+		_glow(c, r * 0.45, BLADE_L, 0.35 * alpha)
 	_glow(p, r * 0.6, Color.WHITE, 0.6 * alpha)
 	for i in 10:
 		var ang := TAU * i / 10.0 + rot

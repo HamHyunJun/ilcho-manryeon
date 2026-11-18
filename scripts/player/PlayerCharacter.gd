@@ -199,7 +199,7 @@ func _draw() -> void:
 		for o in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
 			ChibiArt.draw_sprite(self, art["flash"], size, feet + o, sc, c)
 	var body_tex: Texture2D = art["flash"] if _hit_flash > 0.0 else art["body"]
-	ChibiArt.draw_sprite(self, body_tex, size, feet + Vector2(0, bob), sc)
+	ChibiArt.draw_sprite(self, body_tex, size, feet + Vector2(0, bob), sc, InkFx.BONE if _hit_flash > 0.0 else Color.WHITE)
 	# 무기: 손 위치에 회전해 그린다
 	var hand: Vector2 = feet + Vector2(0, bob) + (Vector2(art["hand"]) - Vector2(size.x * 0.5, size.y)) * sc
 	var ang := 0.55
@@ -222,9 +222,10 @@ func _draw() -> void:
 			if _tech_flash > 0.0:
 				ang = -0.35
 				off.y -= 8.0 * _tech_flash / 0.3
-	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand + off, ang, sc,
-		Color(3, 3, 3) if _hit_flash > 0.0 else Color.WHITE)
+	ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], hand + off, ang, sc)
 	if _swing > 0.0 and art["weapon_kind"] == "sword":
-		# 기본 공격 궤적
+		# 기본 공격 궤적: 먹 초승달 + 붉은 가장자리
 		var a := 1.0 - swing_t
-		draw_arc(hand + Vector2(4, -6), 46.0, -1.3, 0.6 * swing_t + 0.1, 16, Color(1, 1, 0.9, 0.7 * a), 4.0)
+		var a1 := lerpf(-1.3, 0.9, minf(swing_t * 1.5, 1.0))
+		InkFx.crescent(self, hand + Vector2(4, -6), 46.0, -1.4, a1, 11.0, Color(InkFx.INK, 0.85 * a), 23)
+		InkFx.crescent(self, hand + Vector2(4, -6), 52.0, -1.3, a1 - 0.1, 3.5, Color(InkFx.RED, 0.9 * a), 29)

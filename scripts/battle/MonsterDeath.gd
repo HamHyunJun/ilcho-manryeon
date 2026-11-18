@@ -1,6 +1,6 @@
 extends Node2D
 ## 몬스터 쓰러짐 연출 (디자인 시안 design-monster-death-v1).
-## 8프레임: 1 타격(흰 번쩍) → 2 밀려남 → 3 휘청 → 4 넘어감 → 5 쾅(바닥에 부딪힘, 먼지) → 6 반동(튕김)
+## 8프레임: 1 타격(먹 가시) → 2 밀려남 → 3 휘청 → 4 넘어감 → 5 쾅(바닥에 부딪힘, 먼지) → 6 반동(튕김)
 ##          → 7 기절(X눈, 머리 위 별) → 8 소멸.
 ## 무기는 2프레임에 손에서 빠져 포물선을 그리며 날아가 바닥에 떨어진다.
 ## 전투 판정과는 무관한 장식 노드다. 몬스터 노드는 처치 즉시 지우고, 이 노드가 그 자리에서 연출만 한다.
@@ -136,35 +136,37 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, size.x * sc * (0.36 if f < 5 else 0.5), Color(0, 0, 0, 0.3 * alpha))
 	# 몸 (발 기준으로 회전)
 	var tex: Texture2D = art["body"]
+	var body_col := Color(1, 1, 1, alpha)
 	if f == 1:
 		tex = art["flash"]
+		body_col = Color(InkFx.BONE, alpha)
 	elif f >= 7:
 		tex = art["ko"]
 	draw_set_transform(offset, rot, Vector2.ONE)
-	ChibiArt.draw_sprite(self, tex, size, Vector2.ZERO, sc, Color(1, 1, 1, alpha))
+	ChibiArt.draw_sprite(self, tex, size, Vector2.ZERO, sc, body_col)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# 1프레임: 타격 순간 흰 충격 별
-	if f == 1:
+	# 1~2프레임: 타격 순간 사방으로 뻗는 먹 가시와 붉은 점
+	if f <= 2:
 		var c := Vector2(-6, -size.y * sc * 0.55)
-		for i in 8:
-			var a := TAU * i / 8.0
-			draw_line(c + Vector2(cos(a), sin(a)) * 14, c + Vector2(cos(a), sin(a)) * 30, Color(1, 1, 1, 0.9), 3.0)
+		var grow := 1.0 if f == 1 else 1.35
+		InkFx.burst(self, c, 14.0 * grow, 38.0 * grow, 5, Color(InkFx.INK, 0.9 if f == 1 else 0.6))
 	# 무기 (손에 쥔 채 → 날아감 → 바닥)
 	if not _weapon_released:
-		ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], _weapon_pos + offset, _weapon_ang, sc, Color(3, 3, 3) if f == 1 else Color.WHITE)
+		ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], _weapon_pos + offset, _weapon_ang, sc)
 	else:
 		ChibiArt.draw_weapon(self, art["weapon"], art["weapon_pivot"], _weapon_pos, _weapon_ang, sc, Color(1, 1, 1, alpha))
 	# 먼지
 	for d in _dust:
 		var k: float = d["age"] / d["life"]
-		draw_circle(d["pos"], d["r"] * (0.6 + k * 0.8), Color(0.78, 0.72, 0.62, 0.55 * (1.0 - k) * alpha))
+		# 먹물이 번진 듯한 흙먼지
+		draw_circle(d["pos"], d["r"] * (0.6 + k * 0.8), Color(0.2, 0.19, 0.16, 0.45 * (1.0 - k) * alpha))
 	# 7프레임: 머리 위를 도는 별 (누운 상태라 머리는 오른쪽)
 	if f == 7:
 		var head := offset + Vector2(dir * size.y * sc * 0.72, -size.x * sc * 0.25)
 		for i in 3:
 			var a := age * 9.0 + TAU * i / 3.0
 			var p := head + Vector2(cos(a) * 18.0, sin(a) * 6.0 - 6.0)
-			_star(p, 6.0, Color(1, 0.9, 0.3))
+			_star(p, 6.0, InkFx.BONE if i != 0 else InkFx.RED)
 
 
 func _star(p: Vector2, r: float, c: Color) -> void:

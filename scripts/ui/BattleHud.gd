@@ -1,5 +1,5 @@
 extends Node2D
-## 전투 상단 바 (M2 → 디자인 시안 mock-vector-v30 반영).
+## 전투 상단 바 (실루엣 + 손그림 질감 스타일: 붓 띠 게이지, 먹색 귀면 보스 표시).
 ## - 왼쪽: 주인공 얼굴 프로필(경험치 고리, 레벨 표시)과 체력·내공 바
 ## - 가운데: 지역명 · 스테이지, 진행 바(처치 진행도 / 보스 체력 / 던전 남은 시간)와 보스 표시, 진행 문구
 ## - 오른쪽: 설정 버튼 자리 (버튼 자체는 GameUi)
@@ -27,7 +27,7 @@ func _draw() -> void:
 	if battle.last_technique_left > 0.0 and battle.last_technique_name != "":
 		var a2 := clampf(battle.last_technique_left / 0.3, 0.0, 1.0)
 		var pp: Vector2 = player.position
-		UiIcons.text(self, Vector2(pp.x - 100, pp.y - 112), battle.last_technique_name, 22, Color(1, 0.88, 0.95, a2), HORIZONTAL_ALIGNMENT_CENTER, 200)
+		UiIcons.text(self, Vector2(pp.x - 100, pp.y - 112), battle.last_technique_name, 22, Color(UiIcons.BONE, a2), HORIZONTAL_ALIGNMENT_CENTER, 200)
 
 	# 화면 가운데 안내 문구
 	if battle.banner_left > 0.0 and battle.banner_text != "":
@@ -40,15 +40,15 @@ func _draw_profile(player) -> void:
 	var style: String = player.style if "style" in player else "sword"
 	var art := ChibiArt.hero(style)
 	# 바탕 원과 얼굴
-	draw_circle(c, PROFILE_R, Color("#1b1d3a"))
-	draw_circle(c, PROFILE_R - 4, Color("#2c3160"))
+	draw_circle(c, PROFILE_R, UiIcons.INK)
+	draw_circle(c, PROFILE_R - 4, Color("#93ab9f"))
 	var hr: Rect2 = art["head_rect"]
 	var img_scale := float(ChibiArt.UPSCALE)
 	var src := Rect2(hr.position * img_scale, hr.size * img_scale)
 	var dsize := Vector2(62, 62 * hr.size.y / hr.size.x)
 	draw_texture_rect_region(art["body"], Rect2(c - Vector2(dsize.x * 0.5, dsize.y * 0.5 + 2), dsize), src)
 	# 경험치 고리 (보라) + 금테
-	draw_arc(c, PROFILE_R, 0, TAU, 48, Color("#d9a441"), 4.0)
+	UiIcons.ink_ring(self, c, PROFILE_R, UiIcons.BONE, 3.5, 5, 1.2)
 	var growth = battle.growth
 	if growth != null:
 		var er := 1.0 if growth.level() >= growth.level_cap() else float(growth.current_exp()) / float(maxi(growth.exp_to_next(), 1))
@@ -56,22 +56,18 @@ func _draw_profile(player) -> void:
 			draw_arc(c, PROFILE_R + 4, -PI * 0.5, -PI * 0.5 + TAU * er, 48, Color("#b88cff"), 3.0)
 		# 레벨 배지
 		var bc := c + Vector2(26, 26)
-		draw_circle(bc, 13, Color("#6a3fc8"))
+		draw_circle(bc, 13, UiIcons.ACCENT)
 		draw_arc(bc, 13, 0, TAU, 24, Color("#f2e6ff"), 2.0)
 		UiIcons.text(self, bc + Vector2(-20, 6), str(growth.level()), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
 	# 체력 / 내공 바
 	var bx := PROFILE_X + PROFILE_R + 12
 	var bw := 120.0
-	_bar(Rect2(bx, CENTER_Y - 20, bw, 17), float(player.hp) / float(maxi(player.max_hp, 1)), Color("#3fcf5e"), "%d / %d" % [player.hp, player.max_hp])
-	_bar(Rect2(bx, CENTER_Y + 3, bw, 17), player.mp / maxf(player.max_mp, 1.0), Color("#4a7dff"), "%d / %d" % [int(player.mp), int(player.max_mp)])
+	_bar(Rect2(bx, CENTER_Y - 20, bw, 17), float(player.hp) / float(maxi(player.max_hp, 1)), Color("#6fa85a"), "%d / %d" % [player.hp, player.max_hp], 21)
+	_bar(Rect2(bx, CENTER_Y + 3, bw, 17), player.mp / maxf(player.max_mp, 1.0), Color("#5b84c4"), "%d / %d" % [int(player.mp), int(player.max_mp)], 22)
 
 
-func _bar(r: Rect2, ratio: float, col: Color, label: String) -> void:
-	UiIcons.round_rect(self, r.grow(2), 9, Color(0.04, 0.04, 0.08, 0.9))
-	if ratio > 0.0:
-		var fill := Rect2(r.position, Vector2(r.size.x * clampf(ratio, 0.0, 1.0), r.size.y))
-		UiIcons.round_rect(self, fill, 8, col)
-		draw_rect(Rect2(fill.position + Vector2(4, 2), Vector2(maxf(fill.size.x - 8, 0), 3)), Color(1, 1, 1, 0.3))
+func _bar(r: Rect2, ratio: float, col: Color, label: String, seed_v: int) -> void:
+	UiIcons.ink_bar(self, r, ratio, col, seed_v)
 	UiIcons.text(self, Vector2(r.position.x, r.position.y + 14), label, 13, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
 
 
@@ -89,20 +85,18 @@ func _draw_stage_block() -> void:
 	var title_size := 26 if title.length() <= 10 else 21
 	UiIcons.text(self, Vector2(left - 20, CENTER_Y - 18), title, title_size, Color(1, 0.98, 0.92), HORIZONTAL_ALIGNMENT_CENTER, width + 40)
 	var bar := Rect2(left, CENTER_Y - 6, width, 12)
-	draw_rect(bar.grow(2), Color(0.03, 0.03, 0.07, 0.9))
-	draw_rect(bar, Color(0.16, 0.16, 0.24))
 	var ratio := 0.0
-	var col := Color("#f0b23c")
+	var col := UiIcons.BONE
 	var caption := ""
 	var boss = battle.boss
 	if dg != null and not (dg.is_boss_wave() and is_instance_valid(boss)):
 		var tl: float = float(dg.battle_cfg().get("time_limit", 180))
 		ratio = clampf(dg.time_left / tl, 0.0, 1.0)
-		col = Color("#6fb6ff")
+		col = Color("#5b84c4")
 		caption = dg.progress_text() + " · %d초" % ceili(maxf(dg.time_left, 0.0))
 	elif (stage.phase == StageManager.Phase.BOSS or dg != null) and is_instance_valid(boss):
 		ratio = float(boss.hp) / float(boss.max_hp)
-		col = Color("#e8443a")
+		col = UiIcons.ACCENT
 		caption = "보스 %s  %s / %s" % [boss.data.get("name", ""), MenuPanel.fmt(boss.hp), MenuPanel.fmt(boss.max_hp)]
 	else:
 		var need := stage.kills_to_boss()
@@ -112,24 +106,22 @@ func _draw_stage_block() -> void:
 			caption = "보스 등장!"
 		elif stage.phase == StageManager.Phase.CLEARED:
 			caption = "돌파!"
-	if ratio > 0.0:
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)), col)
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, 3)), Color(1, 1, 1, 0.3))
+	UiIcons.ink_bar(self, bar, ratio, col, 23)
 	UiIcons.boss_face(self, Vector2(left + width + 20, CENTER_Y), 34)
 	# 보스 이름이 길면(예: 흑혈대주 혈마도) 체력 숫자가 잘리지 않게 글자를 줄인다
 	var cap_size := 19 if caption.length() <= 24 else 16
-	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, cap_size, Color("#f2c75c"), HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
+	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, cap_size, UiIcons.BONE, HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
 
 
 ## 상단 바 아래 한 줄: 전투력(왼쪽), 은냥(오른쪽)
 func _draw_sub_row() -> void:
 	var y := CENTER_Y + 64
 	if battle.growth != null:
-		UiIcons.text(self, Vector2(24, y), "%s · 전투력 %s" % [battle.growth.realm().get("name", ""), MenuPanel.fmt(battle.combat_power())], 17, Color(1.0, 0.9, 0.7))
+		UiIcons.text(self, Vector2(24, y), "%s · 전투력 %s" % [battle.growth.realm().get("name", ""), MenuPanel.fmt(battle.combat_power())], 17, UiIcons.BONE)
 	if battle.equipment != null:
 		var s := MenuPanel.fmt(battle.equipment.silver())
 		UiIcons.text(self, Vector2(400, y), s, 17, Color(0.95, 0.95, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 296)
-		var font := ThemeDB.fallback_font
-		var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
-		draw_circle(Vector2(696 - w - 14, y - 6), 8, Color("#d7dbe8"))
-		draw_circle(Vector2(696 - w - 14, y - 6), 4, Color("#9aa0b4"))
+		var font := InkTheme.font_for(17)
+		var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, InkTheme.px(17)).x
+		UiIcons.ink_ring(self, Vector2(696 - w - 14, y - 7), 8, UiIcons.BONE, 2.5, 31, 0.8)
+		draw_rect(Rect2(Vector2(696 - w - 17, y - 10), Vector2(6, 6)), UiIcons.BONE, false, 1.5)

@@ -81,10 +81,10 @@ static func build(kind: String) -> Dictionary:
 	wimg.flip_x()
 	var piv: Vector2 = weapon["pivot"]
 	return {
-		"body": ChibiArt._tex(normal.flipped()),
+		"body": ChibiArt._tex(InkArt.ink_image(normal.flipped())),
 		"flash": ChibiArt._tex(ChibiArt._silhouette(normal.flipped())),
-		"ko": ChibiArt._tex(ko.flipped()),
-		"weapon": ChibiArt._tex(wimg),
+		"ko": ChibiArt._tex(InkArt.ink_image(ko.flipped(), false)),
+		"weapon": ChibiArt._tex(InkArt.ink_image(wimg, false)),
 		"weapon_pivot": Vector2(wimg.get_width() - 1 - piv.x, piv.y),
 		"size": Vector2(W, normal.h),
 		"hand": hand,

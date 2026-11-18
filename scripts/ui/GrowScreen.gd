@@ -53,8 +53,8 @@ func _init(martial_arts: MartialArtManager, equipment_manager: EquipmentManager 
 	position = SCREEN.position
 	size = SCREEN.size
 	custom_minimum_size = SCREEN.size
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color("#14132a")
+	var bg := InkBox.new()
+	bg.bg_color = Color("#121211")
 	add_theme_stylebox_override("panel", bg)
 	# MenuPanel 기본 스크롤 본문은 쓰지 않는다 (직접 배치)
 	get_child(0).visible = false
@@ -147,16 +147,16 @@ func _build_tabs(layer: Control) -> void:
 		_tab_buttons[defs[i][0]] = b
 
 
-func _tab_style(on: bool) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
+func _tab_style(on: bool) -> InkBox:
+	var sb := InkBox.new()
 	sb.set_corner_radius_all(10)
 	sb.set_border_width_all(2)
 	if on:
-		sb.bg_color = Color(0.45, 0.28, 0.1, 0.95)
-		sb.border_color = Color("#e8b94e")
+		sb.bg_color = Color(UiIcons.ACCENT, 0.9)
+		sb.border_color = UiIcons.BONE
 	else:
-		sb.bg_color = Color(0.12, 0.08, 0.1, 0.9)
-		sb.border_color = Color(0.45, 0.32, 0.22)
+		sb.bg_color = Color(0.09, 0.09, 0.085, 0.92)
+		sb.border_color = Color(UiIcons.BONE, 0.3)
 	return sb
 
 
@@ -235,11 +235,11 @@ func _refresh_list() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(70, 30)
 		var on: bool = grade_filter == ch[0]
-		var sb := StyleBoxFlat.new()
+		var sb := InkBox.new()
 		sb.set_corner_radius_all(15)
 		sb.set_border_width_all(2)
 		sb.border_color = ch[2]
-		sb.bg_color = Color(ch[2], 0.35) if on else Color(0.08, 0.07, 0.12, 0.9)
+		sb.bg_color = Color(ch[2], 0.35) if on else Color(0.08, 0.08, 0.075, 0.9)
 		for s in ["normal", "hover", "pressed", "focus"]:
 			b.add_theme_stylebox_override(s, sb)
 		b.add_theme_color_override("font_color", Color.WHITE if on else ch[2])
@@ -285,9 +285,9 @@ func _build_detail(layer: Control) -> void:
 	_detail.position = Vector2(60, 250)
 	_detail.custom_minimum_size = Vector2(600, 0)
 	_detail.size = Vector2(600, 0)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.05, 0.1, 0.98)
-	sb.border_color = Color("#e8b94e")
+	var sb := InkBox.new()
+	sb.bg_color = Color(0.06, 0.06, 0.055, 0.98)
+	sb.border_color = UiIcons.BONE
 	sb.set_border_width_all(3)
 	sb.set_corner_radius_all(14)
 	sb.set_content_margin_all(18)
@@ -421,7 +421,7 @@ class EquipCard extends Button:
 	func _draw() -> void:
 		var col := equipment.grade_color(item["grade"])
 		var r := Rect2(Vector2(2, 2), size - Vector2(4, 4))
-		UiIcons.round_rect(self, r, 12, Color(0.1, 0.09, 0.15, 0.95), col, 3.0)
+		UiIcons.round_rect(self, r, 12, Color(0.09, 0.09, 0.085, 0.95), col, 3.0)
 		draw_circle(Vector2(size.x * 0.5, 52), 34, Color(col, 0.16))
 		UiIcons.slot_icon(self, item["slot"], Vector2(size.x * 0.5, 52), 46, col)
 		UiIcons.round_rect(self, Rect2(8, 8, 36, 22), 8, Color(col, 0.9))
@@ -451,43 +451,47 @@ class GrowCanvas extends Control:
 		var s := screen
 		# 배경: 남색 밤하늘 + 은은한 달빛
 		for i in 20:
-			draw_rect(Rect2(0, i * 58, 720, 58), Color("#1a1838").lerp(Color("#0f0e1f"), i / 19.0))
+			draw_rect(Rect2(0, i * 58, 720, 58), Color("#2b2c28").lerp(Color("#121211"), i / 19.0))
 		for i in 8:
-			draw_circle(Vector2(540, 230), 150 - i * 14, Color(1.0, 0.92, 0.7, 0.025))
+			draw_circle(Vector2(540, 230), 150 - i * 14, Color(0.85, 0.9, 0.85, 0.03))
 		# 제목과 경지 · 전투력
 		UiIcons.text(self, Vector2(0, 52), "육성", 38, Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 720, 6)
 		var sub := ""
 		if s.battle != null and s.battle.growth != null:
 			sub = "%s · Lv %d · 전투력 %s" % [s.battle.growth.realm().get("name", ""), s.battle.growth.level(), MenuPanel.fmt(s.battle.combat_power())]
 		UiIcons.text(self, Vector2(0, 86), sub, 20, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 720, 4)
-		draw_line(Vector2(0, 102), Vector2(720, 102), Color(0.85, 0.64, 0.25, 0.5), 2.0)
+		draw_line(Vector2(0, 102), Vector2(720, 102), Color(0.9, 0.87, 0.8, 0.35), 2.0)
 		# 재화 줄
 		if s.equipment != null:
 			var cur := [["은냥", MenuPanel.fmt(s.equipment.silver()), Color("#d7dbe8")], ["강화석", MenuPanel.fmt(s.equipment.stone()), Color("#7fd8ff")], ["보관함", "%d / %d" % [s.equipment.items().size(), s.equipment.capacity()], Color("#f2c75c")]]
 			for i in cur.size():
 				var r := Rect2(20 + i * 232, 116, 216, 40)
-				UiIcons.round_rect(self, r, 20, Color(0.05, 0.04, 0.09, 0.85), Color(0.85, 0.64, 0.25, 0.6), 2.0)
+				UiIcons.round_rect(self, r, 20, Color(0.05, 0.05, 0.045, 0.88), Color(0.9, 0.87, 0.8, 0.35), 2.0)
 				draw_circle(r.position + Vector2(24, 20), 10, cur[i][2])
 				UiIcons.text(self, r.position + Vector2(42, 27), cur[i][0], 17, Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 				UiIcons.text(self, r.position + Vector2(0, 28), cur[i][1], 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 18, 0)
 		# 바닥 마법진 (원근)
 		var base := Vector2(360, 586)
+		# 먹색 실루엣이 보이도록 뒤에 안개빛 원판을 깐다 (전투 배경 하늘색)
+		for k in 6:
+			draw_circle(base + Vector2(0, -150), 175.0 - k * 6.0, Color(0.58, 0.67, 0.62, 0.16 + k * 0.1))
+		UiIcons.ink_ring(self, base + Vector2(0, -150), 178.0, Color(UiIcons.BONE, 0.35), 2.0, 9, 2.0)
 		for k in 3:
 			var rr := 190.0 - k * 50.0
 			var pts := PackedVector2Array()
 			for i in 61:
 				var a := TAU * i / 60.0 + _t * (0.3 if k % 2 == 0 else -0.4)
 				pts.append(base + Vector2(cos(a) * rr, sin(a) * rr * 0.24))
-			draw_polyline(pts, Color(0.95, 0.75, 0.3, 0.75 - k * 0.15), 3.0 - k * 0.6)
+			draw_polyline(pts, Color(0.9, 0.87, 0.8, 0.55 - k * 0.12), 3.0 - k * 0.6)
 		for i in 24:
 			var a := TAU * i / 24.0 + _t * 0.3
-			draw_line(base + Vector2(cos(a), sin(a) * 0.24) * 170.0, base + Vector2(cos(a), sin(a) * 0.24) * 186.0, Color(0.95, 0.75, 0.3, 0.6), 2.0)
+			draw_line(base + Vector2(cos(a), sin(a) * 0.24) * 170.0, base + Vector2(cos(a), sin(a) * 0.24) * 186.0, Color(0.9, 0.87, 0.8, 0.4), 2.0)
 		draw_set_transform(base, 0.0, Vector2(1.0, 0.24))
 		draw_circle(Vector2.ZERO, 120, Color(0, 0, 0, 0.45))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		# 큰 주인공 (공격 준비 자세, 숨쉬기)
 		var art := ChibiArt.hero(s.hero_style())
-		var sc := 5.0
+		var sc := 4.2
 		var size_v: Vector2 = art["size"]
 		var bob := roundf(sin(_t * 2.5) * 3.0)
 		var feet := base + Vector2(0, -6 + bob)
@@ -509,7 +513,7 @@ class GrowCanvas extends Control:
 			var r := Rect2(b.position, b.size)
 			var it: Dictionary = s.equipment.equipped_item(slot) if s.equipment else {}
 			var col := s.equipment.grade_color(it["grade"]) if not it.is_empty() else Color(0.4, 0.4, 0.48)
-			UiIcons.round_rect(self, r, 14, Color(0.07, 0.06, 0.12, 0.92), col, 3.0)
+			UiIcons.round_rect(self, r, 14, Color(0.07, 0.07, 0.065, 0.92), col, 3.0)
 			UiIcons.slot_icon(self, slot, r.get_center(), 54, col if not it.is_empty() else Color(0.35, 0.35, 0.42))
 			if not it.is_empty():
 				var badge := Rect2(r.position + Vector2(r.size.x - 40, -10), Vector2(46, 24))
@@ -520,11 +524,11 @@ class GrowCanvas extends Control:
 		var st := s.stats()
 		var cells := [["공격력", "atk", Color("#ff6a6a")], ["방어력", "def", Color("#6aa8ff")], ["체력", "max_hp", Color("#6ee08a")], ["내공", "max_mp", Color("#b48cff")]]
 		var box := Rect2(20, 620, 680, 92)
-		UiIcons.round_rect(self, box, 14, Color(0.05, 0.04, 0.09, 0.85), Color(0.85, 0.64, 0.25, 0.6), 2.0)
+		UiIcons.round_rect(self, box, 14, Color(0.05, 0.05, 0.045, 0.88), Color(0.9, 0.87, 0.8, 0.35), 2.0)
 		for i in 4:
 			var x := box.position.x + i * 170.0
 			if i > 0:
-				draw_line(Vector2(x, box.position.y + 16), Vector2(x, box.end.y - 16), Color(0.85, 0.64, 0.25, 0.35), 2.0)
+				draw_line(Vector2(x, box.position.y + 16), Vector2(x, box.end.y - 16), Color(0.9, 0.87, 0.8, 0.2), 2.0)
 			UiIcons.text(self, Vector2(x, box.position.y + 32), cells[i][0], 18, Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 170, 0)
 			var v := "-"
 			if st.has(cells[i][1]):
@@ -533,7 +537,7 @@ class GrowCanvas extends Control:
 		# 탭 아래 목록 테두리
 		if s.tab == "equip" or s.tab == "summon":
 			var lr := Rect2(20, LIST_Y, 680, 350)
-			UiIcons.round_rect(self, lr, 14, Color(0.05, 0.04, 0.09, 0.85), Color(0.85, 0.64, 0.25, 0.6), 2.0)
+			UiIcons.round_rect(self, lr, 14, Color(0.05, 0.05, 0.045, 0.88), Color(0.9, 0.87, 0.8, 0.35), 2.0)
 			if s.tab == "summon":
 				UiIcons.text(self, Vector2(20, LIST_Y + 170), "소환수: MVP 이후 추가 예정", 22, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_CENTER, 680, 0)
 		if s.message != "" and s.tab == "equip":

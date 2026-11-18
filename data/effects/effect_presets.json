@@ -3,25 +3,25 @@
   "categories": {
     "sword": {
       "name": "검법",
-      "color_primary": "#ff9ec4",
-      "color_secondary": "#fff0f6",
-      "particle_shape": "petal",
+      "color_primary": "#d8402f",
+      "color_secondary": "#ffe0d8",
+      "particle_shape": "sparkle",
       "motif": "slash"
     },
     "fist": {
       "name": "권법",
-      "color_primary": "#ffa64d",
-      "color_secondary": "#fff1d6",
+      "color_primary": "#f08a2c",
+      "color_secondary": "#ffe6c8",
       "particle_shape": "spark",
       "motif": "burst"
     },
     "spell": {
       "name": "술법",
-      "color_primary": "#7fd8ff",
-      "color_secondary": "#e8f8ff",
+      "color_primary": "#e8c547",
+      "color_secondary": "#fff6d0",
       "particle_shape": "talisman",
       "motif": "talisman",
-      "element_colors": ["#ff6a3d", "#8fe3ff", "#ffe84d"]
+      "element_colors": ["#e8562a", "#46d3d0", "#f2df5a"]
     }
   },
   "default_category": "sword",

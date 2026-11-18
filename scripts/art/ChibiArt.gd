@@ -34,7 +34,8 @@ static var _cache: Dictionary = {}
 static func hero(category: String) -> Dictionary:
 	var key := "hero_" + category
 	if not _cache.has(key):
-		_cache[key] = _build_hero(OUTFITS.get(category, OUTFITS["sword"]))
+		# 실루엣 + 손그림 질감 스타일 (InkArt). 예전 도트 그림은 _build_hero에 남아 있다
+		_cache[key] = InkArt.hero(category if OUTFITS.has(category) else "sword")
 	return _cache[key]
 
 
@@ -43,7 +44,11 @@ static func hero(category: String) -> Dictionary:
 static func monster(kind: String) -> Dictionary:
 	var key := "mon_" + kind
 	if not _cache.has(key):
-		_cache[key] = MonsterArt.build(kind) if MonsterArt.has_kind(kind) else _build_monster(kind)
+		# 먹 실루엣 그림이 있는 종류는 그것을 쓰고, 없으면 예전 도트 그림(먹색 처리)을 쓴다
+		if InkMonsters.has_kind(kind):
+			_cache[key] = InkMonsters.build(kind)
+		else:
+			_cache[key] = MonsterArt.build(kind) if MonsterArt.has_kind(kind) else _build_monster(kind)
 	return _cache[key]
 
 
@@ -383,10 +388,10 @@ static func _build_monster(kind: String) -> Dictionary:
 	wimg.flip_x()
 	var piv: Vector2 = weapon["pivot"]
 	return {
-		"body": _tex(normal.flipped()),
+		"body": _tex(InkArt.ink_image(normal.flipped())),
 		"flash": _tex(_silhouette(normal.flipped())),
-		"ko": _tex(ko.flipped()),
-		"weapon": _tex(wimg),
+		"ko": _tex(InkArt.ink_image(ko.flipped(), false)),
+		"weapon": _tex(InkArt.ink_image(wimg, false)),
 		"weapon_pivot": Vector2(wimg.get_width() - 1 - piv.x, piv.y),
 		"size": Vector2(W, normal.h),
 		"hand": hand,

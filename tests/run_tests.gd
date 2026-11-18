@@ -1440,7 +1440,7 @@ func _test_dungeon_panel_cards() -> void:
 	var texts := ""
 	for c in panel.root.find_children("*", "Label", true, false):
 		texts += c.text + "\n"
-	_check(texts.contains("장비 던전") and texts.contains("재화 던전") and texts.contains("강화석") and texts.contains("요일"), "장비·재화 던전 보상 안내")
+	_check(texts.contains("무기고 습격") and texts.contains("전장 털이") and texts.contains("입장 ") and not texts.contains("(임시)") and not texts.contains("보상"), "던전 카드는 이름·난이도·남은 입장만 짧게")
 	_check(not texts.contains("MVP 이후"), "MVP 이후 안내 문구 제거")
 	panel._change_level("manual_cave", 1)
 	_check(panel.level_of("manual_cave") == 2, "난이도 선택")
