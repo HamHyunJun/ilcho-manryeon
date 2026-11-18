@@ -24,6 +24,12 @@ var ground_y := 1020.0
 var floor_bottom := 1146.0
 
 var _static_vp: SubViewport
+## 세로로 긴 화면에서 배경을 아래로 내린 양. 위쪽 빈 곳은 안개 하늘로 채운다 (ScreenFit.shift)
+var world_shift := 0.0:
+	set(v):
+		world_shift = v
+		position = Vector2(0, v)
+		queue_redraw()
 var _t := 0.0
 var _motes: Array = []
 var _leaves: Array = []
@@ -68,7 +74,7 @@ func _new_mote(anywhere: bool) -> Dictionary:
 ## 떨어지는 검은 나뭇잎
 func _new_leaf(anywhere: bool) -> Dictionary:
 	return {
-		"pos": Vector2(_rng.randf_range(-40, W), _rng.randf_range(180, ground_y) if anywhere else _rng.randf_range(140, 220)),
+		"pos": Vector2(_rng.randf_range(-40, W), _rng.randf_range(180, ground_y) if anywhere else _rng.randf_range(140, 220) - minf(world_shift, 200.0)),
 		"vel": Vector2(_rng.randf_range(16, 36), _rng.randf_range(30, 55)),
 		"rot": _rng.randf_range(0, TAU),
 		"spin": _rng.randf_range(-2.0, 2.0),
@@ -94,8 +100,16 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	# 위로 남는 하늘: 정적 배경의 맨 윗줄을 위로 늘여 나무 줄기가 끊기지 않고 이어지게 한다
+	if world_shift > 0.0:
+		draw_rect(Rect2(0, -world_shift, W, world_shift + 1), SKY_TOP)
+		if _static_vp:
+			draw_texture_rect_region(_static_vp.get_texture(), Rect2(0, -world_shift, W, world_shift + 1), Rect2(0, 0, W, 2))
 	if _static_vp:
 		draw_texture(_static_vp.get_texture(), Vector2.ZERO)
+	# 상단 정보창 보호: 화면 맨 위를 어둡게 (배경을 내려도 상단 바 자리에 맞춘다)
+	for i in 18:
+		draw_rect(Rect2(0, -world_shift + i * 10.0, W, 10), Color(0.04, 0.04, 0.04, 0.6 * (1.0 - i / 18.0)))
 	# 흐르는 안개 (숲 사이)
 	for k in 3:
 		var x := fmod(_t * (6.0 + k * 3.0) + k * 260.0, W + 400.0) - 400.0
@@ -156,10 +170,7 @@ class StaticPainter extends Node2D:
 		_bush(Vector2(700, ground_y + 2), 54.0, 93)
 		_bush(Vector2(610, ground_y + 10), 26.0, 95)
 		_bush(Vector2(120, ground_y + 12), 20.0, 97)
-		# 상단 정보창 보호: 위쪽을 어둡게
-		for i in 18:
-			var y := i * 10.0
-			draw_rect(Rect2(0, y, 720, 10), Color(0.04, 0.04, 0.04, 0.6 * (1.0 - i / 18.0)))
+		# 상단 정보창 보호(위쪽 어둡게)는 바깥 _draw에서 화면 맨 위 기준으로 그린다
 
 	func _sky() -> void:
 		var h := ground_y
