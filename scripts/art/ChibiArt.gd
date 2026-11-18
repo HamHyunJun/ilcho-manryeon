@@ -44,7 +44,11 @@ static func hero(category: String) -> Dictionary:
 static func monster(kind: String) -> Dictionary:
 	var key := "mon_" + kind
 	if not _cache.has(key):
-		_cache[key] = MonsterArt.build(kind) if MonsterArt.has_kind(kind) else _build_monster(kind)
+		# 먹 실루엣 그림이 있는 종류는 그것을 쓰고, 없으면 예전 도트 그림(먹색 처리)을 쓴다
+		if InkMonsters.has_kind(kind):
+			_cache[key] = InkMonsters.build(kind)
+		else:
+			_cache[key] = MonsterArt.build(kind) if MonsterArt.has_kind(kind) else _build_monster(kind)
 	return _cache[key]
 
 

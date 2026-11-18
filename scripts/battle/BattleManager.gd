@@ -700,9 +700,13 @@ func _draw() -> void:
 		if boss.telegraph_pattern.get("area", "") == "line":
 			var x0: float = player.position.x - 50.0
 			var x1: float = boss.position.x
-			draw_rect(Rect2(Vector2(x0, ground_y - 10), Vector2((x1 - x0) * t, 20)), col)
-			draw_rect(Rect2(Vector2(x0, ground_y - 10), Vector2(x1 - x0, 20)), Color(1, 0.3, 0.2, 0.6), false, 2.0)
+			# 붉은 붓 띠가 보스 쪽에서 캐릭터 쪽으로 차오른다
+			UiIcons.torn_band(self, x1 - (x1 - x0) * t, x1, ground_y - 10, ground_y + 10, col, 4.0, 13)
+			UiIcons.ink_line(self, Vector2(x0, ground_y - 12), Vector2(x1, ground_y - 12), Color(1, 0.3, 0.2, 0.7), 3.0, 14, 1.2)
+			UiIcons.ink_line(self, Vector2(x0, ground_y + 12), Vector2(x1, ground_y + 12), Color(1, 0.3, 0.2, 0.7), 3.0, 15, 1.2)
 		else:
 			var center := Vector2(player.position.x, ground_y)
-			draw_circle(center, 70.0 * t, col)
-			draw_arc(center, 70.0, 0.0, TAU, 40, Color(1, 0.3, 0.2, 0.7), 2.0)
+			draw_set_transform(center, 0.0, Vector2(1.0, 0.45))
+			UiIcons.ink_smear(self, Vector2.ZERO, 70.0 * t, 70.0 * t, col, 16)
+			UiIcons.ink_ring(self, Vector2.ZERO, 70.0, Color(1, 0.3, 0.2, 0.8), 4.0, 17, 3.0)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
