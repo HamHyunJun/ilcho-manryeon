@@ -3,8 +3,76 @@ class_name UiIcons
 ## UI 아이콘을 코드로 그린다 (이미지 파일 없음). 하단 앱바, 설정, 보스 표시, 장비 부위 아이콘.
 ## 모든 함수는 center 기준, s는 아이콘 한 변의 대략적인 크기(px).
 
-const GOLD := Color("#f2c75c")
-const GOLD_DK := Color("#a8782a")
+## 화면 공통 색 (실루엣 + 손그림 질감 스타일)
+## 캐릭터·몬스터·UI 바탕은 먹색(INK), 글자와 선은 뼈색(BONE), 강조는 주홍(ACCENT) 하나만 쓴다.
+## 색은 기술 이펙트에 몰아 쓰고 UI는 무채색으로 둔다.
+const INK := Color("#0e0e0e")
+const INK_SOFT := Color("#1c1c1a")
+const BONE := Color("#e6dfcc")
+const BONE_DIM := Color("#9c968a")
+const ACCENT := Color("#c8402e")
+## 예전 금색 이름을 쓰는 코드를 위해 남겨 둔다 (지금은 뼈색 계열)
+const GOLD := BONE
+const GOLD_DK := BONE_DIM
+
+
+## 붓으로 그은 듯 흔들리는 선. 같은 seed면 매 프레임 같은 모양이라 깜빡이지 않는다
+static func ink_line(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, w: float, seed_v: int = 1, wobble: float = 1.6) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var n := maxi(2, int(a.distance_to(b) / 10.0))
+	var nrm := (b - a).orthogonal().normalized()
+	var prev := a
+	for i in range(1, n + 1):
+		var t := float(i) / n
+		var p := a.lerp(b, t) + nrm * (r.randf_range(-wobble, wobble) if i < n else 0.0)
+		# 끝으로 갈수록 살짝 가늘어지는 붓 자국
+		var ww := w * lerpf(1.0, 0.55, absf(t - 0.4) / 0.6) * r.randf_range(0.8, 1.15)
+		ci.draw_line(prev, p, col, maxf(1.0, ww))
+		prev = p
+
+
+## 위쪽 가장자리가 찢긴 종이처럼 들쭉날쭉한 띠 (x0~x1, top에서 bottom까지)
+static func torn_band(ci: CanvasItem, x0: float, x1: float, top: float, bottom: float, col: Color, amp: float = 5.0, seed_v: int = 1) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var pts := PackedVector2Array()
+	pts.append(Vector2(x0, bottom))
+	var x := x0
+	while x < x1:
+		pts.append(Vector2(x, top + r.randf_range(-amp, amp) * (0.4 + 0.6 * r.randf())))
+		x += r.randf_range(5.0, 14.0)
+	pts.append(Vector2(x1, top))
+	pts.append(Vector2(x1, bottom))
+	ci.draw_colored_polygon(pts, col)
+
+
+## 거친 붓 원 (닫힌 고리)
+static func ink_ring(ci: CanvasItem, c: Vector2, rad: float, col: Color, w: float, seed_v: int = 1, wobble: float = 2.0) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var pts := PackedVector2Array()
+	var n := 48
+	var first := 0.0
+	for i in n + 1:
+		var d := r.randf_range(-wobble, wobble) if i < n else first
+		if i == 0:
+			first = d
+		var a := TAU * i / n
+		pts.append(c + Vector2(cos(a), sin(a)) * (rad + d))
+	ci.draw_polyline(pts, col, w, true)
+
+
+## 먹물 번짐 (붓으로 문지른 타원 자국). 선택된 칸 표시 등에 쓴다
+static func ink_smear(ci: CanvasItem, c: Vector2, rx: float, ry: float, col: Color, seed_v: int = 1) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var pts := PackedVector2Array()
+	for i in 28:
+		var a := TAU * i / 28.0
+		var k := r.randf_range(0.82, 1.08)
+		pts.append(c + Vector2(cos(a) * rx * k, sin(a) * ry * k))
+	ci.draw_colored_polygon(pts, col)
 
 
 ## 엽전 두 닢 (상점)
@@ -83,7 +151,7 @@ static func taiji(ci: CanvasItem, c: Vector2, r: float, rot: float = 0.0) -> voi
 	ci.draw_circle(c - up, r * 0.5, light)
 	ci.draw_circle(c + up, r * 0.15, light)
 	ci.draw_circle(c - up, r * 0.15, dark)
-	ci.draw_arc(c, r, 0, TAU, 48, Color("#2a1a10"), 2.0)
+	ci.draw_arc(c, r, 0, TAU, 48, INK, 2.0)
 
 
 ## 톱니바퀴 (설정)

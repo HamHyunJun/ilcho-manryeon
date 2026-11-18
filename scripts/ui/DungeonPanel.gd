@@ -76,7 +76,7 @@ func _build_card(id: String) -> void:
 	var d := DungeonRules.resolve(base, lv)
 	var card := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.13, 0.11, 0.2, 0.9)
+	sb.bg_color = Color(0.1, 0.1, 0.095, 0.92)
 	sb.border_color = Color(0.45, 0.38, 0.25)
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(10)

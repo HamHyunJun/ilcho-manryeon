@@ -40,15 +40,15 @@ func _draw_profile(player) -> void:
 	var style: String = player.style if "style" in player else "sword"
 	var art := ChibiArt.hero(style)
 	# 바탕 원과 얼굴
-	draw_circle(c, PROFILE_R, Color("#1b1d3a"))
-	draw_circle(c, PROFILE_R - 4, Color("#2c3160"))
+	draw_circle(c, PROFILE_R, UiIcons.INK)
+	draw_circle(c, PROFILE_R - 4, Color("#3a3d39"))
 	var hr: Rect2 = art["head_rect"]
 	var img_scale := float(ChibiArt.UPSCALE)
 	var src := Rect2(hr.position * img_scale, hr.size * img_scale)
 	var dsize := Vector2(62, 62 * hr.size.y / hr.size.x)
 	draw_texture_rect_region(art["body"], Rect2(c - Vector2(dsize.x * 0.5, dsize.y * 0.5 + 2), dsize), src)
 	# 경험치 고리 (보라) + 금테
-	draw_arc(c, PROFILE_R, 0, TAU, 48, Color("#d9a441"), 4.0)
+	UiIcons.ink_ring(self, c, PROFILE_R, UiIcons.BONE, 3.5, 5, 1.2)
 	var growth = battle.growth
 	if growth != null:
 		var er := 1.0 if growth.level() >= growth.level_cap() else float(growth.current_exp()) / float(maxi(growth.exp_to_next(), 1))
@@ -56,7 +56,7 @@ func _draw_profile(player) -> void:
 			draw_arc(c, PROFILE_R + 4, -PI * 0.5, -PI * 0.5 + TAU * er, 48, Color("#b88cff"), 3.0)
 		# 레벨 배지
 		var bc := c + Vector2(26, 26)
-		draw_circle(bc, 13, Color("#6a3fc8"))
+		draw_circle(bc, 13, UiIcons.ACCENT)
 		draw_arc(bc, 13, 0, TAU, 24, Color("#f2e6ff"), 2.0)
 		UiIcons.text(self, bc + Vector2(-20, 6), str(growth.level()), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
 	# 체력 / 내공 바
@@ -118,7 +118,7 @@ func _draw_stage_block() -> void:
 	UiIcons.boss_face(self, Vector2(left + width + 20, CENTER_Y), 34)
 	# 보스 이름이 길면(예: 흑혈대주 혈마도) 체력 숫자가 잘리지 않게 글자를 줄인다
 	var cap_size := 19 if caption.length() <= 24 else 16
-	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, cap_size, Color("#f2c75c"), HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
+	UiIcons.text(self, Vector2(left - 40, CENTER_Y + 30), caption, cap_size, UiIcons.BONE, HORIZONTAL_ALIGNMENT_CENTER, width + 80, 4)
 
 
 ## 상단 바 아래 한 줄: 전투력(왼쪽), 은냥(오른쪽)
