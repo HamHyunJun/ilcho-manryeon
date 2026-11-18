@@ -1,7 +1,9 @@
 extends RefCounted
 class_name InkMonsters
-## 몬스터·보스 먹 실루엣 그림 (주인공 InkArt와 같은 붓 실루엣 스타일).
-## - 몸 전체를 먹색 실루엣 하나로 그리고, 붉은 눈과 작은 포인트(머리띠 꼬리, 투구 술, 금장 등)만 색을 쓴다.
+## 몬스터·보스 먹 실루엣 그림 (주인공 InkArt와 같은 붓 실루엣 스타일). 사람이 아닌 요괴·괴수 형태다.
+## - 일반: 늑대 요괴, 도깨비, 여우 요괴, 거미 요괴, 두꺼비 요괴, 박쥐 날개 귀신, 멧돼지 괴수
+## - 보스: 도깨비 대왕, 우두 귀졸, 구미호, 돌 거인, 혈귀 마왕
+## - 몸 전체를 먹색 실루엣 하나로 그리고, 붉은 눈과 작은 포인트(엄니, 꼬리 끝, 금빛 무늬 등)만 색을 쓴다.
 ## - 도형은 주인공과 같은 시안 좌표(200×240, 지면 y=222)에 오른쪽을 보도록 적고, 다 그린 뒤 좌우를 뒤집어 왼쪽(주인공 쪽)을 보게 한다.
 ## - 결과는 ChibiArt.monster()와 같은 사전 형식(body, flash, ko, weapon, weapon_pivot, size, hand)이다.
 ##
@@ -13,6 +15,7 @@ const EYE := Color("#e0402e")
 const RED := Color("#c8302a")
 const GOLD := Color("#d9a441")
 const VIOLET := Color("#8a6ad8")
+const BONE := Color("#e6dfcc")
 
 
 static func has_kind(kind: String) -> bool:
@@ -95,223 +98,254 @@ static func _arms(hand: Vector2, thick: float = 0.0) -> Array:
 static func _spec(kind: String) -> Dictionary:
 	match kind:
 		"bandit":
-			# 산적: 부스스한 머리, 휘날리는 머리띠, 해진 조끼, 도
-			return {"weapon": "broad", "hand": Vector2(134, 104), "shapes": _legs(4) + [
-				["poly", [Vector2(84, 78), Vector2(118, 78), Vector2(124, 136), Vector2(116, 146), Vector2(108, 136), Vector2(100, 148), Vector2(92, 136), Vector2(84, 146), Vector2(78, 136)]],
-				["circle", Vector2(100, 64), 13.0],
-				["poly", [Vector2(86, 62), Vector2(82, 46), Vector2(92, 52), Vector2(95, 40), Vector2(102, 50), Vector2(112, 42), Vector2(112, 54), Vector2(118, 56), Vector2(113, 62)]],
-				["accent", RED, ["poly", [Vector2(88, 58), [Vector2(72, 50), Vector2(56, 58)], [Vector2(70, 58), Vector2(86, 64)]]]],
-				["eye", Vector2(107, 64), 9.0],
-			] + _arms(Vector2(134, 104))}
+			# 늑대 요괴: 구부정한 두 발 짐승, 긴 주둥이, 뾰족 귀, 등 갈기, 꼬리, 손톱
+			return {"weapon": "claw", "hand": Vector2(138, 112), "shapes": _beast_legs() + [
+				["poly", [Vector2(78, 132), [Vector2(50, 132), Vector2(36, 110)], [Vector2(54, 146), Vector2(82, 142)]]],
+				["poly", [Vector2(78, 90), Vector2(116, 84), Vector2(124, 110), Vector2(120, 142), Vector2(80, 142), Vector2(72, 116)]],
+				["poly", [Vector2(78, 94), Vector2(66, 82), Vector2(84, 86), Vector2(78, 70), Vector2(94, 80), Vector2(96, 66), Vector2(106, 80)]],
+				["circle", Vector2(110, 76), 12.0],
+				["poly", [Vector2(104, 70), Vector2(118, 64), Vector2(148, 78), Vector2(146, 84), Vector2(122, 90), Vector2(106, 90)]],
+				["poly", [Vector2(100, 68), Vector2(98, 46), Vector2(110, 62)]],
+				["poly", [Vector2(110, 64), Vector2(118, 44), Vector2(120, 66)]],
+				["accent", BONE, ["poly", [Vector2(128, 86), Vector2(132, 94), Vector2(135, 86)]]],
+				["eye", Vector2(122, 74), 8.0],
+			] + _arms(Vector2(138, 112))}
 		"brute":
-			# 거한: 작은 민머리, 떡 벌어진 어깨, 굵은 팔다리, 몽둥이
-			return {"weapon": "club", "hand": Vector2(152, 112), "shapes": _legs(6, 6) + [
-				["poly", [Vector2(70, 84), Vector2(134, 82), Vector2(144, 118), Vector2(132, 150), Vector2(78, 150), Vector2(64, 118)]],
-				["circle", Vector2(104, 70), 10.0],
-				["poly", [Vector2(98, 74), Vector2(114, 74), Vector2(106, 92)]],
-				["poly", [Vector2(126, 86), Vector2(156, 104), Vector2(150, 120), Vector2(120, 106)]],
-				["circle", Vector2(152, 112), 8.0],
-				["poly", [Vector2(76, 88), Vector2(56, 122), Vector2(66, 132), Vector2(86, 104)]],
-				["eye", Vector2(110, 68), 8.0],
+			# 도깨비: 외뿔, 산발 머리, 불룩한 배, 짧고 굵은 다리, 도깨비 방망이
+			return {"weapon": "spiked_club", "hand": Vector2(152, 114), "shapes": _ogre(false) + [
+				["eye", Vector2(114, 80), 9.0],
 			]}
 		"masked":
-			# 흑의 자객: 뾰족한 두건, 휘날리는 목도리, 낮게 웅크린 자세, 단검
-			return {"weapon": "dagger", "hand": Vector2(140, 112), "shapes": [
-				["poly", [Vector2(84, 128), Vector2(100, 128), Vector2(86, 168), Vector2(62, 222), Vector2(46, 220), Vector2(70, 166)]],
-				["poly", [Vector2(104, 128), Vector2(120, 128), Vector2(142, 170), Vector2(152, 222), Vector2(136, 222), Vector2(122, 172)]],
-				["poly", [Vector2(90, 84), Vector2(118, 86), Vector2(122, 132), Vector2(82, 134)]],
-				["circle", Vector2(106, 72), 11.0],
-				["poly", [Vector2(94, 64), Vector2(106, 56), Vector2(118, 64), Vector2(118, 80), Vector2(92, 78)]],
-				["poly", [Vector2(96, 62), Vector2(72, 70), Vector2(94, 74)]],
-				["poly", [Vector2(92, 82), [Vector2(66, 76), Vector2(46, 90)], [Vector2(68, 88), Vector2(90, 90)]]],
-				["eye", Vector2(112, 70), 10.0],
-			] + _arms(Vector2(140, 112))}
+			# 여우 요괴: 낮게 웅크린 몸, 큰 귀, 긴 주둥이, 위로 치솟은 꼬리(끝이 흰), 손톱
+			return {"weapon": "claw", "hand": Vector2(140, 114), "shapes": _crouch_legs() + _fox_tails(1) + [
+				["poly", [Vector2(90, 90), Vector2(118, 90), Vector2(122, 132), Vector2(84, 134)]],
+				["circle", Vector2(108, 78), 11.0],
+				["poly", [Vector2(108, 72), Vector2(142, 82), Vector2(112, 88)]],
+				["poly", [Vector2(98, 72), Vector2(94, 46), Vector2(108, 68)]],
+				["poly", [Vector2(108, 68), Vector2(114, 44), Vector2(120, 70)]],
+				["eye", Vector2(118, 76), 9.0],
+			] + _arms(Vector2(140, 114))}
 		"archer":
-			# 삿갓 궁수: 원뿔 삿갓, 긴 도포, 등 뒤 화살통, 활
-			return {"weapon": "bow", "hand": Vector2(138, 102), "shapes": [
-				["poly", [Vector2(88, 76), Vector2(114, 76), Vector2(122, 130), Vector2(134, 206), Vector2(106, 204), Vector2(100, 170), Vector2(94, 204), Vector2(66, 208), Vector2(78, 130)]],
-				["line", Vector2(96, 200), Vector2(94, 222), 5.0],
-				["line", Vector2(106, 200), Vector2(110, 222), 5.0],
-				["line", Vector2(84, 84), Vector2(72, 132), 9.0],
-				["line", Vector2(80, 84), Vector2(72, 64), 2.5],
-				["line", Vector2(85, 84), Vector2(82, 62), 2.5],
-				["accent", RED, ["circle", Vector2(72, 64), 2.6]],
-				["circle", Vector2(100, 68), 11.0],
-				["poly", [Vector2(50, 68), [Vector2(84, 54), Vector2(100, 34)], [Vector2(116, 54), Vector2(150, 68)], [Vector2(100, 74), Vector2(50, 68)]]],
-				["eye", Vector2(108, 72), 8.0],
-			] + _arms(Vector2(138, 102))}
+			# 거미 요괴: 둥근 배, 여덟 다리, 등에 붉은 무늬, 여러 개의 눈, 먹물 침을 쏜다
+			return {"weapon": "none", "hand": Vector2(144, 140), "shapes": [
+				["line", Vector2(126, 134), Vector2(152, 100), 5.0], ["line", Vector2(152, 100), Vector2(176, 222), 4.0],
+				["line", Vector2(122, 140), Vector2(142, 112), 5.0], ["line", Vector2(142, 112), Vector2(154, 222), 4.0],
+				["line", Vector2(112, 140), Vector2(120, 106), 5.0], ["line", Vector2(120, 106), Vector2(118, 222), 4.0],
+				["line", Vector2(104, 142), Vector2(84, 100), 5.0], ["line", Vector2(84, 100), Vector2(70, 222), 4.0],
+				["line", Vector2(98, 140), Vector2(62, 96), 5.0], ["line", Vector2(62, 96), Vector2(40, 222), 4.0],
+				["circle", Vector2(86, 118), 30.0],
+				["circle", Vector2(72, 108), 22.0],
+				["circle", Vector2(124, 138), 15.0],
+				["poly", [Vector2(134, 146), Vector2(146, 150), Vector2(136, 156)]],
+				["accent", RED, ["poly", [Vector2(80, 100), Vector2(88, 112), Vector2(80, 124), Vector2(72, 112)]]],
+				["eye", Vector2(132, 134), 6.0],
+				["eye", Vector2(126, 130), 5.0],
+				["eye", Vector2(134, 140), 4.0],
+			]}
 		"guard":
-			# 철갑 수문위사: 술 달린 투구, 어깨 갑옷, 비늘 치마, 긴 창
-			return {"weapon": "spear", "hand": Vector2(136, 104), "shapes": _legs(0, 2) + [
-				["poly", [Vector2(80, 80), Vector2(120, 80), Vector2(122, 128), Vector2(128, 152), Vector2(72, 152), Vector2(78, 128)]],
-				["circle", Vector2(84, 86), 11.0],
-				["circle", Vector2(118, 86), 11.0],
-				["circle", Vector2(100, 66), 12.0],
-				["poly", [Vector2(85, 66), Vector2(87, 50), Vector2(100, 43), Vector2(113, 50), Vector2(116, 66)]],
-				["line", Vector2(80, 66), Vector2(120, 66), 4.0],
-				["accent", RED, ["poly", [Vector2(100, 44), [Vector2(88, 30), Vector2(74, 34)], [Vector2(86, 38), Vector2(96, 48)]]]],
-				["eye", Vector2(108, 70), 8.0],
-			] + _arms(Vector2(136, 104), 2.0)}
+			# 두꺼비 요괴: 납작하고 거대한 몸, 머리 위 툭 튀어나온 두 눈, 넓은 입
+			return {"weapon": "none", "hand": Vector2(156, 148), "shapes": [
+				["poly", [Vector2(54, 202), Vector2(58, 152), Vector2(84, 120), Vector2(122, 112), Vector2(152, 126), Vector2(164, 160), Vector2(156, 202)]],
+				["circle", Vector2(118, 114), 13.0],
+				["circle", Vector2(144, 120), 11.0],
+				["poly", [Vector2(58, 196), Vector2(36, 222), Vector2(94, 222), Vector2(84, 194)]],
+				["poly", [Vector2(128, 196), Vector2(122, 222), Vector2(156, 222), Vector2(152, 190)]],
+				["circle", Vector2(80, 150), 6.0], ["circle", Vector2(98, 136), 5.0], ["circle", Vector2(70, 172), 5.0],
+				["accent", RED, ["line", Vector2(112, 152), Vector2(164, 148), 3.0]],
+				["eye", Vector2(120, 110), 9.0],
+				["eye", Vector2(146, 116), 8.0],
+			]}
 		"blood_soldier":
-			# 흑혈대 졸개: 짧은 상투, 긴 핏빛 머리띠 꼬리, 허리띠, 도
-			return {"weapon": "broad", "hand": Vector2(136, 106), "shapes": _legs(8) + [
-				["poly", [Vector2(84, 80), Vector2(118, 80), Vector2(120, 140), Vector2(80, 140)]],
-				["circle", Vector2(102, 66), 12.0],
-				["circle", Vector2(96, 50), 5.0],
-				["accent", RED, ["poly", [Vector2(90, 62), [Vector2(70, 58), Vector2(50, 70)], [Vector2(66, 64), Vector2(56, 80)], [Vector2(74, 68), Vector2(90, 68)]]]],
-				["accent", RED, ["poly", [Vector2(80, 120), Vector2(120, 120), Vector2(120, 126), Vector2(80, 126)]]],
-				["eye", Vector2(109, 66), 9.0],
+			# 박쥐 날개 귀신: 굽은 뿔, 박쥐 날개, 가시 꼬리, 붉은 삼지창
+			return {"weapon": "trident", "hand": Vector2(136, 106), "shapes": _beast_legs() + [
+				["poly", [Vector2(90, 92), [Vector2(60, 58), Vector2(38, 68)], Vector2(52, 86), Vector2(42, 104), Vector2(60, 104), Vector2(62, 122), [Vector2(76, 106), Vector2(88, 110)]]],
+				["line", Vector2(86, 138), Vector2(58, 162), 3.0],
+				["poly", [Vector2(60, 158), Vector2(44, 158), Vector2(52, 172)]],
+				["poly", [Vector2(86, 88), Vector2(116, 88), Vector2(118, 140), Vector2(84, 140)]],
+				["circle", Vector2(102, 72), 11.0],
+				["poly", [Vector2(94, 66), [Vector2(84, 54), Vector2(88, 40)], Vector2(98, 62)]],
+				["poly", [Vector2(106, 62), [Vector2(114, 48), Vector2(124, 44)], Vector2(112, 68)]],
+				["eye", Vector2(108, 72), 8.0],
 			] + _arms(Vector2(136, 106))}
 		"elite":
-			# 흑혈대 정예: 두건과 복면, 뿔 같은 어깨 갑주, 짧은 망토, 큰 칼
-			return {"weapon": "great_blade", "hand": Vector2(138, 106), "shapes": _legs(4, 3) + [
-				["poly", [Vector2(86, 80), [Vector2(60, 120), Vector2(50, 176)], Vector2(72, 170), [Vector2(80, 130), Vector2(92, 110)]]],
-				["poly", [Vector2(80, 80), Vector2(122, 80), Vector2(124, 142), Vector2(76, 142)]],
-				["poly", [Vector2(74, 92), Vector2(70, 72), Vector2(92, 82)]],
-				["poly", [Vector2(128, 92), Vector2(134, 72), Vector2(112, 82)]],
-				["circle", Vector2(102, 66), 12.0],
-				["poly", [Vector2(88, 62), Vector2(102, 50), Vector2(116, 60), Vector2(118, 80), Vector2(86, 80)]],
-				["accent", RED, ["poly", [Vector2(80, 112), Vector2(124, 112), Vector2(124, 118), Vector2(80, 118)]]],
-				["eye", Vector2(110, 66), 10.0],
-			] + _arms(Vector2(138, 106), 3.0)}
+			# 멧돼지 괴수: 육중한 구부정 몸, 등 털 가시, 흰 엄니, 손톱
+			return {"weapon": "claw", "hand": Vector2(142, 116), "shapes": _legs(4, 5) + [
+				["poly", [Vector2(68, 98), Vector2(120, 86), Vector2(134, 112), Vector2(128, 148), Vector2(76, 148), Vector2(62, 122)]],
+				["poly", [Vector2(70, 100), Vector2(58, 82), Vector2(76, 90), Vector2(72, 70), Vector2(90, 84), Vector2(90, 64), Vector2(104, 82)]],
+				["circle", Vector2(118, 86), 14.0],
+				["poly", [Vector2(108, 80), Vector2(130, 72), Vector2(150, 86), Vector2(150, 98), Vector2(130, 102), Vector2(112, 100)]],
+				["poly", [Vector2(108, 74), Vector2(102, 58), Vector2(118, 70)]],
+				["accent", BONE, ["poly", [Vector2(140, 98), Vector2(154, 82), Vector2(146, 100)]]],
+				["eye", Vector2(128, 82), 9.0],
+			] + _arms(Vector2(142, 116), 4.0)}
 		"chief":
-			# [보스] 산채 두목: 상투, 털 깃, 넓은 어깨, 뒤로 휘날리는 망토, 금장 대도
-			return {"weapon": "broad_gold", "hand": Vector2(140, 106), "shapes": _legs(8, 4) + [
-				["poly", [Vector2(84, 82), [Vector2(50, 120), Vector2(36, 196)], Vector2(52, 190), Vector2(60, 204), [Vector2(74, 150), Vector2(92, 110)]]],
-				["poly", [Vector2(76, 82), Vector2(126, 82), Vector2(130, 144), Vector2(72, 144)]],
-				["poly", [Vector2(74, 84), Vector2(80, 72), Vector2(88, 80), Vector2(96, 70), Vector2(104, 80), Vector2(112, 70), Vector2(118, 80), Vector2(126, 72), Vector2(130, 88), Vector2(100, 96)]],
-				["circle", Vector2(102, 62), 13.0],
-				["poly", [Vector2(94, 52), Vector2(98, 34), Vector2(106, 52)]],
-				["poly", [Vector2(98, 70), Vector2(116, 70), Vector2(108, 90)]],
-				["accent", GOLD, ["poly", [Vector2(76, 122), Vector2(130, 122), Vector2(130, 128), Vector2(76, 128)]]],
-				["eye", Vector2(110, 62), 10.0],
-			] + _arms(Vector2(140, 106), 4.0)}
+			# [보스] 도깨비 대왕: 두 뿔, 털 갈기, 금 허리띠, 금테 방망이
+			return {"weapon": "club_gold", "hand": Vector2(152, 114), "shapes": _ogre(true) + [
+				["accent", GOLD, ["poly", [Vector2(70, 138), Vector2(138, 138), Vector2(138, 146), Vector2(70, 146)]]],
+				["eye", Vector2(114, 80), 10.0],
+			]}
 		"blood_guard":
-			# [보스] 흑혈대 혈위대장: 뿔 투구, 육중한 갑옷, 붉은 술, 긴 창
-			return {"weapon": "spear_red", "hand": Vector2(138, 104), "shapes": _legs(4, 5) + [
-				["poly", [Vector2(78, 80), Vector2(124, 80), Vector2(128, 130), Vector2(134, 156), Vector2(68, 156), Vector2(74, 130)]],
-				["circle", Vector2(82, 86), 13.0],
-				["circle", Vector2(120, 86), 13.0],
-				["circle", Vector2(100, 64), 12.0],
-				["poly", [Vector2(84, 66), Vector2(86, 50), Vector2(100, 44), Vector2(114, 50), Vector2(117, 66)]],
-				["poly", [Vector2(86, 52), [Vector2(72, 44), Vector2(70, 26)], Vector2(90, 46)]],
-				["poly", [Vector2(114, 52), [Vector2(128, 44), Vector2(130, 26)], Vector2(110, 46)]],
-				["accent", RED, ["poly", [Vector2(98, 44), [Vector2(90, 30), Vector2(98, 22)], [Vector2(104, 32), Vector2(102, 44)]]]],
-				["accent", RED, ["poly", [Vector2(74, 132), Vector2(128, 132), Vector2(128, 138), Vector2(74, 138)]]],
-				["eye", Vector2(108, 68), 9.0],
-			] + _arms(Vector2(138, 104), 4.0)}
+			# [보스] 우두 귀졸: 소머리, 크게 휜 뿔, 코뚜레, 근육질 몸, 붉은 도끼
+			return {"weapon": "axe_red", "hand": Vector2(140, 104), "shapes": _legs(4, 6) + [
+				["poly", [Vector2(70, 84), Vector2(134, 84), Vector2(126, 148), Vector2(78, 148)]],
+				["circle", Vector2(76, 92), 13.0], ["circle", Vector2(128, 92), 13.0],
+				["circle", Vector2(104, 70), 13.0],
+				["poly", [Vector2(108, 64), Vector2(132, 72), Vector2(130, 88), Vector2(106, 88)]],
+				["poly", [Vector2(94, 62), [Vector2(70, 58), Vector2(60, 34)], Vector2(78, 50), Vector2(98, 56)]],
+				["poly", [Vector2(110, 58), [Vector2(130, 48), Vector2(140, 26)], Vector2(138, 50), Vector2(116, 66)]],
+				["accent", GOLD, ["circle", Vector2(132, 86), 3.0]],
+				["accent", RED, ["poly", [Vector2(76, 124), Vector2(128, 124), Vector2(128, 130), Vector2(76, 130)]]],
+				["eye", Vector2(114, 68), 9.0],
+			] + _arms(Vector2(140, 104), 5.0)}
 		"shadow_lord":
-			# [보스] 무영객: 크게 펄럭이는 두건 망토, 낮은 자세, 쌍단검, 보랏빛 기운
-			return {"weapon": "twin_dagger", "hand": Vector2(142, 110), "shapes": [
-				["poly", [Vector2(96, 60), [Vector2(48, 90), Vector2(30, 160)], Vector2(46, 152), Vector2(40, 200), [Vector2(70, 170), Vector2(84, 196)], [Vector2(96, 150), Vector2(112, 132)], Vector2(118, 80)]],
-				["poly", [Vector2(86, 130), Vector2(102, 130), Vector2(88, 170), Vector2(66, 222), Vector2(50, 220), Vector2(72, 168)]],
-				["poly", [Vector2(106, 130), Vector2(120, 130), Vector2(142, 172), Vector2(154, 222), Vector2(138, 222), Vector2(124, 174)]],
-				["poly", [Vector2(90, 84), Vector2(120, 86), Vector2(122, 134), Vector2(84, 134)]],
-				["circle", Vector2(106, 70), 11.0],
-				["poly", [Vector2(90, 66), [Vector2(100, 46), Vector2(120, 58)], Vector2(120, 80), Vector2(92, 80)]],
-				["poly", [Vector2(92, 60), Vector2(70, 50), Vector2(90, 70)]],
-				["accent", VIOLET, ["poly", [Vector2(40, 200), [Vector2(30, 186), Vector2(34, 170)], [Vector2(44, 184), Vector2(50, 192)]]]],
-				["accent", VIOLET, ["poly", [Vector2(30, 160), [Vector2(26, 146), Vector2(34, 136)], [Vector2(36, 150), Vector2(42, 156)]]]],
-				["eye", Vector2(112, 70), 11.0],
-			] + _arms(Vector2(142, 110))}
+			# [보스] 구미호: 부채처럼 펼친 아홉 꼬리(끝이 보랏빛), 여우 머리, 보랏빛 여우불
+			return {"weapon": "foxfire", "hand": Vector2(142, 112), "shapes": _crouch_legs() + _fox_tails(7) + [
+				["poly", [Vector2(90, 88), Vector2(118, 88), Vector2(122, 132), Vector2(84, 134)]],
+				["circle", Vector2(108, 76), 12.0],
+				["poly", [Vector2(108, 70), Vector2(144, 80), Vector2(112, 88)]],
+				["poly", [Vector2(98, 70), Vector2(92, 42), Vector2(108, 66)]],
+				["poly", [Vector2(108, 66), Vector2(114, 40), Vector2(122, 68)]],
+				["eye", Vector2(118, 74), 10.0],
+			] + _arms(Vector2(142, 112))}
 		"iron_general":
-			# [보스] 철벽 관주: 높은 투구와 금빛 술, 넓은 어깨 갑옷, 수염, 망토, 금창
-			return {"weapon": "spear_gold", "hand": Vector2(140, 104), "shapes": _legs(2, 5) + [
-				["poly", [Vector2(84, 82), [Vector2(58, 130), Vector2(48, 210)], Vector2(70, 204), [Vector2(80, 150), Vector2(92, 112)]]],
-				["poly", [Vector2(76, 80), Vector2(126, 80), Vector2(130, 130), Vector2(136, 158), Vector2(66, 158), Vector2(72, 130)]],
-				["poly", [Vector2(64, 92), Vector2(76, 76), Vector2(96, 82), Vector2(90, 98)]],
-				["poly", [Vector2(138, 92), Vector2(126, 76), Vector2(106, 82), Vector2(112, 98)]],
-				["circle", Vector2(100, 64), 12.0],
-				["poly", [Vector2(84, 64), Vector2(88, 44), Vector2(100, 36), Vector2(112, 44), Vector2(116, 64)]],
-				["line", Vector2(78, 64), Vector2(122, 64), 4.0],
-				["poly", [Vector2(96, 72), Vector2(114, 72), Vector2(106, 94)]],
-				["accent", GOLD, ["poly", [Vector2(100, 36), [Vector2(92, 22), Vector2(80, 18)], [Vector2(94, 28), Vector2(104, 38)]]]],
-				["accent", GOLD, ["poly", [Vector2(72, 132), Vector2(130, 132), Vector2(130, 138), Vector2(72, 138)]]],
-				["eye", Vector2(108, 66), 9.0],
-			] + _arms(Vector2(140, 104), 4.0)}
+			# [보스] 돌 거인: 바위 덩어리 몸, 박힌 작은 머리, 거대한 주먹, 금빛 부적 무늬
+			return {"weapon": "none", "hand": Vector2(156, 122), "shapes": [
+				["poly", [Vector2(76, 156), Vector2(102, 156), Vector2(102, 222), Vector2(68, 222)]],
+				["poly", [Vector2(110, 156), Vector2(136, 156), Vector2(146, 222), Vector2(112, 222)]],
+				["poly", [Vector2(66, 90), Vector2(138, 86), Vector2(148, 128), Vector2(134, 164), Vector2(72, 164), Vector2(58, 126)]],
+				["circle", Vector2(66, 96), 17.0], ["circle", Vector2(138, 94), 16.0],
+				["poly", [Vector2(92, 62), Vector2(118, 58), Vector2(124, 86), Vector2(90, 88)]],
+				["poly", [Vector2(130, 92), Vector2(158, 110), Vector2(150, 128), Vector2(124, 112)]],
+				["circle", Vector2(156, 122), 13.0],
+				["poly", [Vector2(70, 100), Vector2(50, 130), Vector2(62, 140), Vector2(80, 112)]],
+				["accent", GOLD, ["line", Vector2(94, 112), Vector2(104, 134), 3.0]],
+				["accent", GOLD, ["line", Vector2(104, 134), Vector2(116, 112), 3.0]],
+				["accent", GOLD, ["line", Vector2(98, 146), Vector2(114, 146), 3.0]],
+				["eye", Vector2(110, 72), 10.0],
+			]}
 		"blood_lord":
-			# [보스] 흑혈대주 혈마도: 상투, 수염, 갈기 같은 찢긴 망토, 핏빛 허리띠, 거대한 혈마도
-			return {"weapon": "blood_blade", "hand": Vector2(142, 104), "shapes": _legs(10, 5) + [
-				["poly", [Vector2(88, 78), [Vector2(46, 110), Vector2(30, 180)], Vector2(42, 176), Vector2(36, 206), Vector2(52, 194), Vector2(56, 214), [Vector2(72, 160), Vector2(94, 116)]]],
-				["poly", [Vector2(76, 80), Vector2(126, 80), Vector2(132, 146), Vector2(70, 146)]],
-				["poly", [Vector2(70, 90), Vector2(66, 70), Vector2(90, 80)]],
-				["poly", [Vector2(132, 90), Vector2(136, 70), Vector2(112, 80)]],
-				["circle", Vector2(102, 62), 13.0],
-				["circle", Vector2(98, 44), 6.0],
-				["line", Vector2(98, 40), Vector2(84, 30), 3.0],
-				["poly", [Vector2(96, 70), Vector2(118, 70), Vector2(112, 86), Vector2(104, 100)]],
-				["accent", RED, ["poly", [Vector2(70, 120), Vector2(132, 120), Vector2(132, 128), Vector2(70, 128)]]],
-				["accent", RED, ["poly", [Vector2(96, 128), Vector2(104, 128), Vector2(98, 148), Vector2(90, 146)]]],
-				["eye", Vector2(110, 62), 11.0],
-			] + _arms(Vector2(142, 104), 5.0)}
+			# [보스] 혈귀 마왕: 크게 펼친 박쥐 날개, 뒤로 휜 큰 뿔, 붉은 허리띠, 피 묻은 손톱
+			return {"weapon": "blood_claw", "hand": Vector2(142, 108), "shapes": _beast_legs(6) + [
+				["poly", [Vector2(86, 86), [Vector2(44, 34), Vector2(28, 52)], Vector2(42, 80), Vector2(26, 110), Vector2(48, 108), Vector2(44, 146), [Vector2(70, 118), Vector2(90, 110)]]],
+				["poly", [Vector2(74, 82), Vector2(130, 82), Vector2(126, 146), Vector2(78, 146)]],
+				["circle", Vector2(76, 90), 11.0], ["circle", Vector2(128, 90), 11.0],
+				["circle", Vector2(104, 64), 13.0],
+				["poly", [Vector2(96, 56), [Vector2(78, 42), Vector2(68, 20)], Vector2(88, 40), Vector2(102, 52)]],
+				["poly", [Vector2(110, 54), [Vector2(122, 36), Vector2(118, 16)], Vector2(126, 40), Vector2(116, 60)]],
+				["poly", [Vector2(108, 70), Vector2(118, 72), Vector2(110, 82)]],
+				["accent", RED, ["poly", [Vector2(78, 122), Vector2(126, 122), Vector2(126, 130), Vector2(78, 130)]]],
+				["eye", Vector2(112, 62), 11.0],
+			] + _arms(Vector2(142, 108), 5.0)}
 	return {}
+
+
+## 짐승 다리 (뒤로 꺾인 발목)
+static func _beast_legs(thick: float = 0.0) -> Array:
+	return [
+		["poly", [Vector2(82 - thick, 136), Vector2(100, 136), Vector2(102, 168), Vector2(92, 190), Vector2(98, 222), Vector2(76 - thick, 222), Vector2(80, 188), Vector2(84 - thick, 168)]],
+		["poly", [Vector2(104, 136), Vector2(120 + thick, 136), Vector2(128 + thick, 170), Vector2(120, 192), Vector2(134 + thick, 222), Vector2(112, 222), Vector2(106, 192), Vector2(108, 168)]],
+	]
+
+
+## 웅크린 다리 (여우·구미호)
+static func _crouch_legs() -> Array:
+	return [
+		["poly", [Vector2(84, 128), Vector2(100, 128), Vector2(86, 168), Vector2(62, 222), Vector2(46, 220), Vector2(70, 166)]],
+		["poly", [Vector2(104, 128), Vector2(120, 128), Vector2(142, 170), Vector2(152, 222), Vector2(136, 222), Vector2(122, 172)]],
+	]
+
+
+## 여우 꼬리 n개를 부채꼴로. 끝은 한지색(1개) 또는 보랏빛(여러 개)
+static func _fox_tails(n: int) -> Array:
+	var out: Array = []
+	var base := Vector2(98, 126)
+	for i in n:
+		var t := 0.5 if n == 1 else float(i) / float(n - 1)
+		var ang := -PI * 0.9 if n == 1 else lerpf(-PI * 1.04, -PI * 0.36, t)
+		var len := 58.0 if n == 1 else 56.0 + 18.0 * sin(t * PI)
+		var fat := 22.0 if n == 1 else 9.0
+		var dir := Vector2(cos(ang), sin(ang))
+		var nrm := dir.orthogonal()
+		var tip := base + dir * len + nrm * (12.0 if n == 1 else 7.0)
+		var mid := base + dir * len * 0.5
+		# 부풀었다가 끝이 휘는 붓꼬리 (여러 개면 가늘게 갈라져 불꽃처럼)
+		out.append(["poly", [base + nrm * 6.0, [mid + nrm * fat, tip + nrm * 3.0], tip + dir * 8.0, [mid - nrm * fat * 0.5, base - nrm * 6.0]]])
+		out.append(["accent", BONE if n == 1 else VIOLET, ["circle", tip + dir * 3.0, 6.0 if n == 1 else 4.5]])
+	return out
+
+
+## 도깨비 몸 (king: 두 뿔 + 털 갈기)
+static func _ogre(king: bool) -> Array:
+	var out: Array = [
+		["poly", [Vector2(80, 158), Vector2(102, 158), Vector2(100, 222), Vector2(68, 222)]],
+		["poly", [Vector2(108, 158), Vector2(130, 158), Vector2(142, 222), Vector2(110, 222)]],
+		["circle", Vector2(104, 132), 34.0],
+		["poly", [Vector2(70, 96), Vector2(138, 96), Vector2(142, 132), Vector2(66, 132)]],
+		["circle", Vector2(106, 82), 14.0],
+		["poly", [Vector2(90, 78), Vector2(82, 62), Vector2(96, 70), Vector2(94, 56), Vector2(104, 68)]],
+		["poly", [Vector2(128, 98), Vector2(156, 106), Vector2(152, 122), Vector2(122, 112)]],
+		["circle", Vector2(152, 114), 8.0],
+		["poly", [Vector2(76, 100), Vector2(54, 130), Vector2(64, 140), Vector2(86, 114)]],
+		["accent", BONE, ["poly", [Vector2(112, 90), Vector2(116, 98), Vector2(119, 90)]]],
+	]
+	if king:
+		out.append(["poly", [Vector2(98, 72), [Vector2(90, 56), Vector2(94, 40)], Vector2(104, 68)]])
+		out.append(["poly", [Vector2(110, 70), [Vector2(120, 54), Vector2(130, 46)], Vector2(116, 76)]])
+		out.append(["poly", [Vector2(68, 98), Vector2(70, 80), Vector2(82, 90), Vector2(86, 74), Vector2(96, 92), Vector2(120, 92), Vector2(126, 76), Vector2(132, 92), Vector2(142, 84), Vector2(140, 102)]])
+	else:
+		out.append(["poly", [Vector2(102, 70), Vector2(108, 44), Vector2(114, 70)]])
+	return out
 
 
 # ---- 무기 (그림 픽셀 좌표, 위로 세운 모양, pivot = 쥔 곳) ----
 
 static func _weapon(kind: String) -> Dictionary:
 	match kind:
-		"club":
-			return _wpn(14, 40, Vector2(7, 36), [
-				["poly", [Vector2(5.5, 39), Vector2(4, 12), Vector2(5, 3), Vector2(9, 1), Vector2(12, 5), Vector2(11, 14), Vector2(8.5, 39)], INK],
-				["poly", [Vector2(3, 10), Vector2(1, 8), Vector2(4, 7)], INK],
-				["poly", [Vector2(12, 12), Vector2(14, 10), Vector2(11, 8)], INK],
+		"claw", "blood_claw":
+			# 손톱 세 개 (위로 휜 갈고리)
+			var tip := RED if kind == "blood_claw" else INK
+			var s := 1.4 if kind == "blood_claw" else 1.0
+			var parts: Array = []
+			for i in 3:
+				var x := (3.0 + i * 4.0) * s
+				parts.append(["poly", [Vector2(x, 16 * s), Vector2(x + 1.5 * s, 4 * s + i * s), Vector2(x + 4 * s, 0.5 * s + i * s), Vector2(x + 2.5 * s, 6 * s + i * s), Vector2(x + 2.4 * s, 16 * s)], INK])
+				parts.append(["poly", [Vector2(x + 1.5 * s, 4 * s + i * s), Vector2(x + 4 * s, 0.5 * s + i * s), Vector2(x + 2.6 * s, 5 * s + i * s)], tip])
+			return _wpn(int(16 * s), int(20 * s), Vector2(7 * s, 16 * s), parts)
+		"spiked_club", "club_gold":
+			# 도깨비 방망이: 위가 굵은 몽둥이에 혹 같은 가시
+			var band := GOLD if kind == "club_gold" else INK
+			return _wpn(18, 46, Vector2(9, 42), [
+				["poly", [Vector2(7.5, 45), Vector2(5, 16), Vector2(5, 5), Vector2(9, 1), Vector2(13, 5), Vector2(13, 16), Vector2(10.5, 45)], INK],
+				["circle_pts", Vector2(4, 8), 2.0, INK], ["circle_pts", Vector2(14, 6), 2.0, INK], ["circle_pts", Vector2(4, 16), 1.8, INK],
+				["circle_pts", Vector2(14, 14), 1.8, INK], ["circle_pts", Vector2(9, 11), 1.6, INK],
+				["poly", [Vector2(5.4, 22), Vector2(12.6, 22), Vector2(12.3, 24.5), Vector2(5.7, 24.5)], band],
 			])
-		"bow":
-			return _wpn(16, 46, Vector2(8, 23), [
-				["line", Vector2(8, 2), Vector2(3.5, 23), 3.0, INK],
-				["line", Vector2(3.5, 23), Vector2(8, 44), 3.0, INK],
-				["line", Vector2(8.5, 2), Vector2(8.5, 44), 0.9, INK],
-				["line", Vector2(6, 21), Vector2(6, 25), 3.0, RED],
+		"trident":
+			return _wpn(14, 60, Vector2(7, 40), [
+				["line", Vector2(7, 12), Vector2(7, 59), 1.8, INK],
+				["line", Vector2(2.5, 12), Vector2(11.5, 12), 1.8, INK],
+				["poly", [Vector2(1.6, 12), Vector2(2.5, 2), Vector2(3.6, 12)], RED],
+				["poly", [Vector2(6, 12), Vector2(7, 0), Vector2(8, 12)], RED],
+				["poly", [Vector2(10.4, 12), Vector2(11.5, 2), Vector2(12.4, 12)], RED],
 			])
-		"spear", "spear_red", "spear_gold":
-			var tip := {"spear": INK, "spear_red": RED, "spear_gold": GOLD}[kind] as Color
-			return _wpn(12, 64, Vector2(6, 42), [
-				["line", Vector2(6, 10), Vector2(6, 63), 1.8, INK],
-				["poly", [Vector2(6, 0), Vector2(9, 8), Vector2(6, 12), Vector2(3, 8)], tip],
-				["poly", [Vector2(5, 12), Vector2(7, 12), Vector2(9, 19), Vector2(3, 19)], RED if kind != "spear_gold" else GOLD],
+		"axe_red":
+			return _wpn(24, 60, Vector2(12, 50), [
+				["line", Vector2(12, 4), Vector2(12, 59), 2.2, INK],
+				["poly", [Vector2(12, 8), Vector2(19, 6), Vector2(22.5, 11), Vector2(23.5, 18), Vector2(22.5, 25), Vector2(19, 30), Vector2(12, 28)], INK],
+				["poly", [Vector2(12, 12), Vector2(6, 12), Vector2(3.5, 15), Vector2(3, 18), Vector2(3.5, 21), Vector2(6, 24), Vector2(12, 24)], INK],
+				["poly", [Vector2(21, 8), Vector2(23.5, 18), Vector2(21, 28), Vector2(20, 18)], RED],
 			])
-		"great_blade":
-			return _wpn(18, 54, Vector2(9, 48), [
-				["poly", [Vector2(5, 42), Vector2(4, 10), Vector2(9, 1), Vector2(14, 6), Vector2(13, 42)], INK],
-				["poly", [Vector2(2, 42), Vector2(16, 42), Vector2(16, 44.5), Vector2(2, 44.5)], INK],
-				["line", Vector2(9, 44.5), Vector2(9, 52), 2.2, INK],
-				["line", Vector2(12.6, 8), Vector2(12.2, 40), 0.8, RED],
-			])
-		"twin_dagger":
-			return _wpn(12, 28, Vector2(6, 22), [
-				["poly", [Vector2(4.6, 18), Vector2(6, 1), Vector2(7.6, 18)], INK],
-				["poly", [Vector2(2, 18), Vector2(10, 18), Vector2(10, 20), Vector2(2, 20)], INK],
-				["line", Vector2(6, 20), Vector2(6, 26), 1.8, INK],
-				["poly", [Vector2(5.5, 4), Vector2(6.4, 2), Vector2(7, 14)], VIOLET],
-			])
-		"dagger":
-			return _wpn(10, 26, Vector2(5, 21), [
-				["poly", [Vector2(3.8, 17), Vector2(5, 1.5), Vector2(6.4, 17)], INK],
-				["poly", [Vector2(1.5, 17), Vector2(8.5, 17), Vector2(8.5, 19), Vector2(1.5, 19)], INK],
-				["line", Vector2(5, 19), Vector2(5, 25), 1.6, INK],
-			])
-		"blood_blade":
-			return _wpn(22, 60, Vector2(11, 53), [
-				["poly", [Vector2(6, 46), Vector2(5, 14), Vector2(9, 4), Vector2(14, 0.5), Vector2(17, 8), Vector2(16, 46)], INK],
-				["poly", [Vector2(15.4, 8), Vector2(17, 8), Vector2(16, 44), Vector2(14.6, 44)], RED],
-				["poly", [Vector2(2, 46), Vector2(20, 46), Vector2(20, 49), Vector2(2, 49)], INK],
-				["line", Vector2(11, 49), Vector2(11, 57), 2.4, INK],
-				["poly", [Vector2(10, 57), Vector2(12, 57), Vector2(14, 60), Vector2(8, 60)], RED],
-			])
-		"broad_gold":
-			return _wpn(16, 48, Vector2(8, 42), [
-				["poly", [Vector2(5, 37), Vector2(5, 9), Vector2(9, 1), Vector2(13, 6), Vector2(12, 37)], INK],
-				["poly", [Vector2(2, 37), Vector2(14, 37), Vector2(14, 39.5), Vector2(2, 39.5)], GOLD],
-				["line", Vector2(8, 39.5), Vector2(8, 46), 2.0, INK],
+		"foxfire":
+			# 보랏빛 여우불을 쥔 손톱
+			return _wpn(18, 24, Vector2(9, 20), [
+				["poly", [Vector2(9, 1), Vector2(13, 6), Vector2(15, 11), Vector2(13, 16), Vector2(9, 19), Vector2(5, 16), Vector2(3, 11), Vector2(5, 6)], Color(VIOLET, 0.85)],
+				["poly", [Vector2(9, 6), Vector2(11.5, 10), Vector2(11, 14), Vector2(9, 16), Vector2(7, 14), Vector2(6.5, 10)], Color("#d9ccff")],
+				["poly", [Vector2(5, 22), Vector2(6, 15), Vector2(7.5, 22)], INK],
+				["poly", [Vector2(10.5, 22), Vector2(12, 15), Vector2(13, 22)], INK],
 			])
 		_:
-			# 도: 살짝 휜 넓은 칼날
-			return _wpn(14, 42, Vector2(7, 37), [
-				["poly", [Vector2(4.5, 33), Vector2(4.5, 9), Vector2(8, 1.5), Vector2(11, 6), Vector2(10, 33)], INK],
-				["poly", [Vector2(2, 33), Vector2(12, 33), Vector2(12, 35), Vector2(2, 35)], INK],
-				["line", Vector2(7, 35), Vector2(7, 41), 1.8, INK],
-			])
+			# 무기 없음 (몸으로 들이받거나 문다)
+			return _wpn(2, 2, Vector2(1, 1), [])
 
 
 ## 무기 이미지: 항목 ["poly", 점들, 색] / ["line", 시작, 끝, 굵기, 색]
@@ -325,7 +359,11 @@ static func _wpn(w: int, h: int, pivot: Vector2, parts: Array) -> Dictionary:
 		var kind: String = p[0]
 		var pts := PackedVector2Array()
 		var col: Color
-		if kind == "line":
+		if kind == "circle_pts":
+			var cc: Vector2 = p[1]
+			pts = InkArt._circle(cc * k, float(p[2]) * k)
+			col = p[3]
+		elif kind == "line":
 			var a: Vector2 = p[1]
 			var b: Vector2 = p[2]
 			pts = InkArt._line_poly(a * k, b * k, float(p[3]) * k)

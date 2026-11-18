@@ -26,7 +26,7 @@ func _initialize() -> void:
 	if mode == "boss":
 		list = [["blood_lord", 210, 0.45, false], ["shadow_lord", 470, 0.0, true]]
 	else:
-		list = [["test_bandit", 150, 0.45, false], ["test_brute", 290, 0.15, false], ["archer", 430, 0.5, false], ["blood_elite", 560, 0.0, false]]
+		list = [["test_bandit", 150, 0.45, false], ["test_brute", 290, 0.15, false], ["archer", 430, 0.5, false], ["assassin", 560, 0.0, false]]
 	for e in list:
 		var m = bm.spawn_monster(e[0], 1.0)
 		m.position.x = px + float(e[1])

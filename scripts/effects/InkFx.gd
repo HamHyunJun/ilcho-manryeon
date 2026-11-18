@@ -75,12 +75,12 @@ static func burst(ci: CanvasItem, c: Vector2, r0: float, r1: float, seed_v: int 
 		ci.draw_circle(c + Vector2(cos(ang), sin(ang)) * rng.randf_range(r0, r1 * 1.1), rng.randf_range(2.0, 4.0), RED)
 
 
-## 먹 화살: 몸통 붓선 + 붉은 깃 + 뒤로 남는 붓 꼬리
+## 먹물 침 (거미 요괴의 원거리 공격): 붉은 속이 비치는 먹 덩어리 + 뒤로 흩어지는 방울
 static func arrow(ci: CanvasItem, tip: Vector2, dir_x: float, t: float) -> void:
-	var tail := tip + Vector2(-dir_x * 30, 0)
-	ci.draw_line(tip, tail, INK, 3.0)
-	ci.draw_colored_polygon(PackedVector2Array([tip + Vector2(dir_x * 8, 0), tip + Vector2(0, -4), tip + Vector2(0, 4)]), INK)
-	ci.draw_colored_polygon(PackedVector2Array([tail, tail + Vector2(-dir_x * 6, -5), tail + Vector2(dir_x * 4, 0), tail + Vector2(-dir_x * 6, 5)]), RED)
-	# 붓 꼬리
-	var trail := 60.0 * minf(t * 3.0, 1.0)
-	ci.draw_line(tail, tail + Vector2(-dir_x * trail, -1), Color(INK, 0.35), 2.0)
+	var wob := sin(t * 40.0) * 1.5
+	ci.draw_circle(tip, 9.0 + wob, INK)
+	ci.draw_circle(tip + Vector2(dir_x * 6, -2), 6.0, INK)
+	ci.draw_circle(tip + Vector2(dir_x * 1, -1), 3.5, RED)
+	for i in 4:
+		var back := tip + Vector2(-dir_x * (14 + i * 12), sin(i * 2.1 + t * 9.0) * 4.0)
+		ci.draw_circle(back, 5.0 - i, Color(INK, 0.8 - i * 0.15))

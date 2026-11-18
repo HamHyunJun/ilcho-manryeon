@@ -89,7 +89,7 @@ func is_ranged() -> bool:
 	return data.get("type", "") == "ranged" or bool(data.get("ranged", false))
 
 
-## 화살 연출: 손에서 캐릭터 쪽(왼쪽)으로 날아가는 먹 화살. t: 0~1
+## 원거리 연출: 입에서 캐릭터 쪽(왼쪽)으로 날아가는 먹물 침. t: 0~1
 func _draw_arrow(from: Vector2, t: float) -> void:
 	var x := from.x - (_gap + half_width()) * t
 	InkFx.arrow(self, Vector2(x, from.y - 4.0), -1.0, t)
