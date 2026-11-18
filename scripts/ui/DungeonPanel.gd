@@ -1,8 +1,8 @@
 extends MenuPanel
 class_name DungeonPanel
 ## 던전 화면: 비급/장비/재화 던전 목록과 입장 (docs/09 3. 하단 메뉴).
-## 던전마다 난이도 선택, 클리어 조건, 보상 안내, 남은 입장 횟수, 입장·소탕 버튼을 보여 준다.
-## 비급 던전에는 천장 진행, 재화 던전에는 오늘 요일 보상과 최고 처치 수를 함께 보여 준다.
+## 카드는 짧게: 던전 이름, 남은 입장, 난이도 선택, 입장·소탕 버튼만 보여 준다.
+## 잠긴 난이도는 입장 버튼에 "잠김"으로, 진행 중이면 "진행 중"으로 표시한다.
 
 signal codex_requested()
 
@@ -13,6 +13,8 @@ var message := ""
 var selected_level: Dictionary = {}
 ## 던전 ID → 상태 Label (진행 중 갱신)
 var _status: Dictionary = {}
+## 던전 ID → 입장 버튼 (잠김/진행 중이면 글자를 바꾼다)
+var _enter_buttons: Dictionary = {}
 var _result_label: Label
 
 
@@ -58,6 +60,7 @@ func level_of(id: String) -> int:
 func _rebuild() -> void:
 	clear_root()
 	_status.clear()
+	_enter_buttons.clear()
 	_result_label = label("", 17, Color(0.75, 0.95, 0.75))
 	root.add_child(_result_label)
 	if message != "":
@@ -90,35 +93,38 @@ func _build_card(id: String) -> void:
 	box.add_theme_constant_override("separation", 6)
 	card.add_child(box)
 
-	var kind: String = {"manual": "비급 던전", "equipment": "장비 던전", "currency": "재화 던전"}.get(String(base.get("type", "")), "던전")
-	box.add_child(label("%s · %s" % [kind, base.get("name", id)], 24, Color(1, 0.9, 0.6)))
-	box.add_child(label(base.get("description", ""), 16, Color(0.8, 0.8, 0.88)))
-
-	# 난이도 선택
-	if DungeonRules.max_level(base) > 1:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		var prev := button("◀", 22)
-		prev.custom_minimum_size = Vector2(64, 52)
-		prev.disabled = lv <= 1
-		prev.pressed.connect(_change_level.bind(id, -1))
-		row.add_child(prev)
-		var name_label := label("난이도 %d · %s (적 ×%s)" % [lv, d.get("difficulty_name", ""), str(snappedf(float(d["battle"].get("scaling", 1.0)), 0.01))], 20)
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		row.add_child(name_label)
-		var next := button("▶", 22)
-		next.custom_minimum_size = Vector2(64, 52)
-		next.disabled = lv >= DungeonRules.max_level(base)
-		next.pressed.connect(_change_level.bind(id, 1))
-		row.add_child(next)
-		box.add_child(row)
-
-	box.add_child(label(DungeonRules.clear_text(d), 16))
-	box.add_child(label(DungeonRules.reward_preview(d, battle.equipment), 16, Color(0.95, 0.88, 0.65)))
-	var status := label("", 16)
-	box.add_child(status)
+	# 첫 줄: 던전 이름(왼쪽) + 남은 입장(오른쪽)
+	var head := HBoxContainer.new()
+	var title := label(display_name(base, id), 28, Color(1, 0.9, 0.6))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var status := label("", 20)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	status.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(status)
+	box.add_child(head)
 	_status[id] = status
+
+	# 난이도 선택: ◀ 초급 ▶
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var many := DungeonRules.max_level(base) > 1
+	var prev := button("◀", 22)
+	prev.custom_minimum_size = Vector2(64, 52)
+	prev.disabled = not many or lv <= 1
+	prev.pressed.connect(_change_level.bind(id, -1))
+	row.add_child(prev)
+	var name_label := label(String(d.get("difficulty_name", "")), 24)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(name_label)
+	var next := button("▶", 22)
+	next.custom_minimum_size = Vector2(64, 52)
+	next.disabled = not many or lv >= DungeonRules.max_level(base)
+	next.pressed.connect(_change_level.bind(id, 1))
+	row.add_child(next)
+	box.add_child(row)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
@@ -126,6 +132,7 @@ func _build_card(id: String) -> void:
 	enter.custom_minimum_size = Vector2(0, 64)
 	enter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	enter.pressed.connect(_enter.bind(id))
+	_enter_buttons[id] = enter
 	buttons.add_child(enter)
 	if bool(base.get("sweep", false)):
 		var sweep := button("소탕", 24)
@@ -144,20 +151,25 @@ func _update_status() -> void:
 	for id in _status.keys():
 		var d: Dictionary = DataRegistry.get_dungeon(id)
 		var lv := level_of(id)
-		var t := "오늘 남은 입장 %d / %d · 클리어 %d회" % [collection.entries_left(d), int(d.get("entry", {}).get("daily_limit", 3)), collection.clears_of(id)]
-		var pity: Dictionary = d.get("pity", {})
-		if int(pity.get("clears", 0)) > 0:
-			t += " · 천장 %d / %d (테스트 수치)" % [collection.pity_of(id), int(pity["clears"])]
-		if DungeonRules.clear_type(d) == "time_attack":
-			t += " · 최고 처치 %d" % collection.best_kills_of(id, lv)
-		var lock := collection.level_lock_reason(d, battle.stage.highest_cleared, lv)
-		if lock != "":
-			t += "\n잠김: " + lock
-		if battle.dungeon != null and battle.dungeon.data.get("id", "") == id:
-			t += "\n던전 진행 중 · " + battle.dungeon.progress_text()
-		_status[id].text = t
+		_status[id].text = "입장 %d/%d" % [collection.entries_left(d), int(d.get("entry", {}).get("daily_limit", 3))]
+		if _enter_buttons.has(id):
+			var enter: Button = _enter_buttons[id]
+			var running: bool = battle.dungeon != null and battle.dungeon.data.get("id", "") == id
+			if running:
+				enter.text = "진행 중"
+			elif collection.level_lock_reason(d, battle.stage.highest_cleared, lv) != "":
+				enter.text = "잠김"
+			else:
+				enter.text = "입장"
 	if _result_label:
 		_result_label.text = last_result_text()
+
+
+## 카드에 보일 이름: 뒤의 "(임시)" 같은 꼬리표를 뗀다
+static func display_name(d: Dictionary, id: String) -> String:
+	var n := String(d.get("name", id))
+	var i := n.find(" (")
+	return n.substr(0, i) if i > 0 else n
 
 
 ## 최근 던전 결과 한 줄 (없으면 빈 문자열)
@@ -166,10 +178,10 @@ func last_result_text() -> String:
 	if r.is_empty():
 		return ""
 	var d: Dictionary = DataRegistry.get_dungeon(String(r.get("dungeon", "")))
-	var name := String(d.get("name", "던전"))
+	var name := display_name(d, "던전")
 	if not r.get("cleared", false):
-		return "최근 결과: %s 실패 (%s)" % [name, r.get("reason", "")]
-	return "최근 결과: %s %s · %s" % [name, "소탕" if r.get("sweep", false) else "클리어", r.get("text", "")]
+		return "최근: %s 실패" % name
+	return "최근: %s %s" % [name, "소탕" if r.get("sweep", false) else "클리어"]
 
 
 func _change_level(id: String, delta: int) -> void:
