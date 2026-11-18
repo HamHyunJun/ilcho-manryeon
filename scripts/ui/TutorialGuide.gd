@@ -25,7 +25,7 @@ func _init(tutorial_steps: Array, tutorial_progress: Dictionary, martial_arts: M
 	position = Vector2(24, 400)
 	custom_minimum_size = Vector2(672, 0)
 	size = Vector2(672, 0)
-	var bg := StyleBoxFlat.new()
+	var bg := InkBox.new()
 	bg.bg_color = Color(0.05, 0.05, 0.045, 0.94)
 	bg.border_color = Color(1.0, 0.82, 0.35)
 	bg.set_border_width_all(3)

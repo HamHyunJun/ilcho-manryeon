@@ -7,6 +7,8 @@ extends Control
 
 
 func _ready() -> void:
+	# 화면 전체 테마: 손글씨 글꼴과 붓 테두리 상자 (자식 컨트롤이 물려받는다)
+	theme = InkTheme.build()
 	# 전투 배경: 안개 숲, 먹빛 산, 흙바닥 (Battle보다 뒤)
 	var ground := float(DataRegistry.balance.get("combat", {}).get("layout", {}).get("ground_y", 1020))
 	var bg := BattleBackground.new(ground, preload("res://scripts/ui/GameUi.gd").BAR_Y)

@@ -53,7 +53,7 @@ func _init(martial_arts: MartialArtManager, equipment_manager: EquipmentManager 
 	position = SCREEN.position
 	size = SCREEN.size
 	custom_minimum_size = SCREEN.size
-	var bg := StyleBoxFlat.new()
+	var bg := InkBox.new()
 	bg.bg_color = Color("#121211")
 	add_theme_stylebox_override("panel", bg)
 	# MenuPanel 기본 스크롤 본문은 쓰지 않는다 (직접 배치)
@@ -147,8 +147,8 @@ func _build_tabs(layer: Control) -> void:
 		_tab_buttons[defs[i][0]] = b
 
 
-func _tab_style(on: bool) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
+func _tab_style(on: bool) -> InkBox:
+	var sb := InkBox.new()
 	sb.set_corner_radius_all(10)
 	sb.set_border_width_all(2)
 	if on:
@@ -235,7 +235,7 @@ func _refresh_list() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(70, 30)
 		var on: bool = grade_filter == ch[0]
-		var sb := StyleBoxFlat.new()
+		var sb := InkBox.new()
 		sb.set_corner_radius_all(15)
 		sb.set_border_width_all(2)
 		sb.border_color = ch[2]
@@ -285,7 +285,7 @@ func _build_detail(layer: Control) -> void:
 	_detail.position = Vector2(60, 250)
 	_detail.custom_minimum_size = Vector2(600, 0)
 	_detail.size = Vector2(600, 0)
-	var sb := StyleBoxFlat.new()
+	var sb := InkBox.new()
 	sb.bg_color = Color(0.06, 0.06, 0.055, 0.98)
 	sb.border_color = UiIcons.BONE
 	sb.set_border_width_all(3)

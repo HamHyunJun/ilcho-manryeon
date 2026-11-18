@@ -78,7 +78,7 @@ func _add_slider(text: String, key: String, st: Dictionary) -> void:
 func _add_check(text: String, key: String, st: Dictionary) -> void:
 	var c := CheckButton.new()
 	c.text = text
-	c.add_theme_font_size_override("font_size", 18)
+	c.add_theme_font_size_override("font_size", InkTheme.px(18))
 	c.button_pressed = bool(st.get(key, true))
 	c.toggled.connect(func(on):
 		_settings()[key] = on

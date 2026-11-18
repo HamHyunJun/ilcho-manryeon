@@ -20,7 +20,7 @@ func _init(title: String = "") -> void:
 	size = AREA.size
 	custom_minimum_size = AREA.size
 	visible = false
-	var bg := StyleBoxFlat.new()
+	var bg := InkBox.new()
 	bg.bg_color = Color(0.055, 0.055, 0.05, 0.97)
 	bg.border_color = Color(0.9, 0.87, 0.8, 0.6)
 	bg.border_width_top = 2
@@ -45,7 +45,8 @@ func _init(title: String = "") -> void:
 	outer.add_child(head)
 	var title_label := Label.new()
 	title_label.text = title_text
-	title_label.add_theme_font_size_override("font_size", 28)
+	title_label.add_theme_font_size_override("font_size", InkTheme.px(30))
+	title_label.add_theme_font_override("font", InkTheme.title_font())
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
 	var close := button("닫기", 22)
@@ -74,15 +75,19 @@ func clear_root() -> void:
 static func button(text: String, font_size: int = 20) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.add_theme_font_size_override("font_size", font_size)
+	b.add_theme_font_size_override("font_size", InkTheme.px(font_size))
+	if font_size >= InkTheme.TITLE_SIZE:
+		b.add_theme_font_override("font", InkTheme.title_font())
 	return b
 
 
 static func label(text: String, font_size: int = 18, color: Color = Color(0.92, 0.92, 0.95)) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", InkTheme.px(font_size))
 	l.add_theme_color_override("font_color", color)
+	if font_size >= InkTheme.TITLE_SIZE:
+		l.add_theme_font_override("font", InkTheme.title_font())
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 

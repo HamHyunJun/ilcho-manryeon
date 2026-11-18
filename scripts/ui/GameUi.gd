@@ -17,8 +17,8 @@ var _target_label: Label
 var _target_bar: ProgressBar
 var _chain_button: Button
 var _chain_label: Label
-var _style_on: StyleBoxFlat
-var _style_off: StyleBoxFlat
+var _style_on: InkBox
+var _style_off: InkBox
 ## 메뉴 이름 → MenuPanel
 var panels: Dictionary = {}
 var _app_bar: AppBar
@@ -77,12 +77,12 @@ func _build_combat_controls() -> void:
 	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_outline(cap)
 	add_child(cap)
-	_style_off = StyleBoxFlat.new()
+	_style_off = InkBox.new()
 	_style_off.bg_color = Color(0.08, 0.08, 0.08, 0.92)
 	_style_off.border_color = Color(UiIcons.BONE, 0.45)
 	_style_off.set_border_width_all(2)
 	_style_off.set_corner_radius_all(22)
-	_style_on = StyleBoxFlat.new()
+	_style_on = InkBox.new()
 	_style_on.bg_color = Color(UiIcons.ACCENT, 0.95)
 	_style_on.border_color = UiIcons.BONE
 	_style_on.set_border_width_all(2)

@@ -56,7 +56,7 @@ func setup(p: Dictionary, effect_kind: String, from: Vector2, to: Array, ground:
 	elif kind == "mastery":
 		duration = maxf(duration, 2.0)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_font = ThemeDB.fallback_font
+	_font = InkTheme.title_font()
 	var n := int(p.get("particles", 0))
 	if kind == "technique":
 		n = maxi(n, 8)
@@ -156,7 +156,7 @@ func _draw() -> void:
 	if text != "" and _font:
 		var col := c2.lerp(Color.WHITE, 0.5)
 		col.a = clampf(fade * 1.6, 0.0, 1.0)
-		var size := 30 if kind == "mastery" else 24
+		var size := 42 if kind == "mastery" else 34
 		var pos := origin + Vector2(-140, -150 - 40.0 * t)
 		draw_string_outline(_font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 280, size, 6, Color(0, 0, 0, col.a))
 		draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 280, size, col)

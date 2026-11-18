@@ -10,7 +10,7 @@ var _start_y := 0.0
 
 func setup(amount: int, world_pos: Vector2, color: Color, is_crit: bool = false) -> void:
 	text = str(amount) + ("!" if is_crit else "")
-	add_theme_font_size_override("font_size", 34 if is_crit else 26)
+	add_theme_font_size_override("font_size", InkTheme.px(34 if is_crit else 26))
 	add_theme_color_override("font_color", color)
 	add_theme_color_override("font_outline_color", Color.BLACK)
 	add_theme_constant_override("outline_size", 6)
